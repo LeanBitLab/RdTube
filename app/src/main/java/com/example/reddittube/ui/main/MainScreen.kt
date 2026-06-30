@@ -309,25 +309,6 @@ fun MainScreen(
             // Search icon + Settings/Refresh menu
             var showMenu by remember { mutableStateOf(false) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.Black.copy(alpha = 0.4f))
-                        .clickable { showSearchDialog = true }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = Color.White,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Search", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-                    }
-                }
-                Spacer(modifier = Modifier.width(10.dp))
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
@@ -383,6 +364,27 @@ fun MainScreen(
         ) {
             val isExplore = horizontalPagerState.currentPage == 0
             val isSubscribed = horizontalPagerState.currentPage == 1
+
+            // Search Tab
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable {
+                    showSearchDialog = true
+                }.padding(horizontal = 24.dp, vertical = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = Color.Red,
+                    modifier = Modifier.size(22.dp)
+                )
+                Text(
+                    text = "Search",
+                    color = Color.Red,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             // Explore Tab
             Column(
