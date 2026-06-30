@@ -69,6 +69,28 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             }
         }
     }
+
+    fun loadMore(isExplore: Boolean) {
+        val current = if (isExplore) _exploreState.value else _subscribedState.value
+        if (current !is MainScreenUiState.Success) return
+        val query = if (isExplore) exploreQuery else subscribedQuery
+        val afterMap = dataRepository.getAfterMap()
+        if (afterMap.values.all { it == null }) return  // no more pages anywhere
+
+        viewModelScope.launch {
+            try {
+                dataRepository.fetchMoreVideos(query, afterMap).collect { result ->
+                    if (result.posts.isEmpty()) return@collect
+                    val updated = current.data + result.posts
+                    if (isExplore) {
+                        _exploreState.value = MainScreenUiState.Success(updated)
+                    } else {
+                        _subscribedState.value = MainScreenUiState.Success(updated)
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+    }
 }
 
 sealed interface MainScreenUiState {

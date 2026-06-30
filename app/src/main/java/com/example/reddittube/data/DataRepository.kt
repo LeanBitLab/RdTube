@@ -199,7 +199,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     /** per-subreddit after cursors, updated after each initial fetch */
     private val _afterMap = mutableMapOf<String, String?>()
 
-    fun getAfterMap(): Map<String, String?> = _afterMap.toMap()
+    override fun getAfterMap(): Map<String, String?> = _afterMap.toMap()
 
     private fun performOAuthRequest(subreddit: String, token: String): List<RedditPost> {
         val list = mutableListOf<RedditPost>()

@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.VerticalPager
@@ -95,6 +96,24 @@ fun MainScreen(
         }
     }
 
+    // BackHandler: navigate HorizontalPager back, double-tap on first page to exit
+    var backPressTime by remember { mutableStateOf(0L) }
+    val activity = androidx.compose.ui.platform.LocalContext.current as? Activity
+    BackHandler {
+        val current = horizontalPagerState.currentPage
+        if (current > 0) {
+            coroutineScope.launch { horizontalPagerState.animateScrollToPage(current - 1) }
+        } else {
+            val now = System.currentTimeMillis()
+            if (now - backPressTime < 2000) {
+                activity?.finish()
+            } else {
+                backPressTime = now
+                Toast.makeText(context, "Press back again to exit", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     val toggleSubscription = { sub: String ->
         val next = sub.lowercase().trim().replace(" ", "")
         if (next.isNotEmpty()) {
@@ -135,7 +154,8 @@ fun MainScreen(
                             data = uiState.data,
                             modifier = Modifier.fillMaxSize(),
                             subscribedSet = subscribedSet,
-                            onSubscribeToggle = toggleSubscription
+                            onSubscribeToggle = toggleSubscription,
+                            onLoadMore = { viewModel.loadMore(true) }
                         )
                     }
                     is MainScreenUiState.Error -> {
@@ -181,7 +201,8 @@ fun MainScreen(
                             data = uiState.data,
                             modifier = Modifier.fillMaxSize(),
                             subscribedSet = subscribedSet,
-                            onSubscribeToggle = toggleSubscription
+                            onSubscribeToggle = toggleSubscription,
+                            onLoadMore = { viewModel.loadMore(false) }
                         )
                     }
                     is MainScreenUiState.Error -> {
@@ -432,9 +453,15 @@ internal fun MainScreenContent(
     data: List<RedditPost>,
     modifier: Modifier = Modifier,
     subscribedSet: Set<String> = emptySet(),
-    onSubscribeToggle: (String) -> Unit = {}
+    onSubscribeToggle: (String) -> Unit = {},
+    onLoadMore: () -> Unit = {}
 ) {
     val pagerState = rememberPagerState(pageCount = { data.size })
+    // ponytail: trigger loadMore when reaching the last page
+    val currentPage by remember { derivedStateOf { pagerState.currentPage } }
+    LaunchedEffect(currentPage) {
+        if (currentPage >= data.size - 1 && data.isNotEmpty()) onLoadMore()
+    }
     Box(modifier = modifier.fillMaxSize()) {
         VerticalPager(
             state = pagerState,
@@ -1374,7 +1401,7 @@ fun VideoPage(
                     .fillMaxHeight()
                     .width(32.dp)
                     .align(Alignment.CenterStart)
-                    .padding(start = 4.dp, top = 280.dp, bottom = 280.dp),
+                    .padding(start = 4.dp, top = 360.dp, bottom = 360.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -1394,7 +1421,8 @@ fun VideoPage(
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
                         )
                     }
-                    BrightnessIcon(modifier = Modifier.size(14.dp).align(Alignment.CenterHorizontally).padding(bottom = 4.dp))
+                    BrightnessIcon(modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
         }
@@ -1410,7 +1438,7 @@ fun VideoPage(
                     .fillMaxHeight()
                     .width(32.dp)
                     .align(Alignment.CenterEnd)
-                    .padding(end = 4.dp, top = 280.dp, bottom = 280.dp),
+                    .padding(end = 4.dp, top = 360.dp, bottom = 360.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -1430,7 +1458,8 @@ fun VideoPage(
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
                         )
                     }
-                    VolumeIcon(modifier = Modifier.size(14.dp).align(Alignment.CenterHorizontally).padding(bottom = 4.dp))
+                    VolumeIcon(modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
         }
@@ -1472,59 +1501,46 @@ fun PauseIcon(modifier: Modifier = Modifier) {
     }
 }
 
+// ponytail: Canvas lock icons — cleaner geometry for small sizes
 @Composable
 fun LockIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        // shackle
-        drawArc(
-            color = tint,
-            startAngle = 180f,
-            sweepAngle = 180f,
-            useCenter = false,
-            topLeft = Offset(w * 0.25f, h * 0.1f),
-            size = Size(w * 0.5f, h * 0.4f),
-            style = Stroke(width = 2.dp.toPx())
+    Canvas(modifier = modifier.padding(1.dp)) {
+        val s = size.minDimension
+        val stroke = s * 0.12f
+        // shackle (rounded arc)
+        drawArc(tint, 160f, 220f, false,
+            topLeft = Offset(s * 0.3f, s * 0.08f),
+            size = Size(s * 0.4f, s * 0.38f),
+            style = Stroke(width = stroke)
         )
-        // body
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(w * 0.15f, h * 0.38f),
-            size = Size(w * 0.7f, h * 0.55f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx())
+        // body (filled rectangle)
+        drawRoundRect(tint, Offset(s * 0.2f, s * 0.38f), Size(s * 0.6f, s * 0.55f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.08f)
         )
         // keyhole
-        drawCircle(color = tint, radius = 2.dp.toPx(), center = Offset(w * 0.5f, h * 0.6f))
-        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.62f), end = Offset(w * 0.5f, h * 0.78f), strokeWidth = 2.dp.toPx())
+        drawCircle(tint, s * 0.06f, Offset(s * 0.5f, s * 0.58f))
+        drawLine(tint, Offset(s * 0.5f, s * 0.64f), Offset(s * 0.5f, s * 0.78f), stroke * 0.8f)
     }
 }
 
 @Composable
 fun LockOpenIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        // open shackle (gap at bottom)
-        drawArc(
-            color = tint,
-            startAngle = 180f,
-            sweepAngle = 170f,
-            useCenter = false,
-            topLeft = Offset(w * 0.25f, h * 0.1f),
-            size = Size(w * 0.5f, h * 0.4f),
-            style = Stroke(width = 2.dp.toPx())
+    Canvas(modifier = modifier.padding(1.dp)) {
+        val s = size.minDimension
+        val stroke = s * 0.12f
+        // open shackle (gap at bottom-right)
+        drawArc(tint, 150f, 230f, false,
+            topLeft = Offset(s * 0.3f, s * 0.08f),
+            size = Size(s * 0.4f, s * 0.38f),
+            style = Stroke(width = stroke)
         )
-        // body
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(w * 0.15f, h * 0.38f),
-            size = Size(w * 0.7f, h * 0.55f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx())
+        // body (filled)
+        drawRoundRect(tint, Offset(s * 0.2f, s * 0.38f), Size(s * 0.6f, s * 0.55f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.08f)
         )
         // keyhole
-        drawCircle(color = tint, radius = 2.dp.toPx(), center = Offset(w * 0.5f, h * 0.6f))
-        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.62f), end = Offset(w * 0.5f, h * 0.78f), strokeWidth = 2.dp.toPx())
+        drawCircle(tint, s * 0.06f, Offset(s * 0.5f, s * 0.58f))
+        drawLine(tint, Offset(s * 0.5f, s * 0.64f), Offset(s * 0.5f, s * 0.78f), stroke * 0.8f)
     }
 }
 
