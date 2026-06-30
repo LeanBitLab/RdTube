@@ -449,12 +449,16 @@ fun SettingsDialog(
     val context = LocalContext.current
     var clientIdInput by remember { mutableStateOf(RedditOAuthHelper.getClientId(context)) }
     var userAgentInput by remember { mutableStateOf(RedditOAuthHelper.getUserAgent(context)) }
+    var redirectUriInput by remember { mutableStateOf(RedditOAuthHelper.getRedirectUri(context)) }
+
+    val isLoggedIn = remember { RedditOAuthHelper.isUserLoggedIn(context) }
+    val username = remember { RedditOAuthHelper.getUsername(context) }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
         containerColor = Color.DarkGray,
         title = {
-            Text("API Settings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text("API & Account Settings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         },
         dismissButton = {
             TextButton(onClick = onDismissRequest) {
@@ -464,7 +468,7 @@ fun SettingsDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    RedditOAuthHelper.saveApiCredentials(context, clientIdInput, userAgentInput)
+                    RedditOAuthHelper.saveApiCredentials(context, clientIdInput, userAgentInput, redirectUriInput)
                     Toast.makeText(context, "Settings saved. Please refresh.", Toast.LENGTH_SHORT).show()
                     onDismissRequest()
                 }
@@ -473,7 +477,59 @@ fun SettingsDialog(
             }
         },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Account Section
+                Text(
+                    text = "Reddit Account Status",
+                    color = Color.LightGray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isLoggedIn) {
+                        Column {
+                            Text("Logged in as", color = Color.Gray, fontSize = 11.sp)
+                            Text(username, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = {
+                                RedditOAuthHelper.logout(context)
+                                Toast.makeText(context, "Logged out.", Toast.LENGTH_SHORT).show()
+                                (context as? Activity)?.recreate()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        ) {
+                            Text("Logout", color = Color.White)
+                        }
+                    } else {
+                        Text("Not logged in", color = Color.LightGray, fontSize = 14.sp)
+                        Button(
+                            onClick = {
+                                RedditOAuthHelper.startLoginFlow(context)
+                                onDismissRequest()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        ) {
+                            Text("Login", color = Color.White)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // API Section
                 Text(
                     text = "Reddit API Client ID",
                     color = Color.LightGray,
@@ -525,8 +581,34 @@ fun SettingsDialog(
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
+
                 Text(
-                    text = "Note: If left empty, defaults to the official RedReader Client ID and User Agent so the app works out of the box.",
+                    text = "Redirect URI",
+                    color = Color.LightGray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                TextField(
+                    value = redirectUriInput,
+                    onValueChange = { redirectUriInput = it },
+                    placeholder = { Text("Enter Redirect URI...", color = Color.Gray) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp)),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color.Red
+                    ),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Note: If left empty, defaults to the official RedReader Client ID, User Agent, and Redirect URI so the app works out of the box.",
                     color = Color.LightGray,
                     fontSize = 11.sp,
                     lineHeight = 15.sp
