@@ -1106,18 +1106,12 @@ fun VideoPage(
             )
         }
 
-        // Hide button (top-right corner)
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 8.dp, end = 8.dp)
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.5f))
-                .clickable { onRemoveVideo(post.id) },
-            contentAlignment = Alignment.Center
-        ) {
-            Text("×", color = Color.White, fontSize = 16.sp)
+        // Auto-track watched: hide after 7s of active playback
+        LaunchedEffect(isActive, isPlaying, post.id) {
+            if (isActive && isPlaying) {
+                delay(7000)
+                if (isActive && isPlaying) onRemoveVideo(post.id)
+            }
         }
 
         // Bottom Transparent Gradient overlay for readability
