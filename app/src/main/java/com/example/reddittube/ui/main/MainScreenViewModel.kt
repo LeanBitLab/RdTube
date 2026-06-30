@@ -25,6 +25,8 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _searchResults = MutableStateFlow<List<String>>(emptyList())
     val searchResults: StateFlow<List<String>> = _searchResults.asStateFlow()
 
+    private val watchedIds = mutableSetOf<String>()
+
     fun searchSubreddits(query: String) {
         if (query.length < 2) { _searchResults.value = emptyList(); return }
         viewModelScope.launch {
@@ -101,6 +103,17 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 } else {
                     _subscribedState.value = current.copy(isLoadingMore = false)
                 }
+            }
+        }
+    }
+
+    fun markAsWatched(id: String) {
+        watchedIds.add(id)
+        listOf(_exploreState, _subscribedState).forEach { flow ->
+            val current = flow.value
+            if (current is MainScreenUiState.Success) {
+                val filtered = current.data.filter { it.id !in watchedIds }
+                flow.value = current.copy(data = filtered)
             }
         }
     }

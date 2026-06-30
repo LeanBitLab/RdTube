@@ -156,6 +156,7 @@ fun MainScreen(
                             subscribedSet = subscribedSet,
                             onSubscribeToggle = toggleSubscription,
                             onLoadMore = { viewModel.loadMore(true) },
+                            onRemoveVideo = { viewModel.markAsWatched(it) },
                             isLoadingMore = uiState.isLoadingMore
                         )
                     }
@@ -204,6 +205,7 @@ fun MainScreen(
                             subscribedSet = subscribedSet,
                             onSubscribeToggle = toggleSubscription,
                             onLoadMore = { viewModel.loadMore(false) },
+                            onRemoveVideo = { viewModel.markAsWatched(it) },
                             isLoadingMore = uiState.isLoadingMore
                         )
                     }
@@ -461,6 +463,7 @@ fun MainScreenContent(
     modifier: Modifier = Modifier,
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
+    onRemoveVideo: (String) -> Unit = {},
     onLoadMore: () -> Unit = {},
     isLoadingMore: Boolean = false
 ) {
@@ -481,7 +484,8 @@ fun MainScreenContent(
                     post = data[pageIndex],
                     isActive = pagerState.currentPage == pageIndex,
                     subscribedSet = subscribedSet,
-                    onSubscribeToggle = onSubscribeToggle
+                    onSubscribeToggle = onSubscribeToggle,
+                    onRemoveVideo = onRemoveVideo
                 )
                 if (pageIndex == data.size - 1 && isLoadingMore) {
                     Box(
@@ -959,7 +963,8 @@ fun VideoPage(
     post: RedditPost,
     isActive: Boolean,
     subscribedSet: Set<String> = emptySet(),
-    onSubscribeToggle: (String) -> Unit = {}
+    onSubscribeToggle: (String) -> Unit = {},
+    onRemoveVideo: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -1099,6 +1104,20 @@ fun VideoPage(
                 update = { pv -> pv.player = exoPlayer },
                 modifier = Modifier.fillMaxSize()
             )
+        }
+
+        // Hide button (top-right corner)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 8.dp, end = 8.dp)
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable { onRemoveVideo(post.id) },
+            contentAlignment = Alignment.Center
+        ) {
+            Text("×", color = Color.White, fontSize = 16.sp)
         }
 
         // Bottom Transparent Gradient overlay for readability
