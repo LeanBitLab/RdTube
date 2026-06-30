@@ -401,37 +401,7 @@ fun VideoPage(
                 }
         )
 
-        // Left Brightness HUD Overlay
-        if (showBrightnessHud) {
-            val displayVal = if (brightnessPercentage < 0f && activity != null) {
-                val lp = activity.window.attributes
-                if (lp.screenBrightness < 0f) {
-                    Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
-                } else lp.screenBrightness
-            } else brightnessPercentage
-            VerticalHud(
-                percentage = displayVal.coerceIn(0f, 1f),
-                isBrightness = true,
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 24.dp)
-            )
-        }
-
-        // Right Volume HUD Overlay
-        if (showVolumeHud) {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val displayVal = if (volumePercentage < 0f) {
-                audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            } else volumePercentage
-            VerticalHud(
-                percentage = displayVal.coerceIn(0f, 1f),
-                isBrightness = false,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 24.dp)
-            )
-        }
+        // ponytail: vertical sliders removed in favor of unified bottom horizontal sliders
 
         // Buffering circular progress indicator
         if (isBuffering) {
@@ -465,14 +435,15 @@ fun VideoPage(
             }
         }
 
-        // Bottom Left Post Metadata
+        // Bottom Metadata, Quick Actions and Sliders Overlay
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .fillMaxWidth(0.78f)
+                .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(start = 16.dp, bottom = 24.dp)
+                .padding(horizontal = 16.dp, vertical = 24.dp)
         ) {
+            // Subreddit/Author details
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "r/${post.subreddit}",
@@ -489,150 +460,200 @@ fun VideoPage(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Post Title
             Text(
                 text = post.title,
                 color = Color.White,
                 fontSize = 14.sp,
-                maxLines = 3,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 fontWeight = FontWeight.Medium
             )
-        }
+            Spacer(modifier = Modifier.height(12.dp))
 
-        // Right Sidebar Controls Overlay
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .navigationBarsPadding()
-                .padding(end = 16.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Simulated Likes Button
-            SidebarButton(
-                label = formatScore(post.score),
-                onClick = {}
+            // Horizontal row of quick action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.ThumbUp,
-                    contentDescription = "Likes",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            // Rotation Lock Toggle
-            SidebarButton(
-                label = if (isRotationLocked) "Locked" else "Auto",
-                onClick = {
-                    if (activity != null) {
-                        if (isRotationLocked) {
-                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                            isRotationLocked = false
-                            Toast.makeText(context, "Auto Rotate Enabled", Toast.LENGTH_SHORT).show()
-                        } else {
-                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                            isRotationLocked = true
-                            Toast.makeText(context, "Locked Portrait", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                // Simulated Likes Button
+                MinimalButton(
+                    onClick = {},
+                    label = formatScore(post.score)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ThumbUp,
+                        contentDescription = "Likes",
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Rotation",
-                    tint = if (isRotationLocked) Color.Red else Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
 
-            // Quality Selection Button
-            var showQualityMenu by remember { mutableStateOf(false) }
-            SidebarButton(
-                label = currentQuality,
-                onClick = { showQualityMenu = true }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Quality",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            if (showQualityMenu) {
-                AlertDialog(
-                    onDismissRequest = { showQualityMenu = false },
-                    title = { Text("Playback Quality", color = Color.White) },
-                    containerColor = Color.DarkGray,
-                    confirmButton = {},
-                    dismissButton = {
-                        TextButton(onClick = { showQualityMenu = false }) {
-                            Text("Cancel", color = Color.Red)
+                // Rotation Lock Toggle
+                MinimalButton(
+                    onClick = {
+                        if (activity != null) {
+                            if (isRotationLocked) {
+                                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                                isRotationLocked = false
+                                Toast.makeText(context, "Auto Rotate Enabled", Toast.LENGTH_SHORT).show()
+                            } else {
+                                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                isRotationLocked = true
+                                Toast.makeText(context, "Locked Portrait", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     },
-                    text = {
-                        Column {
-                            val qualities = listOf("Auto", "1080p", "720p", "480p", "360p", "240p")
-                            qualities.forEach { qual ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            currentQuality = qual
-                                            sharedPreferences.edit().putString("saved_quality", qual).apply()
-                                            showQualityMenu = false
-                                            Toast.makeText(context, "Quality updated to $qual", Toast.LENGTH_SHORT).show()
+                    label = if (isRotationLocked) "Locked" else "Auto"
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Rotation",
+                        tint = if (isRotationLocked) Color.Red else Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+
+                // Quality Selection Button
+                var showQualityMenu by remember { mutableStateOf(false) }
+                MinimalButton(
+                    onClick = { showQualityMenu = true },
+                    label = currentQuality
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Quality",
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+
+                if (showQualityMenu) {
+                    AlertDialog(
+                        onDismissRequest = { showQualityMenu = false },
+                        title = { Text("Playback Quality", color = Color.White) },
+                        containerColor = Color.DarkGray,
+                        confirmButton = {},
+                        dismissButton = {
+                            TextButton(onClick = { showQualityMenu = false }) {
+                                Text("Cancel", color = Color.Red)
+                            }
+                        },
+                        text = {
+                            Column {
+                                val qualities = listOf("Auto", "1080p", "720p", "480p", "360p", "240p")
+                                qualities.forEach { qual ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                currentQuality = qual
+                                                sharedPreferences.edit().putString("saved_quality", qual).apply()
+                                                showQualityMenu = false
+                                                Toast.makeText(context, "Quality updated to $qual", Toast.LENGTH_SHORT).show()
+                                            }
+                                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(qual, color = Color.White, fontSize = 16.sp)
+                                        if (currentQuality == qual) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = Color.Red,
+                                                modifier = Modifier.size(20.dp)
+                                            )
                                         }
-                                        .padding(vertical = 12.dp, horizontal = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(qual, color = Color.White, fontSize = 16.sp)
-                                    if (currentQuality == qual) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = Color.Red,
-                                            modifier = Modifier.size(20.dp)
-                                        )
                                     }
                                 }
                             }
                         }
-                    }
-                )
+                    )
+                }
+
+                // Download/Save Button
+                MinimalButton(
+                    onClick = {
+                        if (downloadProgress == null) {
+                            coroutineScope.launch {
+                                DownloadHelper.downloadRedditVideo(
+                                    context = context,
+                                    fallbackUrl = post.fallbackUrl,
+                                    dashUrl = post.dashUrl,
+                                    title = post.title,
+                                    onProgress = { text ->
+                                        downloadProgress = text
+                                    },
+                                    onComplete = { success, result ->
+                                        downloadProgress = null
+                                        if (success) {
+                                            Toast.makeText(context, "Saved to Downloads: $result", Toast.LENGTH_LONG).show()
+                                        } else {
+                                            Toast.makeText(context, "Download failed: $result", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    label = "Save"
+                ) {
+                    DownloadIcon(modifier = Modifier.size(14.dp))
+                }
             }
 
-            // Download Video Option
-            SidebarButton(
-                label = "Save",
-                onClick = {
-                    if (downloadProgress == null) {
-                        coroutineScope.launch {
-                            DownloadHelper.downloadRedditVideo(
-                                context = context,
-                                fallbackUrl = post.fallbackUrl,
-                                dashUrl = post.dashUrl,
-                                title = post.title,
-                                onProgress = { text ->
-                                    downloadProgress = text
-                                },
-                                onComplete = { success, result ->
-                                    downloadProgress = null
-                                    if (success) {
-                                        Toast.makeText(context, "Saved to Downloads: $result", Toast.LENGTH_LONG).show()
-                                    } else {
-                                        Toast.makeText(context, "Download failed: $result", Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            )
-                        }
+            // Brightness and Volume Sliders Row (visible if either gesture HUD is active)
+            if (showBrightnessHud || showVolumeHud) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Brightness Slider
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val displayBright = if (brightnessPercentage < 0f && activity != null) {
+                            val lp = activity.window.attributes
+                            if (lp.screenBrightness < 0f) {
+                                Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
+                            } else lp.screenBrightness
+                        } else brightnessPercentage
+                        BrightnessIcon(modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        LinearProgressIndicator(
+                            progress = { displayBright.coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                            color = Color.White,
+                            trackColor = Color.White.copy(alpha = 0.3f)
+                        )
+                    }
+
+                    // Volume Slider
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        val displayVol = if (volumePercentage < 0f) {
+                            audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                        } else volumePercentage
+                        VolumeIcon(modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        LinearProgressIndicator(
+                            progress = { displayVol.coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                            color = Color.White,
+                            trackColor = Color.White.copy(alpha = 0.3f)
+                        )
                     }
                 }
-            ) {
-                DownloadIcon(modifier = Modifier.size(24.dp))
             }
         }
 
@@ -718,46 +739,29 @@ fun DownloadIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
 }
 
 @Composable
-fun VerticalHud(
-    percentage: Float,
-    isBrightness: Boolean,
-    modifier: Modifier = Modifier
+fun MinimalButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    label: String,
+    icon: @Composable () -> Unit
 ) {
-    Box(
+    Row(
         modifier = modifier
-            .fillMaxHeight(0.3f)
-            .width(28.dp)
-            .background(Color.Black.copy(alpha = 0.5f), shape = RoundedCornerShape(14.dp))
-            .padding(vertical = 12.dp, horizontal = 4.dp),
-        contentAlignment = Alignment.Center
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.12f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxHeight()
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .width(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.3f)),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(percentage)
-                        .background(Color.White)
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            if (isBrightness) {
-                BrightnessIcon(modifier = Modifier.size(18.dp))
-            } else {
-                VolumeIcon(modifier = Modifier.size(18.dp))
-            }
-        }
+        icon()
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
