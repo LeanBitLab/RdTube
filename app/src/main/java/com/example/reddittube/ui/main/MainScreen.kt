@@ -66,11 +66,36 @@ fun MainScreen(
     val context = androidx.compose.ui.platform.LocalContext.current.applicationContext
     val viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository(context)) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    var showSearchDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+
+    var subscribedSet by remember {
+        val saved = context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
+            .getStringSet("subscriptions", setOf("shorts", "TikTokCringe", "funny", "videos")) ?: emptySet()
+        mutableStateOf(saved.map { it.lowercase() }.toSet())
+    }
+
+    val toggleSubscription = { sub: String ->
+        val next = sub.lowercase().trim().replace(" ", "")
+        if (next.isNotEmpty()) {
+            val updated = if (subscribedSet.contains(next)) {
+                subscribedSet - next
+            } else {
+                subscribedSet + next
+            }
+            subscribedSet = updated
+            context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
+                .edit().putStringSet("subscriptions", updated).apply()
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
+        // 1. Core Pager / Loading / Error States
         when (val uiState = state) {
             MainScreenUiState.Loading -> {
                 Box(
@@ -83,9 +108,7 @@ fun MainScreen(
             is MainScreenUiState.Success -> {
                 MainScreenContent(
                     data = uiState.data,
-                    currentSubreddits = viewModel.currentSubreddits,
-                    onSubredditsChange = { viewModel.refresh(it) },
-                    onRefresh = { viewModel.refresh() }
+                    modifier = Modifier.fillMaxSize()
                 )
             }
             is MainScreenUiState.Error -> {
@@ -118,56 +141,8 @@ fun MainScreen(
                 }
             }
         }
-    }
-}
 
-@Composable
-internal fun MainScreenContent(
-    data: List<RedditPost>,
-    currentSubreddits: String,
-    onSubredditsChange: (String) -> Unit,
-    onRefresh: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val sharedPreferences = remember { context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE) }
-    
-    // Manage local subscriptions (lowercased sets)
-    var subscribedSet by remember {
-        val saved = sharedPreferences.getStringSet("subscriptions", setOf("shorts", "TikTokCringe", "funny", "videos")) ?: emptySet()
-        mutableStateOf(saved.map { it.lowercase() }.toSet())
-    }
-
-    var showSearchDialog by remember { mutableStateOf(false) }
-    val pagerState = rememberPagerState(pageCount = { data.size })
-    val coroutineScope = rememberCoroutineScope()
-    
-    val toggleSubscription = { sub: String ->
-        val next = sub.lowercase().trim().replace(" ", "")
-        if (next.isNotEmpty()) {
-            val updated = if (subscribedSet.contains(next)) {
-                subscribedSet - next
-            } else {
-                subscribedSet + next
-            }
-            subscribedSet = updated
-            sharedPreferences.edit().putStringSet("subscriptions", updated).apply()
-        }
-    }
-
-    Box(modifier = modifier.fillMaxSize()) {
-        VerticalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            key = { index -> data[index].id }
-        ) { pageIndex ->
-            VideoPage(
-                post = data[pageIndex],
-                isActive = pagerState.currentPage == pageIndex
-            )
-        }
-
-        // Top App Header
+        // 2. Persistent Top App Header (Always visible!)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -198,7 +173,7 @@ internal fun MainScreenContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val defaultExploreQuery = "shorts+TikTokCringe+funny+videos"
-                val isExploreActive = currentSubreddits == defaultExploreQuery
+                val isExploreActive = viewModel.currentSubreddits == defaultExploreQuery
                 
                 // Explore Tab
                 Text(
@@ -207,12 +182,12 @@ internal fun MainScreenContent(
                     fontSize = 16.sp,
                     fontWeight = if (isExploreActive) FontWeight.Bold else FontWeight.Medium,
                     modifier = Modifier.clickable {
-                        onSubredditsChange(defaultExploreQuery)
+                        viewModel.refresh(defaultExploreQuery)
                     }
                 )
 
                 // Subscribed Tab
-                val isSubscribedActive = currentSubreddits != defaultExploreQuery && subscribedSet.isNotEmpty() && currentSubreddits == subscribedSet.sorted().joinToString("+")
+                val isSubscribedActive = viewModel.currentSubreddits != defaultExploreQuery && subscribedSet.isNotEmpty() && viewModel.currentSubreddits == subscribedSet.sorted().joinToString("+")
                 Text(
                     text = "Subscribed",
                     color = if (isSubscribedActive) Color.Red else Color.LightGray,
@@ -222,13 +197,13 @@ internal fun MainScreenContent(
                         if (subscribedSet.isEmpty()) {
                             Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
                         } else {
-                            onSubredditsChange(subscribedSet.sorted().joinToString("+"))
+                            viewModel.refresh(subscribedSet.sorted().joinToString("+"))
                         }
                     }
                 )
             }
             
-            // Search & Refresh Right
+            // Search, Settings, & Refresh Right
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = { showSearchDialog = true },
@@ -243,9 +218,23 @@ internal fun MainScreenContent(
                         modifier = Modifier.size(18.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 IconButton(
-                    onClick = onRefresh,
+                    onClick = { showSettingsDialog = true },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                IconButton(
+                    onClick = { viewModel.refresh() },
                     modifier = Modifier
                         .size(36.dp)
                         .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
@@ -260,9 +249,9 @@ internal fun MainScreenContent(
             }
         }
 
-        // Search Results Active Indicator Overlay
+        // Search Results Active Indicator Overlay (Always visible!)
         val defaultExploreQuery = "shorts+TikTokCringe+funny+videos"
-        val isSpecialFeed = currentSubreddits != defaultExploreQuery && currentSubreddits != subscribedSet.sorted().joinToString("+")
+        val isSpecialFeed = viewModel.currentSubreddits != defaultExploreQuery && viewModel.currentSubreddits != subscribedSet.sorted().joinToString("+")
         if (isSpecialFeed) {
             Box(
                 modifier = Modifier
@@ -275,20 +264,20 @@ internal fun MainScreenContent(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Viewing: r/$currentSubreddits",
+                        text = "Viewing: r/${viewModel.currentSubreddits}",
                         color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    val isSubbed = subscribedSet.contains(currentSubreddits.lowercase())
+                    val isSubbed = subscribedSet.contains(viewModel.currentSubreddits.lowercase())
                     Text(
                         text = if (isSubbed) "Subscribed" else "Subscribe",
                         color = Color.Red,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.clickable {
-                            toggleSubscription(currentSubreddits)
+                            toggleSubscription(viewModel.currentSubreddits)
                         }
                     )
                 }
@@ -301,10 +290,103 @@ internal fun MainScreenContent(
                 onDismissRequest = { showSearchDialog = false },
                 currentSubscribed = subscribedSet,
                 onSubscribeToggle = { toggleSubscription(it) },
-                onSubredditSelect = { onSubredditsChange(it) }
+                onSubredditSelect = { viewModel.refresh(it) }
+            )
+        }
+
+        // Settings Dialog overlay
+        if (showSettingsDialog) {
+            SettingsDialog(
+                onDismissRequest = { showSettingsDialog = false }
             )
         }
     }
+}
+
+@Composable
+internal fun MainScreenContent(
+    data: List<RedditPost>,
+    modifier: Modifier = Modifier
+) {
+    val pagerState = rememberPagerState(pageCount = { data.size })
+    Box(modifier = modifier.fillMaxSize()) {
+        VerticalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            key = { index -> data[index].id }
+        ) { pageIndex ->
+            VideoPage(
+                post = data[pageIndex],
+                isActive = pagerState.currentPage == pageIndex
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsDialog(
+    onDismissRequest: () -> Unit
+) {
+    val context = LocalContext.current
+    var clientIdInput by remember { mutableStateOf(RedditOAuthHelper.getClientId(context)) }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        containerColor = Color.DarkGray,
+        title = {
+            Text("API Settings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text("Cancel", color = Color.Red)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    RedditOAuthHelper.saveClientId(context, clientIdInput)
+                    Toast.makeText(context, "Settings saved. Please refresh.", Toast.LENGTH_SHORT).show()
+                    onDismissRequest()
+                }
+            ) {
+                Text("Save", color = Color.Green, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Reddit API Client ID",
+                    color = Color.LightGray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                TextField(
+                    value = clientIdInput,
+                    onValueChange = { clientIdInput = it },
+                    placeholder = { Text("Paste client ID here...", color = Color.Gray) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp)),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color.Red
+                    ),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "To get a Client ID:\n1. Open reddit.com/prefs/apps in a browser\n2. Create an app (type: 'installed app')\n3. Copy the random string under the app title.",
+                    color = Color.LightGray,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    )
 }
 
 @Composable
@@ -375,62 +457,6 @@ fun SearchAndSubscribeDialog(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // Reddit Client ID Configuration Card
-                var clientIdInput by remember { mutableStateOf(RedditOAuthHelper.getClientId(context)) }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.3f), shape = RoundedCornerShape(8.dp))
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = "Reddit API Setup (Optional)",
-                        color = Color.LightGray,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                      )
-                      Spacer(modifier = Modifier.height(4.dp))
-                      Text(
-                          text = "Register an 'installed app' client ID at reddit.com/prefs/apps/ to bypass rate limits.",
-                          color = Color.Gray,
-                          fontSize = 10.sp,
-                          lineHeight = 14.sp
-                      )
-                      Spacer(modifier = Modifier.height(8.dp))
-                      Row(
-                          modifier = Modifier.fillMaxWidth(),
-                          verticalAlignment = Alignment.CenterVertically
-                      ) {
-                          TextField(
-                              value = clientIdInput,
-                              onValueChange = { clientIdInput = it },
-                              placeholder = { Text("Enter Client ID...", color = Color.Gray) },
-                              modifier = Modifier
-                                  .weight(1f)
-                                  .clip(RoundedCornerShape(6.dp)),
-                              colors = TextFieldDefaults.colors(
-                                  focusedContainerColor = Color.Black.copy(alpha = 0.2f),
-                                  unfocusedContainerColor = Color.Black.copy(alpha = 0.2f),
-                                  focusedTextColor = Color.White,
-                                  unfocusedTextColor = Color.White,
-                                  cursorColor = Color.Red
-                              ),
-                              singleLine = true
-                          )
-                          Spacer(modifier = Modifier.width(8.dp))
-                          TextButton(
-                              onClick = {
-                                  RedditOAuthHelper.saveClientId(context, clientIdInput)
-                                  Toast.makeText(context, "API Client ID saved", Toast.LENGTH_SHORT).show()
-                              }
-                          ) {
-                              Text("Save", color = Color.Red, fontWeight = FontWeight.Bold)
-                          }
-                      }
-                  }
-
-                  Spacer(modifier = Modifier.height(16.dp))
 
                 // Custom search subscribe state if query is typed
                 val trimmedQuery = searchQuery.trim().lowercase()
