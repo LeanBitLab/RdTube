@@ -35,6 +35,7 @@ interface DataRepository {
     fun searchSubreddits(query: String): Flow<List<String>>
     fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>): Flow<FetchMoreResult>
     fun getAfterMap(): Map<String, String?>
+    fun saveAfterMap(map: Map<String, String?>)
 }
 
 // ponytail: batch result plus per-subreddit cursors for infinite scroll
@@ -200,6 +201,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     private val _afterMap = mutableMapOf<String, String?>()
 
     override fun getAfterMap(): Map<String, String?> = _afterMap.toMap()
+
+    override fun saveAfterMap(map: Map<String, String?>) {
+        _afterMap.putAll(map)
+    }
 
     private fun performOAuthRequest(subreddit: String, token: String): List<RedditPost> {
         val list = mutableListOf<RedditPost>()

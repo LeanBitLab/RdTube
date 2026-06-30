@@ -73,22 +73,35 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     fun loadMore(isExplore: Boolean) {
         val current = if (isExplore) _exploreState.value else _subscribedState.value
         if (current !is MainScreenUiState.Success) return
+        if (current.isLoadingMore) return  // already loading
         val query = if (isExplore) exploreQuery else subscribedQuery
         val afterMap = dataRepository.getAfterMap()
         if (afterMap.values.all { it == null }) return  // no more pages anywhere
 
         viewModelScope.launch {
+            // set loading flag
+            if (isExplore) {
+                _exploreState.value = current.copy(isLoadingMore = true)
+            } else {
+                _subscribedState.value = current.copy(isLoadingMore = true)
+            }
             try {
                 dataRepository.fetchMoreVideos(query, afterMap).collect { result ->
-                    if (result.posts.isEmpty()) return@collect
+                    dataRepository.saveAfterMap(result.afterMap)
                     val updated = current.data + result.posts
                     if (isExplore) {
-                        _exploreState.value = MainScreenUiState.Success(updated)
+                        _exploreState.value = MainScreenUiState.Success(updated, isLoadingMore = false)
                     } else {
-                        _subscribedState.value = MainScreenUiState.Success(updated)
+                        _subscribedState.value = MainScreenUiState.Success(updated, isLoadingMore = false)
                     }
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                if (isExplore) {
+                    _exploreState.value = current.copy(isLoadingMore = false)
+                } else {
+                    _subscribedState.value = current.copy(isLoadingMore = false)
+                }
+            }
         }
     }
 }
@@ -96,5 +109,5 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 sealed interface MainScreenUiState {
     object Loading : MainScreenUiState
     data class Error(val throwable: Throwable) : MainScreenUiState
-    data class Success(val data: List<RedditPost>) : MainScreenUiState
+    data class Success(val data: List<RedditPost>, val isLoadingMore: Boolean = false) : MainScreenUiState
 }

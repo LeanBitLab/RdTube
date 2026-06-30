@@ -155,7 +155,8 @@ fun MainScreen(
                             modifier = Modifier.fillMaxSize(),
                             subscribedSet = subscribedSet,
                             onSubscribeToggle = toggleSubscription,
-                            onLoadMore = { viewModel.loadMore(true) }
+                            onLoadMore = { viewModel.loadMore(true) },
+                            isLoadingMore = uiState.isLoadingMore
                         )
                     }
                     is MainScreenUiState.Error -> {
@@ -202,7 +203,8 @@ fun MainScreen(
                             modifier = Modifier.fillMaxSize(),
                             subscribedSet = subscribedSet,
                             onSubscribeToggle = toggleSubscription,
-                            onLoadMore = { viewModel.loadMore(false) }
+                            onLoadMore = { viewModel.loadMore(false) },
+                            isLoadingMore = uiState.isLoadingMore
                         )
                     }
                     is MainScreenUiState.Error -> {
@@ -323,19 +325,19 @@ fun MainScreen(
                         Text("Search", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                     }
                 }
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(26.dp)
                             .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = "Menu",
                             tint = Color.White,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(12.dp)
                         )
                     }
                     DropdownMenu(
@@ -454,17 +456,18 @@ fun MainScreen(
 }
 
 @Composable
-internal fun MainScreenContent(
+fun MainScreenContent(
     data: List<RedditPost>,
     modifier: Modifier = Modifier,
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
-    onLoadMore: () -> Unit = {}
+    onLoadMore: () -> Unit = {},
+    isLoadingMore: Boolean = false
 ) {
     val pagerState = rememberPagerState(pageCount = { data.size })
     // ponytail: trigger loadMore when reaching the last page
     val currentPage by remember { derivedStateOf { pagerState.currentPage } }
-    LaunchedEffect(currentPage) {
+    LaunchedEffect(currentPage, data.size) {
         if (currentPage >= data.size - 1 && data.isNotEmpty()) onLoadMore()
     }
     Box(modifier = modifier.fillMaxSize()) {
@@ -473,12 +476,33 @@ internal fun MainScreenContent(
             modifier = Modifier.fillMaxSize(),
             key = { index -> data[index].id }
         ) { pageIndex ->
-            VideoPage(
-                post = data[pageIndex],
-                isActive = pagerState.currentPage == pageIndex,
-                subscribedSet = subscribedSet,
-                onSubscribeToggle = onSubscribeToggle
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                VideoPage(
+                    post = data[pageIndex],
+                    isActive = pagerState.currentPage == pageIndex,
+                    subscribedSet = subscribedSet,
+                    onSubscribeToggle = onSubscribeToggle
+                )
+                if (pageIndex == data.size - 1 && isLoadingMore) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.Red,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Finding more…", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1231,16 +1255,16 @@ fun VideoPage(
                 val isSubbed = subscribedSet.contains(post.subreddit.lowercase())
                 Box(
                     modifier = Modifier
+                        .size(32.dp)
                         .clip(CircleShape)
                         .background(Color.Red.copy(alpha = if (isSubbed) 0.2f else 0.15f))
-                        .clickable { onSubscribeToggle(post.subreddit.lowercase()) }
-                        .padding(8.dp),
+                        .clickable { onSubscribeToggle(post.subreddit.lowercase()) },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (isSubbed) "✓" else "+",
                         color = Color.Red,
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -1517,7 +1541,7 @@ fun PauseIcon(modifier: Modifier = Modifier) {
 // ponytail: Canvas lock icons — cleaner geometry for small sizes
 @Composable
 fun LockIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
-    Canvas(modifier = modifier.padding(1.dp)) {
+    Canvas(modifier = modifier) {
         val s = size.minDimension
         val stroke = s * 0.12f
         // shackle (rounded arc)
@@ -1538,7 +1562,7 @@ fun LockIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
 
 @Composable
 fun LockOpenIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
-    Canvas(modifier = modifier.padding(1.dp)) {
+    Canvas(modifier = modifier) {
         val s = size.minDimension
         val stroke = s * 0.12f
         // open shackle (gap at bottom-right)
