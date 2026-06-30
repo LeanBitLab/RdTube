@@ -1,0 +1,836 @@
+package com.example.reddittube.ui.main
+
+import android.app.Activity
+import android.content.Context
+import android.content.pm.ActivityInfo
+import android.media.AudioManager
+import android.net.Uri
+import android.provider.Settings
+import android.util.Log
+import android.widget.Toast
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation3.runtime.NavKey
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import com.example.reddittube.data.DefaultDataRepository
+import com.example.reddittube.data.RedditPost
+import com.example.reddittube.utils.DownloadHelper
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+@Composable
+fun MainScreen(
+    onItemClick: (NavKey) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository()) },
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        when (val uiState = state) {
+            MainScreenUiState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color.Red)
+                }
+            }
+            is MainScreenUiState.Success -> {
+                MainScreenContent(
+                    data = uiState.data,
+                    onRefresh = { viewModel.refresh() }
+                )
+            }
+            is MainScreenUiState.Error -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Failed to load Reddit videos.",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = uiState.throwable.message ?: "Unknown error",
+                        color = Color.LightGray,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = { viewModel.refresh() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("Try Again", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun MainScreenContent(
+    data: List<RedditPost>,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val pagerState = rememberPagerState(pageCount = { data.size })
+    
+    Box(modifier = modifier.fillMaxSize()) {
+        VerticalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            key = { index -> data[index].id }
+        ) { pageIndex ->
+            VideoPage(
+                post = data[pageIndex],
+                isActive = pagerState.currentPage == pageIndex
+            )
+        }
+
+        // Top App Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Reddit",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Tube",
+                    color = Color.Red,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(Color.Red, shape = CircleShape)
+                )
+            }
+            IconButton(
+                onClick = onRefresh,
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Refresh Feed",
+                    tint = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun VideoPage(
+    post: RedditPost,
+    isActive: Boolean
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val sharedPreferences = remember { context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE) }
+    
+    // Player State
+    var currentQuality by remember { mutableStateOf(sharedPreferences.getString("saved_quality", "Auto") ?: "Auto") }
+    val exoPlayer = remember(post.id) {
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_ONE
+            val mediaItem = MediaItem.fromUri(Uri.parse(post.videoUrl))
+            setMediaItem(mediaItem)
+            prepare()
+        }
+    }
+
+    // Buffering & Playback status
+    var isBuffering by remember { mutableStateOf(true) }
+    var isPlaying by remember { mutableStateOf(true) }
+    
+    DisposableEffect(post.id) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                isBuffering = state == Player.STATE_BUFFERING
+            }
+
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+        }
+    }
+
+    // Play/Pause active page
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            exoPlayer.playWhenReady = true
+            exoPlayer.play()
+        } else {
+            exoPlayer.pause()
+        }
+    }
+
+    // Quality setting application
+    LaunchedEffect(currentQuality) {
+        applyQualitySetting(exoPlayer, currentQuality)
+    }
+
+    // Gesture State HUDs
+    var brightnessPercentage by remember { mutableStateOf(-1f) }
+    var volumePercentage by remember { mutableStateOf(-1f) }
+    var showBrightnessHud by remember { mutableStateOf(false) }
+    var showVolumeHud by remember { mutableStateOf(false) }
+    var hudJob by remember { mutableStateOf<Job?>(null) }
+
+    // Transient Play/Pause indicator
+    var showPlayPauseTransient by remember { mutableStateOf<Boolean?>(null) }
+    var transientJob by remember { mutableStateOf<Job?>(null) }
+
+    // Downloader status
+    var downloadProgress by remember { mutableStateOf<String?>(null) }
+
+    // Rotation status
+    var isRotationLocked by remember { mutableStateOf(true) }
+    val activity = context as? Activity
+    
+    // Initialize orientation to locked portrait on active
+    LaunchedEffect(isActive) {
+        if (isActive && activity != null) {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            isRotationLocked = true
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        // ExoPlayer Canvas
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    if (exoPlayer.isPlaying) {
+                        exoPlayer.pause()
+                        showPlayPauseTransient = false
+                    } else {
+                        exoPlayer.play()
+                        showPlayPauseTransient = true
+                    }
+                    transientJob?.cancel()
+                    transientJob = coroutineScope.launch {
+                        delay(600)
+                        showPlayPauseTransient = null
+                    }
+                }
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        player = exoPlayer
+                        useController = false
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        setBackgroundColor(android.graphics.Color.BLACK)
+                    }
+                },
+                update = { pv -> pv.player = exoPlayer },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // Bottom Transparent Gradient overlay for readability
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.35f)
+                .align(Alignment.BottomCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
+                    )
+                )
+        )
+
+        // Left Edge Gesture Zone (Brightness)
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.18f)
+                .align(Alignment.CenterStart)
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onDragStart = {
+                            showBrightnessHud = true
+                            showVolumeHud = false
+                        },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            if (activity != null) {
+                                val lp = activity.window.attributes
+                                val currentBright = if (lp.screenBrightness < 0f) {
+                                    Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
+                                } else {
+                                    lp.screenBrightness
+                                }
+                                val sensitivity = 0.003f
+                                val nextBright = (currentBright - dragAmount * sensitivity).coerceIn(0.01f, 1f)
+                                lp.screenBrightness = nextBright
+                                activity.window.attributes = lp
+                                brightnessPercentage = nextBright
+                            }
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(1000)
+                                showBrightnessHud = false
+                            }
+                        },
+                        onDragEnd = {
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(800)
+                                showBrightnessHud = false
+                            }
+                        }
+                    )
+                }
+        )
+
+        // Right Edge Gesture Zone (Volume)
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.18f)
+                .align(Alignment.CenterEnd)
+                .pointerInput(Unit) {
+                    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    detectVerticalDragGestures(
+                        onDragStart = {
+                            showVolumeHud = true
+                            showBrightnessHud = false
+                        },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                            val currentPercent = currentVol.toFloat() / maxVol
+                            val sensitivity = 0.003f
+                            val nextPercent = (currentPercent - dragAmount * sensitivity).coerceIn(0f, 1f)
+                            audioManager.setStreamVolume(
+                                AudioManager.STREAM_MUSIC,
+                                (nextPercent * maxVol).toInt(),
+                                0
+                            )
+                            volumePercentage = nextPercent
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(1000)
+                                showVolumeHud = false
+                            }
+                        },
+                        onDragEnd = {
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(800)
+                                showVolumeHud = false
+                            }
+                        }
+                    )
+                }
+        )
+
+        // Left Brightness HUD Overlay
+        if (showBrightnessHud) {
+            val displayVal = if (brightnessPercentage < 0f && activity != null) {
+                val lp = activity.window.attributes
+                if (lp.screenBrightness < 0f) {
+                    Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
+                } else lp.screenBrightness
+            } else brightnessPercentage
+            VerticalHud(
+                percentage = displayVal.coerceIn(0f, 1f),
+                isBrightness = true,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 24.dp)
+            )
+        }
+
+        // Right Volume HUD Overlay
+        if (showVolumeHud) {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val displayVal = if (volumePercentage < 0f) {
+                audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            } else volumePercentage
+            VerticalHud(
+                percentage = displayVal.coerceIn(0f, 1f),
+                isBrightness = false,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 24.dp)
+            )
+        }
+
+        // Buffering circular progress indicator
+        if (isBuffering) {
+            CircularProgressIndicator(
+                color = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier
+                    .size(48.dp)
+                    .align(Alignment.Center)
+            )
+        }
+
+        // Transient play/pause visual feed
+        showPlayPauseTransient?.let { state ->
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), shape = CircleShape)
+                    .align(Alignment.Center),
+                contentAlignment = Alignment.Center
+            ) {
+                if (state) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
+                } else {
+                    PauseIcon(modifier = Modifier.size(36.dp))
+                }
+            }
+        }
+
+        // Bottom Left Post Metadata
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(0.78f)
+                .navigationBarsPadding()
+                .padding(start = 16.dp, bottom = 24.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "r/${post.subreddit}",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "• u/${post.author}",
+                    color = Color.LightGray,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = post.title,
+                color = Color.White,
+                fontSize = 14.sp,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        // Right Sidebar Controls Overlay
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(end = 16.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Simulated Likes Button
+            SidebarButton(
+                label = formatScore(post.score),
+                onClick = {}
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ThumbUp,
+                    contentDescription = "Likes",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Rotation Lock Toggle
+            SidebarButton(
+                label = if (isRotationLocked) "Locked" else "Auto",
+                onClick = {
+                    if (activity != null) {
+                        if (isRotationLocked) {
+                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                            isRotationLocked = false
+                            Toast.makeText(context, "Auto Rotate Enabled", Toast.LENGTH_SHORT).show()
+                        } else {
+                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            isRotationLocked = true
+                            Toast.makeText(context, "Locked Portrait", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Rotation",
+                    tint = if (isRotationLocked) Color.Red else Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Quality Selection Button
+            var showQualityMenu by remember { mutableStateOf(false) }
+            SidebarButton(
+                label = currentQuality,
+                onClick = { showQualityMenu = true }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Quality",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            if (showQualityMenu) {
+                AlertDialog(
+                    onDismissRequest = { showQualityMenu = false },
+                    title = { Text("Playback Quality", color = Color.White) },
+                    containerColor = Color.DarkGray,
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showQualityMenu = false }) {
+                            Text("Cancel", color = Color.Red)
+                        }
+                    },
+                    text = {
+                        Column {
+                            val qualities = listOf("Auto", "1080p", "720p", "480p", "360p", "240p")
+                            qualities.forEach { qual ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            currentQuality = qual
+                                            sharedPreferences.edit().putString("saved_quality", qual).apply()
+                                            showQualityMenu = false
+                                            Toast.makeText(context, "Quality updated to $qual", Toast.LENGTH_SHORT).show()
+                                        }
+                                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(qual, color = Color.White, fontSize = 16.sp)
+                                    if (currentQuality == qual) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = Color.Red,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+
+            // Download Video Option
+            SidebarButton(
+                label = "Save",
+                onClick = {
+                    if (downloadProgress == null) {
+                        coroutineScope.launch {
+                            DownloadHelper.downloadRedditVideo(
+                                context = context,
+                                fallbackUrl = post.fallbackUrl,
+                                dashUrl = post.dashUrl,
+                                title = post.title,
+                                onProgress = { text ->
+                                    downloadProgress = text
+                                },
+                                onComplete = { success, result ->
+                                    downloadProgress = null
+                                    if (success) {
+                                        Toast.makeText(context, "Saved to Downloads: $result", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, "Download failed: $result", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            ) {
+                DownloadIcon(modifier = Modifier.size(24.dp))
+            }
+        }
+
+        // Global download status message overlay
+        downloadProgress?.let { text ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 64.dp, start = 16.dp, end = 16.dp)
+                    .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        color = Color.Red,
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(text = text, color = Color.White, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SidebarButton(
+    label: String,
+    onClick: () -> Unit,
+    iconContent: @Composable () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(Color.Black.copy(alpha = 0.5f), shape = CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            iconContent()
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+// ponytail: Canvas-based icons to avoid importing heavy material-icons-extended dependencies
+@Composable
+fun PauseIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        drawRect(color = Color.White, topLeft = Offset(w * 0.28f, h * 0.2f), size = Size(w * 0.12f, h * 0.6f))
+        drawRect(color = Color.White, topLeft = Offset(w * 0.6f, h * 0.2f), size = Size(w * 0.12f, h * 0.6f))
+    }
+}
+
+@Composable
+fun DownloadIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        drawLine(color = color, start = Offset(w * 0.5f, h * 0.15f), end = Offset(w * 0.5f, h * 0.65f), strokeWidth = 2.dp.toPx())
+        val path = Path().apply {
+            moveTo(w * 0.25f, h * 0.45f)
+            lineTo(w * 0.5f, h * 0.7f)
+            lineTo(w * 0.75f, h * 0.45f)
+        }
+        drawPath(path, color = color, style = Stroke(width = 2.dp.toPx()))
+        drawLine(color = color, start = Offset(w * 0.2f, h * 0.85f), end = Offset(w * 0.8f, h * 0.85f), strokeWidth = 2.dp.toPx())
+    }
+}
+
+@Composable
+fun VerticalHud(
+    percentage: Float,
+    isBrightness: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxHeight(0.3f)
+            .width(28.dp)
+            .background(Color.Black.copy(alpha = 0.5f), shape = RoundedCornerShape(14.dp))
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxHeight()
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .width(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(percentage)
+                        .background(Color.White)
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            if (isBrightness) {
+                BrightnessIcon(modifier = Modifier.size(18.dp))
+            } else {
+                VolumeIcon(modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun BrightnessIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val radius = size.minDimension / 4
+        drawCircle(color = Color.White, radius = radius)
+        
+        val rayStart = size.minDimension * 0.35f
+        val rayEnd = size.minDimension * 0.48f
+        for (i in 0 until 8) {
+            val angle = i * Math.PI / 4
+            val start = Offset(
+                (center.x + rayStart * Math.cos(angle)).toFloat(),
+                (center.y + rayStart * Math.sin(angle)).toFloat()
+            )
+            val end = Offset(
+                (center.x + rayEnd * Math.cos(angle)).toFloat(),
+                (center.y + rayEnd * Math.sin(angle)).toFloat()
+            )
+            drawLine(color = Color.White, start = start, end = end, strokeWidth = 2.dp.toPx())
+        }
+    }
+}
+
+@Composable
+fun VolumeIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            moveTo(w * 0.2f, h * 0.35f)
+            lineTo(w * 0.45f, h * 0.35f)
+            lineTo(w * 0.7f, h * 0.15f)
+            lineTo(w * 0.7f, h * 0.85f)
+            lineTo(w * 0.45f, h * 0.65f)
+            lineTo(w * 0.2f, h * 0.65f)
+            close()
+        }
+        drawPath(path, color = Color.White)
+        drawArc(
+            color = Color.White,
+            startAngle = -45f,
+            sweepAngle = 90f,
+            useCenter = false,
+            topLeft = Offset(w * 0.15f, h * 0.15f),
+            size = Size(w * 0.7f, h * 0.7f),
+            style = Stroke(width = 2.dp.toPx())
+        )
+    }
+}
+
+private fun formatScore(score: Int): String {
+    return when {
+        score >= 1000000 -> String.format("%.1fM", score / 1000000f)
+        score >= 1000 -> String.format("%.1fk", score / 1000f)
+        else -> score.toString()
+    }
+}
+
+private fun applyQualitySetting(player: ExoPlayer, quality: String) {
+    val maxVideoSize = when (quality) {
+        "240p" -> Pair(426, 240)
+        "360p" -> Pair(640, 360)
+        "480p" -> Pair(854, 480)
+        "720p" -> Pair(1280, 720)
+        "1080p" -> Pair(1920, 1080)
+        else -> Pair(Int.MAX_VALUE, Int.MAX_VALUE)
+    }
+    val parameters = player.trackSelectionParameters.buildUpon()
+        .setMaxVideoSize(maxVideoSize.first, maxVideoSize.second)
+        .build()
+    player.trackSelectionParameters = parameters
+}
