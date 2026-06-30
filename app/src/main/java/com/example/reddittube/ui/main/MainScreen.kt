@@ -1109,10 +1109,10 @@ fun VideoPage(
         }
 
         // Auto-track watched: hide after 7s of active playback
-        LaunchedEffect(isActive, isPlaying, post.id) {
-            if (isActive && isPlaying) {
+        LaunchedEffect(isActive, post.id) {
+            if (isActive && exoPlayer.isPlaying) {
                 delay(7000)
-                if (isActive && isPlaying) onRemoveVideo(post.id)
+                if (exoPlayer.isPlaying) onRemoveVideo(post.id)
             }
         }
 
