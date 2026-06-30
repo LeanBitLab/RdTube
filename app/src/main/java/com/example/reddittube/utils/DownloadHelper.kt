@@ -120,18 +120,21 @@ object DownloadHelper {
         }
     }
 
-    private fun downloadFile(urlString: String, outputFile: File) {
+    private fun openConnection(urlString: String): HttpURLConnection {
         val url = URL(urlString)
         val connection = url.openConnection() as HttpURLConnection
         connection.setRequestProperty("User-Agent", "RedditTube/1.0 (by /u/reddittube_app)")
         connection.connectTimeout = 15000
         connection.readTimeout = 15000
         connection.connect()
-
         if (connection.responseCode >= 400) {
             throw Exception("HTTP ${connection.responseCode} for $urlString")
         }
+        return connection
+    }
 
+    private fun downloadFile(urlString: String, outputFile: File) {
+        val connection = openConnection(urlString)
         BufferedInputStream(connection.inputStream).use { input ->
             FileOutputStream(outputFile).use { output ->
                 input.copyTo(output)
@@ -140,18 +143,7 @@ object DownloadHelper {
     }
 
     private fun fetchText(urlString: String): String {
-        val url = URL(urlString)
-        val connection = url.openConnection() as HttpURLConnection
-        connection.setRequestProperty("User-Agent", "RedditTube/1.0 (by /u/reddittube_app)")
-        connection.connectTimeout = 15000
-        connection.readTimeout = 15000
-        connection.connect()
-
-        if (connection.responseCode >= 400) {
-            throw Exception("HTTP ${connection.responseCode}")
-        }
-
-        return connection.inputStream.bufferedReader().use { it.readText() }
+        return openConnection(urlString).inputStream.bufferedReader().use { it.readText() }
     }
 
     private fun muxVideoAndAudio(videoFile: File, audioFile: File?, outputFile: File) {

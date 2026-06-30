@@ -42,7 +42,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             throw Exception("Reddit API Client ID is not configured. Tap the gear icon in the top right to configure your API setup.")
         }
 
-        Log.d("RedditRepository", "Connecting to Reddit API using Client ID...")
+        Log.i("RedditRepository", "Connecting to Reddit API using Client ID...")
         val list = fetchOAuthJsonVideos(subreddits)
         
         if (list.isEmpty()) {
@@ -92,7 +92,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             }
             index++
         }
-        Log.d("RedditRepository", "fetchOAuthJsonVideos returning ${mergedList.size} merged videos for $subreddits")
+        Log.i("RedditRepository", "fetchOAuthJsonVideos returning ${mergedList.size} merged videos for $subreddits")
         return mergedList
     }
 
@@ -107,22 +107,30 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             connection.connectTimeout = 15000
             connection.readTimeout = 15000
 
-            Log.d("RedditRepository", "r/$subreddit API returned code: ${connection.responseCode}")
+            Log.i("RedditRepository", "r/$subreddit API returned code: ${connection.responseCode}")
             if (connection.responseCode == 200) {
                 val reader = BufferedReader(InputStreamReader(connection.inputStream))
                 val response = reader.readText()
                 reader.close()
 
-                Log.d("RedditRepository", "r/$subreddit JSON length: ${response.length}")
+                Log.i("RedditRepository", "r/$subreddit JSON length: ${response.length}")
                 val jsonObject = JSONObject(response)
                 val data = jsonObject.optJSONObject("data")
                 val children = data?.optJSONArray("children")
                 if (children != null) {
                     for (i in 0 until children.length()) {
                         val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
-                        val isVideo = childData.optBoolean("is_video", false)
+                        var isVideo = childData.optBoolean("is_video", false)
                         val media = childData.optJSONObject("media")
-                        val redditVideo = media?.optJSONObject("reddit_video")
+                        var redditVideo = media?.optJSONObject("reddit_video")
+
+                        if (redditVideo == null) {
+                            val preview = childData.optJSONObject("preview")
+                            redditVideo = preview?.optJSONObject("reddit_video_preview")
+                            if (redditVideo != null) {
+                                isVideo = true
+                            }
+                        }
                         
                         if (isVideo && redditVideo != null) {
                             val fallbackUrl = redditVideo.optString("fallback_url").replace("&amp;", "&")
@@ -135,7 +143,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                             val score = childData.optInt("score")
                             val permalink = childData.optString("permalink")
 
-                            val videoUrl = if (hlsUrl.isNotEmpty()) hlsUrl else if (dashUrl.isNotEmpty()) dashUrl else fallbackUrl
+                            val videoUrl = if (fallbackUrl.isNotEmpty()) fallbackUrl else if (hlsUrl.isNotEmpty()) hlsUrl else dashUrl
                             if (videoUrl.isNotEmpty()) {
                                 list.add(
                                     RedditPost(
@@ -161,7 +169,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         } catch (e: Exception) {
             Log.e("RedditRepository", "OAuth request exception for r/$subreddit: ${e.message}")
         }
-        Log.d("RedditRepository", "r/$subreddit parsed ${list.size} videos")
+        Log.i("RedditRepository", "r/$subreddit parsed ${list.size} videos")
         return list
     }
 }
