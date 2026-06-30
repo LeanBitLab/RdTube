@@ -99,7 +99,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     private fun performOAuthRequest(subreddit: String, token: String): List<RedditPost> {
         val list = mutableListOf<RedditPost>()
         try {
-            val url = URL("https://oauth.reddit.com/r/$subreddit/hot.json?limit=25&raw_json=1&include_over_18=1")
+            val url = URL("https://oauth.reddit.com/r/$subreddit/hot.json?limit=25&raw_json=1&include_over_18=on")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Authorization", "Bearer $token")

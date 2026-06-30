@@ -92,7 +92,7 @@ object RedditOAuthHelper {
                 "&state=$state" +
                 "&redirect_uri=$redirectUri" +
                 "&duration=permanent" +
-                "&scope=identity read mysubreddits"
+                "&scope=identity edit flair history modconfig modflair modlog modposts modwiki mysubreddits privatemessages read report save submit subscribe vote wikiedit wikiread"
 
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(urlStr)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -234,11 +234,18 @@ object RedditOAuthHelper {
             val expiresAt = prefs.getLong(KEY_USER_TOKEN_EXPIRES_AT, 0L)
             
             if (userToken.isNotEmpty() && System.currentTimeMillis() < expiresAt - 120000L) {
+                Log.d("RedditOAuth", "Using cached user OAuth access token")
                 return userToken
             }
             
             val refreshed = refreshUserToken(context, userRefreshToken)
-            if (refreshed != null) return refreshed
+            if (refreshed != null) {
+                Log.d("RedditOAuth", "Refreshed user OAuth access token successfully")
+                return refreshed
+            }
+            Log.e("RedditOAuth", "User token expired and refresh failed, falling back to application-only token")
+        } else {
+            Log.d("RedditOAuth", "No user logged in, using application-only token")
         }
 
         // Tier 2: Application-only token
