@@ -133,7 +133,9 @@ fun MainScreen(
                     is MainScreenUiState.Success -> {
                         MainScreenContent(
                             data = uiState.data,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            subscribedSet = subscribedSet,
+                            onSubscribeToggle = toggleSubscription
                         )
                     }
                     is MainScreenUiState.Error -> {
@@ -177,7 +179,9 @@ fun MainScreen(
                     is MainScreenUiState.Success -> {
                         MainScreenContent(
                             data = uiState.data,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            subscribedSet = subscribedSet,
+                            onSubscribeToggle = toggleSubscription
                         )
                     }
                     is MainScreenUiState.Error -> {
@@ -277,83 +281,61 @@ fun MainScreen(
                 )
             }
             
-            // Three-dot menu (Search, Settings, Refresh)
+            // Search icon + Settings/Refresh menu
             var showMenu by remember { mutableStateOf(false) }
-            Box {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
-                    onClick = { showMenu = true },
+                    onClick = { showSearchDialog = true },
                     modifier = Modifier
                         .size(28.dp)
                         .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Menu",
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
                         tint = Color.White,
                         modifier = Modifier.size(14.dp)
                     )
                 }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Search") },
-                        onClick = { showMenu = false; showSearchDialog = true },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Settings") },
-                        onClick = { showMenu = false; showSettingsDialog = true },
-                        leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Refresh") },
-                        onClick = {
-                            showMenu = false
-                            if (horizontalPagerState.currentPage == 0) {
-                                viewModel.refreshExplore()
-                            } else {
-                                viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
-                            }
-                        },
-                        leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                    )
-                }
-            }
-        }
-
-        // Search Results Active Indicator Overlay (Always visible!)
-        val defaultExploreQuery = "shorts+TikTokCringe+funny+videos"
-        val isSpecialFeed = viewModel.exploreQuery != defaultExploreQuery && horizontalPagerState.currentPage == 0
-        if (isSpecialFeed) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 56.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Viewing: r/${viewModel.exploreQuery}",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    val isSubbed = subscribedSet.contains(viewModel.exploreQuery.lowercase())
-                    Text(
-                        text = if (isSubbed) "Subscribed" else "Subscribe",
-                        color = Color.Red,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable {
-                            toggleSubscription(viewModel.exploreQuery)
-                        }
-                    )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Menu",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        containerColor = Color(0xFF1A1A1A),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Settings", color = Color.White) },
+                            onClick = { showMenu = false; showSettingsDialog = true },
+                            leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Refresh", color = Color.White) },
+                            onClick = {
+                                showMenu = false
+                                if (horizontalPagerState.currentPage == 0) {
+                                    viewModel.refreshExplore()
+                                } else {
+                                    viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
+                                }
+                            },
+                            leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+                        )
+                    }
                 }
             }
         }
@@ -430,7 +412,9 @@ fun MainScreen(
                     coroutineScope.launch {
                         horizontalPagerState.animateScrollToPage(0)
                     }
-                }
+                },
+                searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
+                onSearchQuery = { viewModel.searchSubreddits(it) }
             )
         }
 
@@ -446,7 +430,9 @@ fun MainScreen(
 @Composable
 internal fun MainScreenContent(
     data: List<RedditPost>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    subscribedSet: Set<String> = emptySet(),
+    onSubscribeToggle: (String) -> Unit = {}
 ) {
     val pagerState = rememberPagerState(pageCount = { data.size })
     Box(modifier = modifier.fillMaxSize()) {
@@ -457,7 +443,9 @@ internal fun MainScreenContent(
         ) { pageIndex ->
             VideoPage(
                 post = data[pageIndex],
-                isActive = pagerState.currentPage == pageIndex
+                isActive = pagerState.currentPage == pageIndex,
+                subscribedSet = subscribedSet,
+                onSubscribeToggle = onSubscribeToggle
             )
         }
     }
@@ -594,7 +582,9 @@ fun SearchAndSubscribeDialog(
     onDismissRequest: () -> Unit,
     currentSubscribed: Set<String>,
     onSubscribeToggle: (String) -> Unit,
-    onSubredditSelect: (String) -> Unit
+    onSubredditSelect: (String) -> Unit,
+    searchResults: List<String>,
+    onSearchQuery: (String) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -697,39 +687,40 @@ fun SearchAndSubscribeDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Quick subscribe for typed query
+                // Search results from Reddit API
                 val trimmedQuery = searchQuery.trim().lowercase()
                 if (trimmedQuery.isNotEmpty()) {
-                    val isSubbed = currentSubscribed.contains(trimmedQuery)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White.copy(alpha = 0.06f))
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = null,
-                                tint = Color.Red,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("r/$trimmedQuery", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    LaunchedEffect(trimmedQuery) { onSearchQuery(trimmedQuery) }
+                    if (searchResults.isNotEmpty()) {
+                        Column(modifier = Modifier.wrapContentHeight()) {
+                            searchResults.forEach { sub ->
+                                val isSubbed = currentSubscribed.contains(sub.lowercase())
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.White.copy(alpha = 0.04f))
+                                        .clickable { onSubredditSelect(sub); onDismissRequest() }
+                                        .padding(vertical = 10.dp, horizontal = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier.size(28.dp).clip(CircleShape).background(Color.Red.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) { Text(sub.take(1).uppercase(), color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("r/$sub", color = Color.White, fontSize = 14.sp)
+                                    }
+                                    TextButton(onClick = { onSubscribeToggle(sub) }) {
+                                        Text(if (isSubbed) "Unsub" else "Sub", color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
                         }
-                        TextButton(onClick = { onSubscribeToggle(trimmedQuery) }) {
-                            Text(
-                                if (isSubbed) "Unsubscribe" else "Subscribe",
-                                color = if (isSubbed) Color.Red.copy(alpha = 0.7f) else Color.Red,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 // Subscriptions Section
@@ -910,7 +901,9 @@ fun SearchAndSubscribeDialog(
 @Composable
 fun VideoPage(
     post: RedditPost,
-    isActive: Boolean
+    isActive: Boolean,
+    subscribedSet: Set<String> = emptySet(),
+    onSubscribeToggle: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -1194,13 +1187,22 @@ fun VideoPage(
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 24.dp)
         ) {
-            // Subreddit/Author details
+            // Subreddit/Author details with subscribe toggle
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "r/${post.subreddit}",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                val isSubbed = subscribedSet.contains(post.subreddit.lowercase())
+                Text(
+                    text = if (isSubbed) "✓" else "+",
+                    color = Color.Red,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onSubscribeToggle(post.subreddit.lowercase()) }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -1372,26 +1374,28 @@ fun VideoPage(
                     .fillMaxHeight()
                     .width(32.dp)
                     .align(Alignment.CenterStart)
-                    .padding(start = 4.dp, top = 200.dp, bottom = 200.dp),
+                    .padding(start = 4.dp, top = 280.dp, bottom = 280.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val trackW = 3.dp.toPx()
-                    val fillH = size.height * displayBright.coerceIn(0f, 1f)
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = 0.3f),
-                        topLeft = Offset((size.width - trackW) / 2f, 0f),
-                        size = Size(trackW, size.height),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
-                    )
-                    drawRoundRect(
-                        color = Color.White,
-                        topLeft = Offset((size.width - trackW) / 2f, size.height - fillH),
-                        size = Size(trackW, fillH),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
-                    )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Canvas(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        val trackW = 3.dp.toPx()
+                        val fillH = size.height * displayBright.coerceIn(0f, 1f)
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = 0.3f),
+                            topLeft = Offset((size.width - trackW) / 2f, 0f),
+                            size = Size(trackW, size.height),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
+                        )
+                        drawRoundRect(
+                            color = Color.White,
+                            topLeft = Offset((size.width - trackW) / 2f, size.height - fillH),
+                            size = Size(trackW, fillH),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
+                        )
+                    }
+                    BrightnessIcon(modifier = Modifier.size(14.dp).align(Alignment.CenterHorizontally).padding(bottom = 4.dp))
                 }
-                BrightnessIcon(modifier = Modifier.size(14.dp).align(Alignment.BottomCenter).padding(bottom = 4.dp))
             }
         }
 
@@ -1406,26 +1410,28 @@ fun VideoPage(
                     .fillMaxHeight()
                     .width(32.dp)
                     .align(Alignment.CenterEnd)
-                    .padding(end = 4.dp, top = 200.dp, bottom = 200.dp),
+                    .padding(end = 4.dp, top = 280.dp, bottom = 280.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val trackW = 3.dp.toPx()
-                    val fillH = size.height * displayVol.coerceIn(0f, 1f)
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = 0.3f),
-                        topLeft = Offset((size.width - trackW) / 2f, 0f),
-                        size = Size(trackW, size.height),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
-                    )
-                    drawRoundRect(
-                        color = Color.White,
-                        topLeft = Offset((size.width - trackW) / 2f, size.height - fillH),
-                        size = Size(trackW, fillH),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
-                    )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Canvas(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        val trackW = 3.dp.toPx()
+                        val fillH = size.height * displayVol.coerceIn(0f, 1f)
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = 0.3f),
+                            topLeft = Offset((size.width - trackW) / 2f, 0f),
+                            size = Size(trackW, size.height),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
+                        )
+                        drawRoundRect(
+                            color = Color.White,
+                            topLeft = Offset((size.width - trackW) / 2f, size.height - fillH),
+                            size = Size(trackW, fillH),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
+                        )
+                    }
+                    VolumeIcon(modifier = Modifier.size(14.dp).align(Alignment.CenterHorizontally).padding(bottom = 4.dp))
                 }
-                VolumeIcon(modifier = Modifier.size(14.dp).align(Alignment.BottomCenter).padding(bottom = 4.dp))
             }
         }
 

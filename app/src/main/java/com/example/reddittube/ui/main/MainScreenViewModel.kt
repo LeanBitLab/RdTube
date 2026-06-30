@@ -22,17 +22,29 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     var subscribedQuery = ""
         private set
 
+    private val _searchResults = MutableStateFlow<List<String>>(emptyList())
+    val searchResults: StateFlow<List<String>> = _searchResults.asStateFlow()
+
+    fun searchSubreddits(query: String) {
+        if (query.length < 2) { _searchResults.value = emptyList(); return }
+        viewModelScope.launch {
+            try {
+                dataRepository.searchSubreddits(query).collect { results ->
+                    _searchResults.value = results
+                }
+            } catch (_: Exception) {
+                _searchResults.value = emptyList()
+            }
+        }
+    }
+
     fun refreshExplore(query: String = exploreQuery) {
         exploreQuery = query
         viewModelScope.launch {
             _exploreState.value = MainScreenUiState.Loading
             try {
                 dataRepository.fetchRedditVideos(query).collect { posts ->
-                    if (posts.isEmpty()) {
-                        _exploreState.value = MainScreenUiState.Error(Exception("No video posts found in r/$query"))
-                    } else {
-                        _exploreState.value = MainScreenUiState.Success(posts)
-                    }
+                    _exploreState.value = MainScreenUiState.Success(posts)
                 }
             } catch (e: Exception) {
                 _exploreState.value = MainScreenUiState.Error(e)
@@ -50,11 +62,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             _subscribedState.value = MainScreenUiState.Loading
             try {
                 dataRepository.fetchRedditVideos(query).collect { posts ->
-                    if (posts.isEmpty()) {
-                        _subscribedState.value = MainScreenUiState.Error(Exception("No video posts found in r/$query"))
-                    } else {
-                        _subscribedState.value = MainScreenUiState.Success(posts)
-                    }
+                    _subscribedState.value = MainScreenUiState.Success(posts)
                 }
             } catch (e: Exception) {
                 _subscribedState.value = MainScreenUiState.Error(e)
