@@ -305,20 +305,25 @@ fun MainScreen(
             // Search icon + Settings/Refresh menu
             var showMenu by remember { mutableStateOf(false) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = { showSearchDialog = true },
+                Box(
                     modifier = Modifier
-                        .size(28.dp)
-                        .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .clickable { showSearchDialog = true }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Search", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                    }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
@@ -1224,13 +1229,21 @@ fun VideoPage(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 val isSubbed = subscribedSet.contains(post.subreddit.lowercase())
-                Text(
-                    text = if (isSubbed) "✓" else "+",
-                    color = Color.Red,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { onSubscribeToggle(post.subreddit.lowercase()) }
-                )
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.Red.copy(alpha = if (isSubbed) 0.2f else 0.15f))
+                        .clickable { onSubscribeToggle(post.subreddit.lowercase()) }
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isSubbed) "✓" else "+",
+                        color = Color.Red,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "• u/${post.author}",
@@ -1422,7 +1435,7 @@ fun VideoPage(
                         )
                     }
                     BrightnessIcon(modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
             }
         }
@@ -1459,7 +1472,7 @@ fun VideoPage(
                         )
                     }
                     VolumeIcon(modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
             }
         }

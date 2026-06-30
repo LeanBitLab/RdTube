@@ -12,13 +12,13 @@
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M45,38v36l28,-18z" />
-    <!-- Reddit-style antenna (circle on a stem) -->
+    <!-- Reddit-style antenna (above the red circle, on black bg) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M68,24m-2.5,0a2.5,2.5 0,1 1,5 0a2.5,2.5 0,1 1,-5 0" />
+        android:pathData="M68,10m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M68,26.5L68,38"
-        android:strokeWidth="2"
+        android:pathData="M68,13L68,18"
+        android:strokeWidth="2.5"
         android:strokeColor="#FFFFFF" />
 </vector>
