@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -664,21 +665,20 @@ fun VideoPage(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    if (exoPlayer.isPlaying) {
-                        exoPlayer.pause()
-                        showPlayPauseTransient = false
-                    } else {
-                        exoPlayer.play()
-                        showPlayPauseTransient = true
-                    }
-                    transientJob?.cancel()
-                    transientJob = coroutineScope.launch {
-                        delay(600)
-                        showPlayPauseTransient = null
+                .pointerInput(Unit) {
+                    detectTapGestures {
+                        if (exoPlayer.isPlaying) {
+                            exoPlayer.pause()
+                            showPlayPauseTransient = false
+                        } else {
+                            exoPlayer.play()
+                            showPlayPauseTransient = true
+                        }
+                        transientJob?.cancel()
+                        transientJob = coroutineScope.launch {
+                            delay(600)
+                            showPlayPauseTransient = null
+                        }
                     }
                 }
         ) {
