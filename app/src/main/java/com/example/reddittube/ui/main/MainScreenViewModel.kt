@@ -9,22 +9,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// ponytail: Simplified UI state container. No complex MVI, simple view model.
+// ponytail: Simplified UI state container. Dynamic subreddits query support added.
 class MainScreenViewModel(private val dataRepository: DataRepository) : ViewModel() {
     private val _uiState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
     val uiState: StateFlow<MainScreenUiState> = _uiState.asStateFlow()
+    
+    var currentSubreddits = "shorts+TikTokCringe+funny+videos"
+        private set
 
     init {
-        refresh()
+        refresh(currentSubreddits)
     }
 
-    fun refresh() {
+    fun refresh(query: String = currentSubreddits) {
+        currentSubreddits = query
         viewModelScope.launch {
             _uiState.value = MainScreenUiState.Loading
             try {
-                dataRepository.fetchRedditVideos().collect { posts ->
+                dataRepository.fetchRedditVideos(query).collect { posts ->
                     if (posts.isEmpty()) {
-                        _uiState.value = MainScreenUiState.Error(Exception("No video posts found on Reddit."))
+                        _uiState.value = MainScreenUiState.Error(Exception("No video posts found in r/$query"))
                     } else {
                         _uiState.value = MainScreenUiState.Success(posts)
                     }

@@ -12,12 +12,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -78,6 +81,8 @@ fun MainScreen(
             is MainScreenUiState.Success -> {
                 MainScreenContent(
                     data = uiState.data,
+                    currentSubreddits = viewModel.currentSubreddits,
+                    onSubredditsChange = { viewModel.refresh(it) },
                     onRefresh = { viewModel.refresh() }
                 )
             }
@@ -117,11 +122,37 @@ fun MainScreen(
 @Composable
 internal fun MainScreenContent(
     data: List<RedditPost>,
+    currentSubreddits: String,
+    onSubredditsChange: (String) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val pagerState = rememberPagerState(pageCount = { data.size })
+    val context = LocalContext.current
+    val sharedPreferences = remember { context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE) }
     
+    // Manage local subscriptions (lowercased sets)
+    var subscribedSet by remember {
+        val saved = sharedPreferences.getStringSet("subscriptions", setOf("shorts", "TikTokCringe", "funny", "videos")) ?: emptySet()
+        mutableStateOf(saved.map { it.lowercase() }.toSet())
+    }
+
+    var showSearchDialog by remember { mutableStateOf(false) }
+    val pagerState = rememberPagerState(pageCount = { data.size })
+    val coroutineScope = rememberCoroutineScope()
+    
+    val toggleSubscription = { sub: String ->
+        val next = sub.lowercase().trim().replace(" ", "")
+        if (next.isNotEmpty()) {
+            val updated = if (subscribedSet.contains(next)) {
+                subscribedSet - next
+            } else {
+                subscribedSet + next
+            }
+            subscribedSet = updated
+            sharedPreferences.edit().putStringSet("subscriptions", updated).apply()
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         VerticalPager(
             state = pagerState,
@@ -143,39 +174,319 @@ internal fun MainScreenContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // App Title Left
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "Reddit",
                     color = Color.White,
-                    fontSize = 22.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = "Tube",
                     color = Color.Red,
-                    fontSize = 22.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(Color.Red, shape = CircleShape)
+            }
+            
+            // Middle Tab Selectors
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val defaultExploreQuery = "shorts+TikTokCringe+funny+videos"
+                val isExploreActive = currentSubreddits == defaultExploreQuery
+                
+                // Explore Tab
+                Text(
+                    text = "Explore",
+                    color = if (isExploreActive) Color.Red else Color.LightGray,
+                    fontSize = 16.sp,
+                    fontWeight = if (isExploreActive) FontWeight.Bold else FontWeight.Medium,
+                    modifier = Modifier.clickable {
+                        onSubredditsChange(defaultExploreQuery)
+                    }
+                )
+
+                // Subscribed Tab
+                val isSubscribedActive = currentSubreddits != defaultExploreQuery && subscribedSet.isNotEmpty() && currentSubreddits == subscribedSet.sorted().joinToString("+")
+                Text(
+                    text = "Subscribed",
+                    color = if (isSubscribedActive) Color.Red else Color.LightGray,
+                    fontSize = 16.sp,
+                    fontWeight = if (isSubscribedActive) FontWeight.Bold else FontWeight.Medium,
+                    modifier = Modifier.clickable {
+                        if (subscribedSet.isEmpty()) {
+                            Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            onSubredditsChange(subscribedSet.sorted().joinToString("+"))
+                        }
+                    }
                 )
             }
-            IconButton(
-                onClick = onRefresh,
-                modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Refresh Feed",
-                    tint = Color.White
-                )
+            
+            // Search & Refresh Right
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { showSearchDialog = true },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = onRefresh,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
+
+        // Search Results Active Indicator Overlay
+        val defaultExploreQuery = "shorts+TikTokCringe+funny+videos"
+        val isSpecialFeed = currentSubreddits != defaultExploreQuery && currentSubreddits != subscribedSet.sorted().joinToString("+")
+        if (isSpecialFeed) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 56.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Viewing: r/$currentSubreddits",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    val isSubbed = subscribedSet.contains(currentSubreddits.lowercase())
+                    Text(
+                        text = if (isSubbed) "Subscribed" else "Subscribe",
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            toggleSubscription(currentSubreddits)
+                        }
+                    )
+                }
+            }
+        }
+
+        // Search and Subscribe Dialog overlay
+        if (showSearchDialog) {
+            SearchAndSubscribeDialog(
+                onDismissRequest = { showSearchDialog = false },
+                currentSubscribed = subscribedSet,
+                onSubscribeToggle = { toggleSubscription(it) },
+                onSubredditSelect = { onSubredditsChange(it) }
+            )
+        }
     }
+}
+
+@Composable
+fun SearchAndSubscribeDialog(
+    onDismissRequest: () -> Unit,
+    currentSubscribed: Set<String>,
+    onSubscribeToggle: (String) -> Unit,
+    onSubredditSelect: (String) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val recommended = listOf("nextfuckinglevel", "interestingasfuck", "animalsdoingstuff", "oddlysatisfying", "aww", "gaming")
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        containerColor = Color.DarkGray,
+        title = {
+            Text("Search & Subscriptions", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text("Close", color = Color.Red)
+            }
+        },
+        confirmButton = {},
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.8f)
+            ) {
+                // Search Input Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Subreddit name...", color = Color.LightGray) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp)),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                            unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color.Red
+                        ),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            val query = searchQuery.trim().replace(" ", "")
+                            if (query.isNotEmpty()) {
+                                onSubredditSelect(query)
+                                onDismissRequest()
+                            } else {
+                                Toast.makeText(context, "Please enter a subreddit name", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.background(Color.Red, shape = RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Custom search subscribe state if query is typed
+                val trimmedQuery = searchQuery.trim().lowercase()
+                if (trimmedQuery.isNotEmpty()) {
+                    val isSubbed = currentSubscribed.contains(trimmedQuery)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("r/$trimmedQuery", color = Color.White, fontWeight = FontWeight.Medium)
+                        TextButton(
+                            onClick = {
+                                onSubscribeToggle(trimmedQuery)
+                            }
+                        ) {
+                            Text(if (isSubbed) "Unsubscribe" else "Subscribe", color = Color.Red)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Subscriptions Title
+                Text("My Subscriptions", color = Color.LightGray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Subscriptions List
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    if (currentSubscribed.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No subscriptions yet.", color = Color.Gray, fontSize = 12.sp)
+                        }
+                    } else {
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                            currentSubscribed.sorted().forEach { sub ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onSubredditSelect(sub)
+                                            onDismissRequest()
+                                        }
+                                        .padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("r/$sub", color = Color.White, fontSize = 16.sp)
+                                    IconButton(
+                                        onClick = { onSubscribeToggle(sub) }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Remove",
+                                            tint = Color.Gray,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Recommended Subreddits
+                Text("Recommended", color = Color.LightGray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    recommended.forEach { rec ->
+                        val isSubbed = currentSubscribed.contains(rec.lowercase())
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.Black.copy(alpha = 0.3f))
+                                .clickable {
+                                    onSubredditSelect(rec)
+                                    onDismissRequest()
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("r/$rec", color = Color.White, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            IconButton(
+                                onClick = { onSubscribeToggle(rec.lowercase()) },
+                                modifier = Modifier.size(16.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isSubbed) Icons.Default.Check else Icons.Default.Add,
+                                    contentDescription = "Add",
+                                    tint = if (isSubbed) Color.Green else Color.White,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
 }
 
 @Composable

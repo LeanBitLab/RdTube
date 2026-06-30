@@ -27,23 +27,24 @@ data class RedditPost(
 )
 
 interface DataRepository {
-    fun fetchRedditVideos(): Flow<List<RedditPost>>
+    fun fetchRedditVideos(subreddits: String): Flow<List<RedditPost>>
 }
 
 class DefaultDataRepository : DataRepository {
-    override fun fetchRedditVideos(): Flow<List<RedditPost>> = flow {
-        var list = fetchJsonVideos()
+    override fun fetchRedditVideos(subreddits: String): Flow<List<RedditPost>> = flow {
+        var list = fetchJsonVideos(subreddits)
         if (list.isEmpty()) {
             Log.d("RedditRepository", "JSON fetch failed or empty, trying RSS fallback...")
-            list = fetchRssVideos()
+            list = fetchRssVideos(subreddits)
         }
         emit(list)
     }.flowOn(Dispatchers.IO)
 
-    private fun fetchJsonVideos(): List<RedditPost> {
+    private fun fetchJsonVideos(subreddits: String): List<RedditPost> {
         val list = mutableListOf<RedditPost>()
         try {
-            val url = URL("https://www.reddit.com/r/shorts+TikTokCringe+funny+videos/hot.json?limit=50&raw_json=1")
+            val cleanSubs = subreddits.replace(" ", "").trim()
+            val url = URL("https://www.reddit.com/r/$cleanSubs/hot.json?limit=50&raw_json=1")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -109,10 +110,11 @@ class DefaultDataRepository : DataRepository {
         return list
     }
 
-    private fun fetchRssVideos(): List<RedditPost> {
+    private fun fetchRssVideos(subreddits: String): List<RedditPost> {
         val list = mutableListOf<RedditPost>()
         try {
-            val url = URL("https://www.reddit.com/r/shorts+TikTokCringe+funny+videos.rss")
+            val cleanSubs = subreddits.replace(" ", "").trim()
+            val url = URL("https://www.reddit.com/r/$cleanSubs.rss")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
