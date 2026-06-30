@@ -53,6 +53,7 @@ import androidx.media3.ui.PlayerView
 import com.example.reddittube.data.DefaultDataRepository
 import com.example.reddittube.data.RedditPost
 import com.example.reddittube.utils.DownloadHelper
+import com.example.reddittube.utils.RedditOAuthHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -61,8 +62,9 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     onItemClick: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository()) },
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository(context)) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     Box(
         modifier = modifier
@@ -373,6 +375,62 @@ fun SearchAndSubscribeDialog(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+
+                // Reddit Client ID Configuration Card
+                var clientIdInput by remember { mutableStateOf(RedditOAuthHelper.getClientId(context)) }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.3f), shape = RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "Reddit API Setup (Optional)",
+                        color = Color.LightGray,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                      )
+                      Spacer(modifier = Modifier.height(4.dp))
+                      Text(
+                          text = "Register an 'installed app' client ID at reddit.com/prefs/apps/ to bypass rate limits.",
+                          color = Color.Gray,
+                          fontSize = 10.sp,
+                          lineHeight = 14.sp
+                      )
+                      Spacer(modifier = Modifier.height(8.dp))
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          verticalAlignment = Alignment.CenterVertically
+                      ) {
+                          TextField(
+                              value = clientIdInput,
+                              onValueChange = { clientIdInput = it },
+                              placeholder = { Text("Enter Client ID...", color = Color.Gray) },
+                              modifier = Modifier
+                                  .weight(1f)
+                                  .clip(RoundedCornerShape(6.dp)),
+                              colors = TextFieldDefaults.colors(
+                                  focusedContainerColor = Color.Black.copy(alpha = 0.2f),
+                                  unfocusedContainerColor = Color.Black.copy(alpha = 0.2f),
+                                  focusedTextColor = Color.White,
+                                  unfocusedTextColor = Color.White,
+                                  cursorColor = Color.Red
+                              ),
+                              singleLine = true
+                          )
+                          Spacer(modifier = Modifier.width(8.dp))
+                          TextButton(
+                              onClick = {
+                                  RedditOAuthHelper.saveClientId(context, clientIdInput)
+                                  Toast.makeText(context, "API Client ID saved", Toast.LENGTH_SHORT).show()
+                              }
+                          ) {
+                              Text("Save", color = Color.Red, fontWeight = FontWeight.Bold)
+                          }
+                      }
+                  }
+
+                  Spacer(modifier = Modifier.height(16.dp))
 
                 // Custom search subscribe state if query is typed
                 val trimmedQuery = searchQuery.trim().lowercase()
