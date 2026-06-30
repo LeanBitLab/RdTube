@@ -4,6 +4,9 @@ import android.content.Context
 import android.util.Log
 import com.example.reddittube.utils.RedditOAuthHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -49,27 +52,54 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         emit(list)
     }.flowOn(Dispatchers.IO)
 
-    private fun fetchOAuthJsonVideos(subreddits: String): List<RedditPost> {
+    private suspend fun fetchOAuthJsonVideos(subreddits: String): List<RedditPost> {
         val cleanSubs = subreddits.replace(" ", "").trim()
+        val subs = cleanSubs.split("+").filter { it.isNotEmpty() }
+        if (subs.isEmpty()) return emptyList()
+
         val token = RedditOAuthHelper.getOrFetchAccessToken(context) ?: return emptyList()
         
-        var list = performOAuthRequest(cleanSubs, token)
-        if (list.isEmpty()) {
-            // Force fetch a fresh token and try once more in case of invalidation
-            val prefs = context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
-            prefs.edit().remove("reddit_access_token").remove("reddit_token_expires_at").apply()
-            val freshToken = RedditOAuthHelper.getOrFetchAccessToken(context)
-            if (freshToken != null) {
-                list = performOAuthRequest(cleanSubs, freshToken)
-            }
+        // Parallel fetch for multiple subreddits to bypass 404 constraints on multireddit paths
+        val lists = coroutineScope {
+            subs.map { sub ->
+                async {
+                    var subList = performOAuthRequest(sub, token)
+                    if (subList.isEmpty()) {
+                        // Force retry token refresh once on failure
+                        val prefs = context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
+                        prefs.edit().remove("reddit_access_token").remove("reddit_token_expires_at").apply()
+                        val freshToken = RedditOAuthHelper.getOrFetchAccessToken(context)
+                        if (freshToken != null) {
+                            subList = performOAuthRequest(sub, freshToken)
+                        }
+                    }
+                    subList
+                }
+            }.awaitAll()
         }
-        return list
+
+        // Interleave (Round-robin) the lists to provide a balanced combined feed
+        val mergedList = mutableListOf<RedditPost>()
+        var index = 0
+        var addedAny = true
+        while (addedAny) {
+            addedAny = false
+            for (list in lists) {
+                if (index < list.size) {
+                    mergedList.add(list[index])
+                    addedAny = true
+                }
+            }
+            index++
+        }
+        Log.d("RedditRepository", "fetchOAuthJsonVideos returning ${mergedList.size} merged videos for $subreddits")
+        return mergedList
     }
 
-    private fun performOAuthRequest(subreddits: String, token: String): List<RedditPost> {
+    private fun performOAuthRequest(subreddit: String, token: String): List<RedditPost> {
         val list = mutableListOf<RedditPost>()
         try {
-            val url = URL("https://oauth.reddit.com/r/$subreddits/hot.json?limit=50&raw_json=1")
+            val url = URL("https://oauth.reddit.com/r/$subreddit/hot.json?limit=25&raw_json=1")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Authorization", "Bearer $token")
@@ -77,11 +107,13 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             connection.connectTimeout = 15000
             connection.readTimeout = 15000
 
+            Log.d("RedditRepository", "r/$subreddit API returned code: ${connection.responseCode}")
             if (connection.responseCode == 200) {
                 val reader = BufferedReader(InputStreamReader(connection.inputStream))
                 val response = reader.readText()
                 reader.close()
 
+                Log.d("RedditRepository", "r/$subreddit JSON length: ${response.length}")
                 val jsonObject = JSONObject(response)
                 val data = jsonObject.optJSONObject("data")
                 val children = data?.optJSONArray("children")
@@ -98,7 +130,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                             val hlsUrl = redditVideo.optString("hls_url").replace("&amp;", "&")
                             val id = childData.optString("id")
                             val title = childData.optString("title")
-                            val subreddit = childData.optString("subreddit")
+                            val subName = childData.optString("subreddit")
                             val author = childData.optString("author")
                             val score = childData.optInt("score")
                             val permalink = childData.optString("permalink")
@@ -109,7 +141,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                                     RedditPost(
                                         id = id,
                                         title = title,
-                                        subreddit = subreddit,
+                                        subreddit = subName,
                                         author = author,
                                         score = score,
                                         permalink = permalink,
@@ -124,11 +156,12 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     }
                 }
             } else {
-                Log.e("RedditRepository", "OAuth request failed with code: ${connection.responseCode}")
+                Log.e("RedditRepository", "OAuth request failed for r/$subreddit with code: ${connection.responseCode}")
             }
         } catch (e: Exception) {
-            Log.e("RedditRepository", "OAuth request exception: ${e.message}")
+            Log.e("RedditRepository", "OAuth request exception for r/$subreddit: ${e.message}")
         }
+        Log.d("RedditRepository", "r/$subreddit parsed ${list.size} videos")
         return list
     }
 }

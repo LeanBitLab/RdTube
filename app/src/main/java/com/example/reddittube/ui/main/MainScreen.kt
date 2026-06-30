@@ -176,37 +176,70 @@ fun MainScreen(
                         )
                     }
                     is MainScreenUiState.Error -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(24.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Failed to load Subscribed videos.",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = uiState.throwable.message ?: "Unknown error",
-                                color = Color.LightGray,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Button(
-                                onClick = { 
-                                    if (subscribedSet.isNotEmpty()) {
-                                        viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
-                                    } else {
-                                        viewModel.refreshSubscribed("")
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        val errorMsg = uiState.throwable.message ?: ""
+                        if (errorMsg.contains("No subscribed subreddits") || errorMsg.contains("No subscriptions")) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Try Again", color = Color.White)
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add",
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "No Subscriptions",
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Tap the search icon in the top right to discover and subscribe to subreddits.",
+                                    color = Color.LightGray,
+                                    fontSize = 14.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    lineHeight = 20.sp
+                                )
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(24.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Failed to load Subscribed videos.",
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = uiState.throwable.message ?: "Unknown error",
+                                    color = Color.LightGray,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Button(
+                                    onClick = { 
+                                        if (subscribedSet.isNotEmpty()) {
+                                            viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
+                                        } else {
+                                            viewModel.refreshSubscribed("")
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                                ) {
+                                    Text("Try Again", color = Color.White)
+                                }
                             }
                         }
                     }
