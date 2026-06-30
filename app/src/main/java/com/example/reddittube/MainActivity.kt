@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
         val code = data.getQueryParameter("code")
         val state = data.getQueryParameter("state")
         if (!code.isNullOrEmpty() && !state.isNullOrEmpty()) {
+            intent.data = null
             lifecycleScope.launch(Dispatchers.IO) {
                 val success = RedditOAuthHelper.exchangeCodeForToken(applicationContext, code, state)
                 withContext(Dispatchers.Main) {
