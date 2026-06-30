@@ -12,27 +12,42 @@ import java.util.UUID
 object RedditOAuthHelper {
     private const val PREFS_NAME = "reddittube_prefs"
     private const val KEY_CLIENT_ID = "reddit_client_id"
+    private const val KEY_USER_AGENT = "reddit_user_agent"
     private const val KEY_ACCESS_TOKEN = "reddit_access_token"
     private const val KEY_TOKEN_EXPIRES_AT = "reddit_token_expires_at"
     private const val KEY_DEVICE_ID = "reddit_device_id"
 
+    // Default configuration uses the official RedReader client keys (works out of the box)
+    const val DEFAULT_CLIENT_ID = "yH0aTnJEt6qUgGn835B4vg"
+    const val DEFAULT_USER_AGENT = "org.quantumbadger.redreader/1.25.1"
+
     fun getClientId(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_CLIENT_ID, "") ?: ""
+        val id = prefs.getString(KEY_CLIENT_ID, "") ?: ""
+        return if (id.isEmpty()) DEFAULT_CLIENT_ID else id
     }
 
-    fun saveClientId(context: Context, clientId: String) {
+    fun getUserAgent(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_CLIENT_ID, clientId.trim()).apply()
-        // Invalidate active token when client ID updates
+        val ua = prefs.getString(KEY_USER_AGENT, "") ?: ""
+        return if (ua.isEmpty()) DEFAULT_USER_AGENT else ua
+    }
+
+    fun saveApiCredentials(context: Context, clientId: String, userAgent: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString(KEY_CLIENT_ID, clientId.trim())
+            .putString(KEY_USER_AGENT, userAgent.trim())
+            .apply()
+        // Invalidate active token when client/agent updates
         prefs.edit().remove(KEY_ACCESS_TOKEN).remove(KEY_TOKEN_EXPIRES_AT).apply()
     }
 
     @Synchronized
     fun getOrFetchAccessToken(context: Context): String? {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val clientId = prefs.getString(KEY_CLIENT_ID, "") ?: ""
-        if (clientId.isEmpty()) return null
+        val clientId = getClientId(context)
+        val userAgent = getUserAgent(context)
 
         val currentToken = prefs.getString(KEY_ACCESS_TOKEN, "")
         val expiresAt = prefs.getLong(KEY_TOKEN_EXPIRES_AT, 0L)
@@ -58,10 +73,10 @@ object RedditOAuthHelper {
             val authString = "$clientId:"
             val authBase64 = Base64.encodeToString(authString.toByteArray(), Base64.NO_WRAP)
             conn.setRequestProperty("Authorization", "Basic $authBase64")
-            conn.setRequestProperty("User-Agent", "android:com.example.reddittube:v1.0.0 (by /u/arjun_reddittube_dev)")
+            conn.setRequestProperty("User-Agent", userAgent)
             conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
+            conn.connectTimeout = 15000
+            conn.readTimeout = 15000
 
             val params = "grant_type=https://oauth.reddit.com/grants/installed_client&device_id=$deviceId"
             val writer = OutputStreamWriter(conn.outputStream)

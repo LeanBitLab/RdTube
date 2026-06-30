@@ -330,6 +330,7 @@ fun SettingsDialog(
 ) {
     val context = LocalContext.current
     var clientIdInput by remember { mutableStateOf(RedditOAuthHelper.getClientId(context)) }
+    var userAgentInput by remember { mutableStateOf(RedditOAuthHelper.getUserAgent(context)) }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -345,7 +346,7 @@ fun SettingsDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    RedditOAuthHelper.saveClientId(context, clientIdInput)
+                    RedditOAuthHelper.saveApiCredentials(context, clientIdInput, userAgentInput)
                     Toast.makeText(context, "Settings saved. Please refresh.", Toast.LENGTH_SHORT).show()
                     onDismissRequest()
                 }
@@ -361,7 +362,7 @@ fun SettingsDialog(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 TextField(
                     value = clientIdInput,
                     onValueChange = { clientIdInput = it },
@@ -378,12 +379,39 @@ fun SettingsDialog(
                     ),
                     singleLine = true
                 )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "User Agent",
+                    color = Color.LightGray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                TextField(
+                    value = userAgentInput,
+                    onValueChange = { userAgentInput = it },
+                    placeholder = { Text("Enter User-Agent...", color = Color.Gray) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp)),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color.Red
+                    ),
+                    singleLine = true
+                )
+
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "To get a Client ID:\n1. Open reddit.com/prefs/apps in a browser\n2. Create an app (type: 'installed app')\n3. Copy the random string under the app title.",
+                    text = "Note: If left empty, defaults to the official RedReader Client ID and User Agent so the app works out of the box.",
                     color = Color.LightGray,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
                 )
             }
         }

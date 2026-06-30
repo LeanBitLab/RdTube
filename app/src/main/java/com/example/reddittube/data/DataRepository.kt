@@ -73,7 +73,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Authorization", "Bearer $token")
-            connection.setRequestProperty("User-Agent", "android:com.example.reddittube:v1.0.0 (by /u/arjun_reddittube_dev)")
+            connection.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
             connection.connectTimeout = 15000
             connection.readTimeout = 15000
 
