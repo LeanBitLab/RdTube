@@ -9,32 +9,55 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// ponytail: Simplified UI state container. Dynamic subreddits query support added.
+// ponytail: Simplified UI state container. Now manages separate states for Explore and Subscribed sections.
 class MainScreenViewModel(private val dataRepository: DataRepository) : ViewModel() {
-    private val _uiState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
-    val uiState: StateFlow<MainScreenUiState> = _uiState.asStateFlow()
-    
-    var currentSubreddits = "shorts+TikTokCringe+funny+videos"
+    private val _exploreState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
+    val exploreState: StateFlow<MainScreenUiState> = _exploreState.asStateFlow()
+
+    private val _subscribedState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
+    val subscribedState: StateFlow<MainScreenUiState> = _subscribedState.asStateFlow()
+
+    var exploreQuery = "shorts+TikTokCringe+funny+videos"
+        private set
+    var subscribedQuery = ""
         private set
 
-    init {
-        refresh(currentSubreddits)
-    }
-
-    fun refresh(query: String = currentSubreddits) {
-        currentSubreddits = query
+    fun refreshExplore(query: String = exploreQuery) {
+        exploreQuery = query
         viewModelScope.launch {
-            _uiState.value = MainScreenUiState.Loading
+            _exploreState.value = MainScreenUiState.Loading
             try {
                 dataRepository.fetchRedditVideos(query).collect { posts ->
                     if (posts.isEmpty()) {
-                        _uiState.value = MainScreenUiState.Error(Exception("No video posts found in r/$query"))
+                        _exploreState.value = MainScreenUiState.Error(Exception("No video posts found in r/$query"))
                     } else {
-                        _uiState.value = MainScreenUiState.Success(posts)
+                        _exploreState.value = MainScreenUiState.Success(posts)
                     }
                 }
             } catch (e: Exception) {
-                _uiState.value = MainScreenUiState.Error(e)
+                _exploreState.value = MainScreenUiState.Error(e)
+            }
+        }
+    }
+
+    fun refreshSubscribed(query: String) {
+        subscribedQuery = query
+        viewModelScope.launch {
+            if (query.isEmpty()) {
+                _subscribedState.value = MainScreenUiState.Error(Exception("No subscribed subreddits. Use the search icon to add subreddits."))
+                return@launch
+            }
+            _subscribedState.value = MainScreenUiState.Loading
+            try {
+                dataRepository.fetchRedditVideos(query).collect { posts ->
+                    if (posts.isEmpty()) {
+                        _subscribedState.value = MainScreenUiState.Error(Exception("No video posts found in r/$query"))
+                    } else {
+                        _subscribedState.value = MainScreenUiState.Success(posts)
+                    }
+                }
+            } catch (e: Exception) {
+                _subscribedState.value = MainScreenUiState.Error(e)
             }
         }
     }

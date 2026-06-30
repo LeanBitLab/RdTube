@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -66,7 +67,11 @@ fun MainScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current.applicationContext
     val viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository(context)) }
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val exploreState by viewModel.exploreState.collectAsStateWithLifecycle()
+    val subscribedState by viewModel.subscribedState.collectAsStateWithLifecycle()
+
+    val coroutineScope = rememberCoroutineScope()
+    val horizontalPagerState = rememberPagerState(pageCount = { 2 })
 
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -75,6 +80,14 @@ fun MainScreen(
         val saved = context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
             .getStringSet("subscriptions", setOf("shorts", "TikTokCringe", "funny", "videos")) ?: emptySet()
         mutableStateOf(saved.map { it.lowercase() }.toSet())
+    }
+
+    // Load initial feeds
+    LaunchedEffect(Unit) {
+        viewModel.refreshExplore()
+        if (subscribedSet.isNotEmpty()) {
+            viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
+        }
     }
 
     val toggleSubscription = { sub: String ->
@@ -88,6 +101,9 @@ fun MainScreen(
             subscribedSet = updated
             context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
                 .edit().putStringSet("subscriptions", updated).apply()
+            
+            // Auto refresh subscribed feed with updated list
+            viewModel.refreshSubscribed(updated.sorted().joinToString("+"))
         }
     }
 
@@ -96,48 +112,103 @@ fun MainScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // 1. Core Pager / Loading / Error States
-        when (val uiState = state) {
-            MainScreenUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Color.Red)
+        // 1. Core Horizontal Pager switching between Explore (Page 0) and Subscribed (Page 1)
+        HorizontalPager(
+            state = horizontalPagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { pageIndex ->
+            if (pageIndex == 0) {
+                // Explore Section
+                when (val uiState = exploreState) {
+                    MainScreenUiState.Loading -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color.Red)
+                        }
+                    }
+                    is MainScreenUiState.Success -> {
+                        MainScreenContent(
+                            data = uiState.data,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    is MainScreenUiState.Error -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Failed to load Explore videos.",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = uiState.throwable.message ?: "Unknown error",
+                                color = Color.LightGray,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = { viewModel.refreshExplore() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                            ) {
+                                Text("Try Again", color = Color.White)
+                            }
+                        }
+                    }
                 }
-            }
-            is MainScreenUiState.Success -> {
-                MainScreenContent(
-                    data = uiState.data,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            is MainScreenUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Failed to load Reddit videos.",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = uiState.throwable.message ?: "Unknown error",
-                        color = Color.LightGray,
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = { viewModel.refresh() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                    ) {
-                        Text("Try Again", color = Color.White)
+            } else {
+                // Subscribed Section
+                when (val uiState = subscribedState) {
+                    MainScreenUiState.Loading -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color.Red)
+                        }
+                    }
+                    is MainScreenUiState.Success -> {
+                        MainScreenContent(
+                            data = uiState.data,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    is MainScreenUiState.Error -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Failed to load Subscribed videos.",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = uiState.throwable.message ?: "Unknown error",
+                                color = Color.LightGray,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = { 
+                                    if (subscribedSet.isNotEmpty()) {
+                                        viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
+                                    } else {
+                                        viewModel.refreshSubscribed("")
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                            ) {
+                                Text("Try Again", color = Color.White)
+                            }
+                        }
                     }
                 }
             }
@@ -168,13 +239,13 @@ fun MainScreen(
                 )
             }
             
-            // Middle Tab Selectors
+            // Middle Tab Selectors (Synced with HorizontalPagerState)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val defaultExploreQuery = "shorts+TikTokCringe+funny+videos"
-                val isExploreActive = viewModel.currentSubreddits == defaultExploreQuery
+                val isExploreActive = horizontalPagerState.currentPage == 0
+                val isSubscribedActive = horizontalPagerState.currentPage == 1
                 
                 // Explore Tab
                 Text(
@@ -183,12 +254,13 @@ fun MainScreen(
                     fontSize = 16.sp,
                     fontWeight = if (isExploreActive) FontWeight.Bold else FontWeight.Medium,
                     modifier = Modifier.clickable {
-                        viewModel.refresh(defaultExploreQuery)
+                        coroutineScope.launch {
+                            horizontalPagerState.animateScrollToPage(0)
+                        }
                     }
                 )
 
                 // Subscribed Tab
-                val isSubscribedActive = viewModel.currentSubreddits != defaultExploreQuery && subscribedSet.isNotEmpty() && viewModel.currentSubreddits == subscribedSet.sorted().joinToString("+")
                 Text(
                     text = "Subscribed",
                     color = if (isSubscribedActive) Color.Red else Color.LightGray,
@@ -198,7 +270,9 @@ fun MainScreen(
                         if (subscribedSet.isEmpty()) {
                             Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
                         } else {
-                            viewModel.refresh(subscribedSet.sorted().joinToString("+"))
+                            coroutineScope.launch {
+                                horizontalPagerState.animateScrollToPage(1)
+                            }
                         }
                     }
                 )
@@ -235,7 +309,13 @@ fun MainScreen(
                 }
                 Spacer(modifier = Modifier.width(6.dp))
                 IconButton(
-                    onClick = { viewModel.refresh() },
+                    onClick = {
+                        if (horizontalPagerState.currentPage == 0) {
+                            viewModel.refreshExplore()
+                        } else {
+                            viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
+                        }
+                    },
                     modifier = Modifier
                         .size(36.dp)
                         .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
@@ -252,7 +332,7 @@ fun MainScreen(
 
         // Search Results Active Indicator Overlay (Always visible!)
         val defaultExploreQuery = "shorts+TikTokCringe+funny+videos"
-        val isSpecialFeed = viewModel.currentSubreddits != defaultExploreQuery && viewModel.currentSubreddits != subscribedSet.sorted().joinToString("+")
+        val isSpecialFeed = viewModel.exploreQuery != defaultExploreQuery && horizontalPagerState.currentPage == 0
         if (isSpecialFeed) {
             Box(
                 modifier = Modifier
@@ -265,20 +345,20 @@ fun MainScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Viewing: r/${viewModel.currentSubreddits}",
+                        text = "Viewing: r/${viewModel.exploreQuery}",
                         color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    val isSubbed = subscribedSet.contains(viewModel.currentSubreddits.lowercase())
+                    val isSubbed = subscribedSet.contains(viewModel.exploreQuery.lowercase())
                     Text(
                         text = if (isSubbed) "Subscribed" else "Subscribe",
                         color = Color.Red,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.clickable {
-                            toggleSubscription(viewModel.currentSubreddits)
+                            toggleSubscription(viewModel.exploreQuery)
                         }
                     )
                 }
@@ -291,7 +371,12 @@ fun MainScreen(
                 onDismissRequest = { showSearchDialog = false },
                 currentSubscribed = subscribedSet,
                 onSubscribeToggle = { toggleSubscription(it) },
-                onSubredditSelect = { viewModel.refresh(it) }
+                onSubredditSelect = {
+                    viewModel.refreshExplore(it)
+                    coroutineScope.launch {
+                        horizontalPagerState.animateScrollToPage(0)
+                    }
+                }
             )
         }
 
