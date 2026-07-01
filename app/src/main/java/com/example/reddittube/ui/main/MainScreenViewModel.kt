@@ -25,7 +25,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _searchResults = MutableStateFlow<List<String>>(emptyList())
     val searchResults: StateFlow<List<String>> = _searchResults.asStateFlow()
 
-    private val watchedIds = mutableSetOf<String>()
+    // ponytail: persist watched IDs to SharedPreferences so they survive app restart
+    private val prefs = dataRepository.getContext().getSharedPreferences("reddittube_prefs", android.content.Context.MODE_PRIVATE)
+    private val watchedIds = prefs.getStringSet("watched_ids", emptySet())?.toMutableSet() ?: mutableSetOf()
+    init { android.util.Log.i("WatchedVM", "loaded ${watchedIds.size} watched IDs: $watchedIds") }
 
     fun searchSubreddits(query: String) {
         if (query.length < 2) { _searchResults.value = emptyList(); return }
@@ -46,7 +49,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             _exploreState.value = MainScreenUiState.Loading
             try {
                 dataRepository.fetchRedditVideos(query).collect { posts ->
-                    _exploreState.value = MainScreenUiState.Success(posts)
+                    _exploreState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
                 }
             } catch (e: Exception) {
                 _exploreState.value = MainScreenUiState.Error(e)
@@ -64,7 +67,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             _subscribedState.value = MainScreenUiState.Loading
             try {
                 dataRepository.fetchRedditVideos(query).collect { posts ->
-                    _subscribedState.value = MainScreenUiState.Success(posts)
+                    _subscribedState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
                 }
             } catch (e: Exception) {
                 _subscribedState.value = MainScreenUiState.Error(e)
@@ -90,7 +93,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             try {
                 dataRepository.fetchMoreVideos(query, afterMap).collect { result ->
                     dataRepository.saveAfterMap(result.afterMap)
-                    val updated = current.data + result.posts
+                    val updated = current.data + result.posts.filter { it.id !in watchedIds }
                     if (isExplore) {
                         _exploreState.value = MainScreenUiState.Success(updated, isLoadingMore = false)
                     } else {
@@ -109,13 +112,9 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 
     fun markAsWatched(id: String) {
         watchedIds.add(id)
-        listOf(_exploreState, _subscribedState).forEach { flow ->
-            val current = flow.value
-            if (current is MainScreenUiState.Success) {
-                val filtered = current.data.filter { it.id !in watchedIds }
-                flow.value = current.copy(data = filtered)
-            }
-        }
+        val result = prefs.edit().putStringSet("watched_ids", watchedIds.toSet()).commit()
+        android.util.Log.i("WatchedVM", "markAsWatched $id, commit=$result, total=${watchedIds.size}, ids=$watchedIds")
+        // ponytail: don't remove from current list — only filter on next refresh to avoid auto-advance
     }
 }
 

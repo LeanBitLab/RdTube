@@ -31,6 +31,7 @@ data class RedditPost(
 )
 
 interface DataRepository {
+    fun getContext(): Context
     fun fetchRedditVideos(subreddits: String): Flow<List<RedditPost>>
     fun searchSubreddits(query: String): Flow<List<String>>
     fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>): Flow<FetchMoreResult>
@@ -42,6 +43,7 @@ interface DataRepository {
 data class FetchMoreResult(val posts: List<RedditPost>, val afterMap: Map<String, String?>)
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
+    override fun getContext(): Context = context
 
     override fun searchSubreddits(query: String): Flow<List<String>> = flow {
         val token = RedditOAuthHelper.getOrFetchAccessToken(context)
