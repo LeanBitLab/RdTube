@@ -156,7 +156,7 @@ fun MainScreen(
                             subscribedSet = subscribedSet,
                             onSubscribeToggle = toggleSubscription,
                             onLoadMore = { viewModel.loadMore(true) },
-                            onRemoveVideo = { viewModel.markAsWatched(it) },
+                            onRemoveVideo = { id, title -> viewModel.markAsWatched(id, title) },
                             isLoadingMore = uiState.isLoadingMore
                         )
                     }
@@ -219,7 +219,7 @@ fun MainScreen(
                             subscribedSet = subscribedSet,
                             onSubscribeToggle = toggleSubscription,
                             onLoadMore = { viewModel.loadMore(false) },
-                            onRemoveVideo = { viewModel.markAsWatched(it) },
+                            onRemoveVideo = { id, title -> viewModel.markAsWatched(id, title) },
                             isLoadingMore = uiState.isLoadingMore
                         )
                     }
@@ -478,7 +478,7 @@ fun MainScreenContent(
     modifier: Modifier = Modifier,
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
-    onRemoveVideo: (String) -> Unit = {},
+    onRemoveVideo: (String, String) -> Unit = { _, _ -> },
     onLoadMore: () -> Unit = {},
     isLoadingMore: Boolean = false
 ) {
@@ -660,9 +660,16 @@ fun HistoryDialog(
     onDismissRequest: () -> Unit
 ) {
     val context = LocalContext.current
+    val viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository(context)) }
     val prefs = remember { context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE) }
     val watchedIds = remember {
         prefs.getStringSet("watched_ids", emptySet())?.toList()?.sorted() ?: emptyList()
+    }
+    val watchedTitles = remember {
+        try {
+            val json = prefs.getString("watched_titles", null)
+            if (json != null) org.json.JSONObject(json) else org.json.JSONObject()
+        } catch (_: Exception) { org.json.JSONObject() }
     }
 
     AlertDialog(
@@ -686,7 +693,7 @@ fun HistoryDialog(
         confirmButton = {
             if (watchedIds.isNotEmpty()) {
                 TextButton(onClick = {
-                    prefs.edit().remove("watched_ids").apply()
+                    prefs.edit().remove("watched_ids").remove("watched_titles").apply()
                     onDismissRequest()
                 }) {
                     Text("Clear All", color = Color.Red)
@@ -718,6 +725,7 @@ fun HistoryDialog(
                         .verticalScroll(rememberScrollState())
                 ) {
                     watchedIds.forEachIndexed { index, id ->
+                        val title = watchedTitles.optString(id, id)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -733,16 +741,27 @@ fun HistoryDialog(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = id,
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 13.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = title,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 14.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (title != id) {
+                                    Text(
+                                        text = id,
+                                        color = Color.White.copy(alpha = 0.3f),
+                                        fontSize = 11.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
                         if (index < watchedIds.lastIndex) {
-                            Divider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
                         }
                     }
                 }
@@ -959,7 +978,7 @@ fun VideoPage(
     isActive: Boolean,
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
-    onRemoveVideo: (String) -> Unit = {},
+    onRemoveVideo: (String, String) -> Unit = { _, _ -> },
     onNext: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -1112,11 +1131,21 @@ fun VideoPage(
             )
         }
 
-        // Auto-track watched: hide after 7s of active playback
+        // Auto-track watched: mark after 50% of video watched
         LaunchedEffect(isActive, post.id) {
             if (isActive) {
-                delay(7000)
-                if (exoPlayer.isPlaying) onRemoveVideo(post.id)
+                // Wait until player is ready to get duration
+                while (exoPlayer.duration <= 0) delay(500)
+                val duration = exoPlayer.duration
+                val threshold = duration / 10 // 10%
+                // Check every second
+                while (isActive) {
+                    delay(1000)
+                    if (exoPlayer.currentPosition >= threshold && exoPlayer.isPlaying) {
+                        onRemoveVideo(post.id, post.title)
+                        break
+                    }
+                }
             }
         }
 

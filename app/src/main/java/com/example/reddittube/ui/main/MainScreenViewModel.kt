@@ -28,6 +28,12 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     // ponytail: persist watched IDs to SharedPreferences so they survive app restart
     private val prefs = dataRepository.getContext().getSharedPreferences("reddittube_prefs", android.content.Context.MODE_PRIVATE)
     private val watchedIds = prefs.getStringSet("watched_ids", emptySet())?.toMutableSet() ?: mutableSetOf()
+    private val watchedTitles: MutableMap<String, String> = try {
+        val json = prefs.getString("watched_titles", null)
+        if (json != null) org.json.JSONObject(json).let { obj ->
+            obj.keys().asSequence().associateWith { obj.getString(it) }.toMutableMap()
+        } else mutableMapOf()
+    } catch (_: Exception) { mutableMapOf() }
     init { android.util.Log.i("WatchedVM", "loaded ${watchedIds.size} watched IDs: $watchedIds") }
 
     fun searchSubreddits(query: String) {
@@ -110,12 +116,18 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         }
     }
 
-    fun markAsWatched(id: String) {
+    fun markAsWatched(id: String, title: String = "") {
         watchedIds.add(id)
-        val result = prefs.edit().putStringSet("watched_ids", watchedIds.toSet()).commit()
-        android.util.Log.i("WatchedVM", "markAsWatched $id, commit=$result, total=${watchedIds.size}, ids=$watchedIds")
+        if (title.isNotEmpty()) watchedTitles[id] = title
+        prefs.edit()
+            .putStringSet("watched_ids", watchedIds.toSet())
+            .putString("watched_titles", org.json.JSONObject(watchedTitles).toString())
+            .commit()
+        android.util.Log.i("WatchedVM", "markAsWatched $id, total=${watchedIds.size}")
         // ponytail: don't remove from current list — only filter on next refresh to avoid auto-advance
     }
+
+    fun getWatchedTitles(): Map<String, String> = watchedTitles.toMap()
 }
 
 sealed interface MainScreenUiState {
