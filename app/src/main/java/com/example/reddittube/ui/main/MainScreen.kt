@@ -988,7 +988,7 @@ fun VideoPage(
     // Player State
     var currentQuality by remember { mutableStateOf(sharedPreferences.getString("saved_quality", "Auto") ?: "Auto") }
     val exoPlayer = remember(post.id) {
-        val url = post.videoUrl
+        val url = post.dashUrl.ifEmpty { post.hlsUrl }.ifEmpty { post.videoUrl }
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("org.quantumbadger.redreader/1.25.1")
             .setConnectTimeoutMs(30000)
@@ -1000,9 +1000,12 @@ fun VideoPage(
             .build()
         player.apply {
             repeatMode = if (sharedPreferences.getBoolean("auto_next", false)) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+            setAudioAttributes(androidx.media3.exoplayer.audio.AudioAttributes.Builder()
+                .setUsage(androidx.media3.exoplayer.audio.AudioUsageUsage.MEDIA)
+                .setContentType(androidx.media3.exoplayer.audio.AudioContentType.CONTENT_TYPE_MOVIE)
+                .build(), true)
             val mediaItem = MediaItem.Builder()
                 .setUri(Uri.parse(url))
-                .setMimeType("video/mp4")
                 .build()
             setMediaItem(mediaItem)
             playWhenReady = true
