@@ -2,6 +2,7 @@ package com.example.reddittube.ui.main.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -78,6 +79,13 @@ fun PlayerSlider(
             modifier = Modifier
                 .weight(1f)
                 .height(32.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        if (duration > 0) {
+                            player.seekTo(((offset.x / size.width).coerceIn(0f, 1f) * duration).toLong())
+                        }
+                    }
+                }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->

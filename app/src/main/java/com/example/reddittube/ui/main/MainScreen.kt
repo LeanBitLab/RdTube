@@ -111,7 +111,8 @@ fun MainScreen(
         // Core HorizontalPager: Explore (0), Search (1), Subscribed (2)
         HorizontalPager(
             state = horizontalPagerState,
-            modifier = Modifier.fillMaxSize().padding(bottom = 48.dp)
+            modifier = Modifier.fillMaxSize().padding(bottom = 48.dp),
+            userScrollEnabled = false
         ) { pageIndex ->
             when (pageIndex) {
                 0 -> FeedPage(

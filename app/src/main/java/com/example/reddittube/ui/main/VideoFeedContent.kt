@@ -33,6 +33,7 @@ fun VideoFeedContent(
 ) {
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { data.size })
     val coroutineScope = rememberCoroutineScope()
+    var isMuted by remember { mutableStateOf(false) }
 
     val onNext: () -> Unit = {
         coroutineScope.launch {
@@ -71,6 +72,8 @@ fun VideoFeedContent(
                         VideoPage(
                             post = data[pageIndex],
                             isActive = pagerState.currentPage == pageIndex,
+                            isMuted = isMuted,
+                            onMuteChange = { isMuted = it },
                             subscribedSet = subscribedSet,
                             onSubscribeToggle = onSubscribeToggle,
                             onRemoveVideo = onRemoveVideo,

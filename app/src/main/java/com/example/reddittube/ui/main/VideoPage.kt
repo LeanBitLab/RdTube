@@ -3,7 +3,6 @@ package com.example.reddittube.ui.main
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
-import android.media.AudioManager
 import android.net.Uri
 import android.provider.Settings
 import android.util.Log
@@ -63,7 +62,9 @@ fun VideoPage(
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
     onRemoveVideo: (String, String) -> Unit = { _, _ -> },
-    onNext: () -> Unit = {}
+    onNext: () -> Unit = {},
+    isMuted: Boolean = false,
+    onMuteChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -72,7 +73,7 @@ fun VideoPage(
     // Player state
     var currentQuality by remember { mutableStateOf(sharedPreferences.getString("saved_quality", "Auto") ?: "Auto") }
     var currentSpeed by remember { mutableStateOf(1.0f) }
-    var isMuted by remember { mutableStateOf(false) }
+    var showQualitySheet by remember { mutableStateOf(false) }
 
     val exoPlayer = remember(post.id) {
         val url = post.dashUrl.ifEmpty { post.hlsUrl }.ifEmpty { post.videoUrl }
@@ -101,6 +102,7 @@ fun VideoPage(
     // Buffering & playback status
     var isBuffering by remember { mutableStateOf(true) }
     var isPlaying by remember { mutableStateOf(true) }
+    var justAutoPlayed by remember { mutableStateOf(false) }
 
     DisposableEffect(post.id) {
         val tag = "VideoPlayer"
@@ -128,8 +130,11 @@ fun VideoPage(
     // Play/pause for active page
     LaunchedEffect(isActive) {
         if (isActive) {
+            if (exoPlayer.playbackState == Player.STATE_ENDED) exoPlayer.seekTo(0)
             exoPlayer.playWhenReady = true
             exoPlayer.play()
+            justAutoPlayed = true
+            coroutineScope.launch { delay(500); justAutoPlayed = false }
         } else {
             exoPlayer.pause()
         }
@@ -188,20 +193,17 @@ fun VideoPage(
 
     // Show overlay briefly on start, then auto-hide
     LaunchedEffect(isActive) {
-        if (isActive) {
-            showOverlay = true
-            overlayJob?.cancel()
-            overlayJob = coroutineScope.launch {
-                delay(4000)
-                showOverlay = false
+            if (isActive) {
+                showOverlay = true
+                overlayJob?.cancel()
+                overlayJob = coroutineScope.launch {
+                    delay(4000)
+                    if (exoPlayer.isPlaying) showOverlay = false
+                }
             }
-        }
     }
 
-    // Quality bottom sheet
-    var showQualitySheet by remember { mutableStateOf(false) }
-
-    Box(
+Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
@@ -222,18 +224,20 @@ fun VideoPage(
                                     showOverlay = false
                                 }
                             }
-                            // Toggle play/pause
-                            if (exoPlayer.isPlaying) {
-                                exoPlayer.pause()
-                                showPlayPauseTransient = false
-                            } else {
-                                exoPlayer.play()
-                                showPlayPauseTransient = true
-                            }
-                            transientJob?.cancel()
-                            transientJob = coroutineScope.launch {
-                                delay(600)
-                                showPlayPauseTransient = null
+                            // Toggle play/pause (skip if just auto-played to avoid scroll gesture tap interference)
+                            if (!justAutoPlayed) {
+                                if (exoPlayer.isPlaying) {
+                                    exoPlayer.pause()
+                                    showPlayPauseTransient = false
+                                } else {
+                                    exoPlayer.play()
+                                    showPlayPauseTransient = true
+                                }
+                                transientJob?.cancel()
+                                transientJob = coroutineScope.launch {
+                                    delay(600)
+                                    showPlayPauseTransient = null
+                                }
                             }
                         }
                     )
@@ -335,7 +339,6 @@ fun VideoPage(
                 .fillMaxWidth(0.18f)
                 .align(Alignment.CenterEnd)
                 .pointerInput(Unit) {
-                    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     detectVerticalDragGestures(
                         onDragStart = {
                             showVolumeHud = true
@@ -343,12 +346,10 @@ fun VideoPage(
                         },
                         onVerticalDrag = { change, dragAmount ->
                             change.consume()
-                            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                            val currentPercent = currentVol.toFloat() / maxVol
                             val sensitivity = 0.003f
-                            val nextPercent = (currentPercent - dragAmount * sensitivity).coerceIn(0f, 1f)
-                            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (nextPercent * maxVol).toInt(), 0)
+                            val nextPercent = (exoPlayer.volume - dragAmount * sensitivity).coerceIn(0f, 1f)
+                            onMuteChange(nextPercent == 0f)
+                            exoPlayer.volume = nextPercent
                             volumePercentage = nextPercent
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
@@ -456,12 +457,18 @@ fun VideoPage(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Likes
-                    MinimalButton(onClick = {}, label = formatScore(post.score)) {
-                        Icon(Icons.Default.ThumbUp, contentDescription = "Likes", tint = Color.White, modifier = Modifier.size(14.dp))
-                    }
-
-                    // Rotation lock
+// Likes
+MinimalButton(onClick = {}, label = formatScore(post.score)) {
+    Icon(Icons.Default.ThumbUp, contentDescription = "Likes", tint = Color.White, modifier = Modifier.size(14.dp))
+}
+// Quality / Speed
+MinimalButton(
+    onClick = { showQualitySheet = true },
+    label = currentQuality
+) {
+    Icon(Icons.Default.Settings, contentDescription = "Quality", tint = Color.White, modifier = Modifier.size(14.dp))
+}
+// Rotation lock
                     MinimalButton(
                         onClick = {
                             if (activity != null) {
@@ -482,7 +489,7 @@ fun VideoPage(
 
                     // Mute/unmute
                     MinimalButton(
-                        onClick = { isMuted = !isMuted },
+                        onClick = { onMuteChange(!isMuted) },
                         label = ""
                     ) {
                         if (isMuted) MuteIcon(modifier = Modifier.size(14.dp), tint = Color.Red)
@@ -501,15 +508,7 @@ fun VideoPage(
                         SkipNextIcon(modifier = Modifier.size(14.dp), tint = if (localAutoNext) Color.Red else Color.White)
                     }
 
-                    // Quality / Speed
-                    MinimalButton(
-                        onClick = { showQualitySheet = true },
-                        label = currentQuality
-                    ) {
-                        Icon(Icons.Default.Settings, contentDescription = "Quality", tint = Color.White, modifier = Modifier.size(14.dp))
-                    }
-
-                    // Download / Save
+// Download / Save
                     MinimalButton(
                         onClick = {
                             if (downloadProgress == null) {
@@ -529,10 +528,10 @@ fun VideoPage(
                                 }
                             }
                         },
-                        label = "Save"
-                    ) {
-                        DownloadIcon(modifier = Modifier.size(14.dp))
-                    }
+        label = ""
+    ) {
+        DownloadIcon(modifier = Modifier.size(14.dp))
+    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -583,9 +582,8 @@ fun VideoPage(
 
         // Volume HUD slider
         if (showVolumeHud) {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val displayVol = if (volumePercentage < 0f) {
-                audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                exoPlayer.volume
             } else volumePercentage
             Box(
                 modifier = Modifier

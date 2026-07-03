@@ -14,7 +14,11 @@
 .cxx
 local.properties
 
+# Agent/opencode files (local only)
+AGENTS.md
+AGENTS.compact.md
+opencode.json
+.opencode/
+
 # Antigravity files
-ANTIGRAVITY.md
-ANTIGRAVITY.original.md
 .antigravityignore
