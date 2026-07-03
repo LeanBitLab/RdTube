@@ -2,77 +2,43 @@ package com.example.reddittube.ui.main
 
 import android.app.Activity
 import android.content.Context
-import android.content.pm.ActivityInfo
-import android.media.AudioManager
-import android.net.Uri
-import android.provider.Settings
-import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.common.PlaybackException
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
-import com.example.reddittube.data.DefaultDataRepository
-import com.example.reddittube.data.RedditPost
-import com.example.reddittube.utils.DownloadHelper
-import com.example.reddittube.utils.RedditOAuthHelper
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import com.example.reddittube.RedditTubeApp
+import com.example.reddittube.data.RedditError
 import kotlinx.coroutines.launch
 
+// ponytail: Main orchestrator — manages HorizontalPager (Explore / Search / Subscribed),
+// persistent top header, bottom navigation tabs, and dialog overlays
 @Composable
 fun MainScreen(
     onItemClick: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current.applicationContext
-    val viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository(context)) }
+    val context = LocalContext.current.applicationContext
+    val app = context as RedditTubeApp
+    val viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(app.container.repository) }
     val exploreState by viewModel.exploreState.collectAsStateWithLifecycle()
     val subscribedState by viewModel.subscribedState.collectAsStateWithLifecycle()
 
@@ -98,7 +64,7 @@ fun MainScreen(
 
     // BackHandler: navigate HorizontalPager back, double-tap on first page to exit
     var backPressTime by remember { mutableStateOf(0L) }
-    val activity = androidx.compose.ui.platform.LocalContext.current as? Activity
+    val activity = LocalContext.current as? Activity
     BackHandler {
         val current = horizontalPagerState.currentPage
         if (current > 0) {
@@ -125,9 +91,15 @@ fun MainScreen(
             subscribedSet = updated
             context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
                 .edit().putStringSet("subscriptions", updated).apply()
-            
-            // Auto refresh subscribed feed with updated list
             viewModel.refreshSubscribed(updated.sorted().joinToString("+"))
+        }
+    }
+
+    fun refreshCurrentFeed() {
+        if (horizontalPagerState.currentPage == 0) {
+            viewModel.refreshExplore()
+        } else {
+            viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
         }
     }
 
@@ -136,166 +108,46 @@ fun MainScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // 1. Core Horizontal Pager: Explore (0), Search (1), Subscribed (2)
+        // Core HorizontalPager: Explore (0), Search (1), Subscribed (2)
         HorizontalPager(
             state = horizontalPagerState,
             modifier = Modifier.fillMaxSize().padding(bottom = 48.dp)
         ) { pageIndex ->
-            if (pageIndex == 0) {
-                // Explore Section
-                when (val uiState = exploreState) {
-                    MainScreenUiState.Loading -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Color.Red)
-                        }
-                    }
-                    is MainScreenUiState.Success -> {
-                        MainScreenContent(
-                            data = uiState.data,
-                            modifier = Modifier.fillMaxSize(),
-                            subscribedSet = subscribedSet,
-                            onSubscribeToggle = toggleSubscription,
-                            onLoadMore = { viewModel.loadMore(true) },
-                            onRemoveVideo = { id, title -> viewModel.markAsWatched(id, title) },
-                            isLoadingMore = uiState.isLoadingMore
-                        )
-                    }
-                    is MainScreenUiState.Error -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(24.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Failed to load Explore videos.",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = uiState.throwable.message ?: "Unknown error",
-                                color = Color.LightGray,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Button(
-                                onClick = { viewModel.refreshExplore() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                            ) {
-                                Text("Try Again", color = Color.White)
-                            }
-                        }
-                    }
-                }
-            } else if (pageIndex == 1) {
-                // Search Page
-                SearchPage(
+            when (pageIndex) {
+                0 -> FeedPage(
+                    uiState = exploreState,
+                    modifier = Modifier.fillMaxSize(),
+                    subscribedSet = subscribedSet,
+                    onSubscribeToggle = toggleSubscription,
+                    onLoadMore = { viewModel.loadMore(true) },
+                    onRefresh = { viewModel.refreshExplore() },
+                    onRemoveVideo = { id, title -> viewModel.markAsWatched(id, title) },
+                    isLoadingMore = (exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false
+                )
+                1 -> SearchPage(
                     currentSubscribed = subscribedSet,
                     onSubscribeToggle = toggleSubscription,
                     onSubredditSelect = {
                         viewModel.refreshExplore(it)
-                        coroutineScope.launch {
-                            horizontalPagerState.animateScrollToPage(0)
-                        }
+                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
                     },
                     searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
                     onSearchQuery = { viewModel.searchSubreddits(it) }
                 )
-            } else {
-                // Subscribed Section
-                when (val uiState = subscribedState) {
-                    MainScreenUiState.Loading -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Color.Red)
-                        }
-                    }
-                    is MainScreenUiState.Success -> {
-                        MainScreenContent(
-                            data = uiState.data,
-                            modifier = Modifier.fillMaxSize(),
-                            subscribedSet = subscribedSet,
-                            onSubscribeToggle = toggleSubscription,
-                            onLoadMore = { viewModel.loadMore(false) },
-                            onRemoveVideo = { id, title -> viewModel.markAsWatched(id, title) },
-                            isLoadingMore = uiState.isLoadingMore
-                        )
-                    }
-                    is MainScreenUiState.Error -> {
-                        val errorMsg = uiState.throwable.message ?: ""
-                        if (errorMsg.contains("No subscribed subreddits") || errorMsg.contains("No subscriptions")) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(32.dp),
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Add",
-                                    tint = Color.Red,
-                                    modifier = Modifier.size(64.dp)
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = "No Subscriptions",
-                                    color = Color.White,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Tap the search icon in the top right to discover and subscribe to subreddits.",
-                                    color = Color.LightGray,
-                                    fontSize = 14.sp,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    lineHeight = 20.sp
-                                )
-                            }
-                        } else {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(24.dp),
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "Failed to load Subscribed videos.",
-                                    color = Color.White,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = uiState.throwable.message ?: "Unknown error",
-                                    color = Color.LightGray,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Button(
-                                    onClick = { 
-                                        if (subscribedSet.isNotEmpty()) {
-                                            viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
-                                        } else {
-                                            viewModel.refreshSubscribed("")
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                                ) {
-                                    Text("Try Again", color = Color.White)
-                                }
-                            }
-                        }
-                    }
-                }
+                2 -> FeedPage(
+                    uiState = subscribedState,
+                    modifier = Modifier.fillMaxSize(),
+                    subscribedSet = subscribedSet,
+                    onSubscribeToggle = toggleSubscription,
+                    onLoadMore = { viewModel.loadMore(false) },
+                    onRefresh = { viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+")) },
+                    onRemoveVideo = { id, title -> viewModel.markAsWatched(id, title) },
+                    isLoadingMore = (subscribedState as? MainScreenUiState.Success)?.isLoadingMore ?: false
+                )
             }
         }
 
-        // 2. Persistent Top App Header (Always visible!)
+        // Persistent top header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -304,23 +156,10 @@ fun MainScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // App Title Left
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "R",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Tube",
-                    color = Color.Red,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("R", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text("Tube", color = Color.Red, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
-            
-            // Search icon + Settings/Refresh menu
             var showMenu by remember { mutableStateOf(false) }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box {
@@ -331,12 +170,7 @@ fun MainScreen(
                             .clickable { showMenu = true },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Menu",
-                            tint = Color.White,
-                            modifier = Modifier.size(12.dp)
-                        )
+                        Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = Color.White, modifier = Modifier.size(12.dp))
                     }
                     DropdownMenu(
                         expanded = showMenu,
@@ -351,14 +185,7 @@ fun MainScreen(
                         )
                         DropdownMenuItem(
                             text = { Text("Refresh", color = Color.White) },
-                            onClick = {
-                                showMenu = false
-                                if (horizontalPagerState.currentPage == 0) {
-                                    viewModel.refreshExplore()
-                                } else {
-                                    viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
-                                }
-                            },
+                            onClick = { showMenu = false; refreshCurrentFeed() },
                             leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) }
                         )
                         DropdownMenuItem(
@@ -385,50 +212,30 @@ fun MainScreen(
             val isExplore = horizontalPagerState.currentPage == 0
             val isSubscribed = horizontalPagerState.currentPage == 2
 
-            // Explore Tab
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable {
                     coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
                 }.padding(horizontal = 24.dp, vertical = 4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Explore",
-                    tint = if (isExplore) Color.Red else Color.LightGray,
-                    modifier = Modifier.size(22.dp)
-                )
-                Text(
-                    text = "Explore",
-                    color = if (isExplore) Color.Red else Color.LightGray,
-                    fontSize = 11.sp,
-                    fontWeight = if (isExplore) FontWeight.Bold else FontWeight.Normal
-                )
+                Icon(Icons.Default.Home, contentDescription = "Explore",
+                    tint = if (isExplore) Color.Red else Color.LightGray, modifier = Modifier.size(22.dp))
+                Text("Explore", color = if (isExplore) Color.Red else Color.LightGray,
+                    fontSize = 11.sp, fontWeight = if (isExplore) FontWeight.Bold else FontWeight.Normal)
             }
 
-            // Search Tab (center)
-            val isSearch = horizontalPagerState.currentPage == 1
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable {
                     coroutineScope.launch { horizontalPagerState.animateScrollToPage(1) }
                 }.padding(horizontal = 24.dp, vertical = 4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = if (isSearch) Color.Red else Color.LightGray,
-                    modifier = Modifier.size(22.dp)
-                )
-                Text(
-                    text = "Search",
-                    color = if (isSearch) Color.Red else Color.LightGray,
-                    fontSize = 11.sp,
-                    fontWeight = if (isSearch) FontWeight.Bold else FontWeight.Normal
-                )
+                Icon(Icons.Default.Search, contentDescription = "Search",
+                    tint = if (horizontalPagerState.currentPage == 1) Color.Red else Color.LightGray, modifier = Modifier.size(22.dp))
+                Text("Search", color = if (horizontalPagerState.currentPage == 1) Color.Red else Color.LightGray,
+                    fontSize = 11.sp, fontWeight = if (horizontalPagerState.currentPage == 1) FontWeight.Bold else FontWeight.Normal)
             }
 
-            // Subscribed Tab
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable {
@@ -439,1342 +246,119 @@ fun MainScreen(
                     }
                 }.padding(horizontal = 24.dp, vertical = 4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = "Subscribed",
-                    tint = if (isSubscribed) Color.Red else Color.LightGray,
-                    modifier = Modifier.size(22.dp)
-                )
-                Text(
-                    text = "Subscribed",
-                    color = if (isSubscribed) Color.Red else Color.LightGray,
-                    fontSize = 11.sp,
-                    fontWeight = if (isSubscribed) FontWeight.Bold else FontWeight.Normal
-                )
+                Icon(Icons.Default.Star, contentDescription = "Subscribed",
+                    tint = if (isSubscribed) Color.Red else Color.LightGray, modifier = Modifier.size(22.dp))
+                Text("Subscribed", color = if (isSubscribed) Color.Red else Color.LightGray,
+                    fontSize = 11.sp, fontWeight = if (isSubscribed) FontWeight.Bold else FontWeight.Normal)
             }
         }
 
-
-
-        // Settings Dialog overlay
-        if (showSettingsDialog) {
-            SettingsDialog(
-                onDismissRequest = { showSettingsDialog = false }
-            )
-        }
-
-        // History Dialog overlay
-        if (showHistoryDialog) {
-            HistoryDialog(
-                onDismissRequest = { showHistoryDialog = false }
-            )
-        }
+        // Overlays
+        if (showSettingsDialog) SettingsDialog(onDismissRequest = { showSettingsDialog = false })
+        if (showHistoryDialog) HistoryDialog(onDismissRequest = { showHistoryDialog = false })
     }
 }
 
+// ponytail: Reusable feed page that handles Loading / Success / Error states
 @Composable
-fun MainScreenContent(
-    data: List<RedditPost>,
+private fun FeedPage(
+    uiState: MainScreenUiState,
     modifier: Modifier = Modifier,
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
-    onRemoveVideo: (String, String) -> Unit = { _, _ -> },
     onLoadMore: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onRemoveVideo: (String, String) -> Unit = { _, _ -> },
     isLoadingMore: Boolean = false
 ) {
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { data.size })
-    val coroutineScope = rememberCoroutineScope()
-    val onNext: () -> Unit = { coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } }
-    // ponytail: trigger loadMore when reaching the last page, but not during initial load
-    val currentPage by remember { derivedStateOf { pagerState.currentPage } }
-    LaunchedEffect(currentPage) {
-        if (currentPage >= data.size - 2 && data.size > 1 && !isLoadingMore) onLoadMore()
-    }
-    Box(modifier = modifier.fillMaxSize()) {
-        VerticalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            key = { index -> data[index].id }
-        ) { pageIndex ->
-            Box(modifier = Modifier.fillMaxSize()) {
-                VideoPage(
-                    post = data[pageIndex],
-                    isActive = pagerState.currentPage == pageIndex,
-                    subscribedSet = subscribedSet,
-                    onSubscribeToggle = onSubscribeToggle,
-                    onRemoveVideo = onRemoveVideo,
-                    onNext = onNext
-                )
-                if (pageIndex == data.size - 1 && isLoadingMore) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.Red,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Finding more…", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-                        }
-                    }
-                }
+    when (uiState) {
+        MainScreenUiState.Loading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.Red)
             }
+        }
+        is MainScreenUiState.Success -> {
+            VideoFeedContent(
+                data = uiState.data,
+                modifier = modifier,
+                subscribedSet = subscribedSet,
+                onSubscribeToggle = onSubscribeToggle,
+                onLoadMore = onLoadMore,
+                onRefresh = onRefresh,
+                onRemoveVideo = onRemoveVideo,
+                isLoadingMore = isLoadingMore
+            )
+        }
+        is MainScreenUiState.Error -> {
+            ErrorPage(
+                error = uiState.throwable,
+                subscribedSet = subscribedSet,
+                onRefresh = onRefresh,
+                modifier = modifier
+            )
         }
     }
 }
 
 @Composable
-fun SettingsDialog(
-    onDismissRequest: () -> Unit
+private fun ErrorPage(
+    error: RedditError,
+    subscribedSet: Set<String>,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    var clientIdInput by remember { mutableStateOf(RedditOAuthHelper.getClientId(context)) }
-    var userAgentInput by remember { mutableStateOf(RedditOAuthHelper.getUserAgent(context)) }
-    var redirectUriInput by remember { mutableStateOf(RedditOAuthHelper.getRedirectUri(context)) }
-
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        containerColor = Color.Black,
-        title = {
-            Text("API Settings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text("Cancel", color = Color.Red)
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    RedditOAuthHelper.saveApiCredentials(context, clientIdInput, userAgentInput, redirectUriInput)
-                    Toast.makeText(context, "Settings saved. Please refresh.", Toast.LENGTH_SHORT).show()
-                    onDismissRequest()
-                }
-            ) {
-                Text("Save", color = Color.Red, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // API Section
-                Text(
-                    text = "Reddit API Client ID",
-                    color = Color.LightGray,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                TextField(
-                    value = clientIdInput,
-                    onValueChange = { clientIdInput = it },
-                    placeholder = { Text("Paste client ID here...", color = Color.Gray) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp)),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Black.copy(alpha = 0.3f),
-                        unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Color.Red
-                    ),
-                    singleLine = true
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "User Agent",
-                    color = Color.LightGray,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                TextField(
-                    value = userAgentInput,
-                    onValueChange = { userAgentInput = it },
-                    placeholder = { Text("Enter User-Agent...", color = Color.Gray) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp)),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Black.copy(alpha = 0.3f),
-                        unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Color.Red
-                    ),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "Redirect URI",
-                    color = Color.LightGray,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                TextField(
-                    value = redirectUriInput,
-                    onValueChange = { redirectUriInput = it },
-                    placeholder = { Text("Enter Redirect URI...", color = Color.Gray) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp)),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Black.copy(alpha = 0.3f),
-                        unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Color.Red
-                    ),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Note: If left empty, defaults to the official RedReader Client ID, User Agent, and Redirect URI so the app works out of the box.",
-                    color = Color.LightGray,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp
-                )
-            }
-        }
-    )
-}
-
-@Composable
-fun HistoryDialog(
-    onDismissRequest: () -> Unit
-) {
-    val context = LocalContext.current
-    val viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository(context)) }
-    val prefs = remember { context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE) }
-    val watchedIds = remember {
-        prefs.getStringSet("watched_ids", emptySet())?.toList()?.sorted() ?: emptyList()
-    }
-    val watchedTitles = remember {
-        try {
-            val json = prefs.getString("watched_titles", null)
-            if (json != null) org.json.JSONObject(json) else org.json.JSONObject()
-        } catch (_: Exception) { org.json.JSONObject() }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        containerColor = Color.Black,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Watch History", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                Text("${watchedIds.size} videos", color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text("Close", color = Color.Red)
-            }
-        },
-        confirmButton = {
-            if (watchedIds.isNotEmpty()) {
-                TextButton(onClick = {
-                    prefs.edit().remove("watched_ids").remove("watched_titles").apply()
-                    onDismissRequest()
-                }) {
-                    Text("Clear All", color = Color.Red)
-                }
-            }
-        },
-        text = {
-            if (watchedIds.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.DateRange,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.2f),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("No watched videos yet", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 400.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    watchedIds.forEachIndexed { index, id ->
-                        val title = watchedTitles.optString(id, id)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (index % 2 == 0) Color.White.copy(alpha = 0.05f) else Color.Transparent)
-                                .padding(vertical = 10.dp, horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = Color.Red.copy(alpha = 0.7f),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = title,
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    fontSize = 14.sp,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                if (title != id) {
-                                    Text(
-                                        text = id,
-                                        color = Color.White.copy(alpha = 0.3f),
-                                        fontSize = 11.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                        if (index < watchedIds.lastIndex) {
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
-                        }
-                    }
-                }
-            }
-        }
-    )
-}
-
-@Composable
-fun SearchPage(
-    currentSubscribed: Set<String>,
-    onSubscribeToggle: (String) -> Unit,
-    onSubredditSelect: (String) -> Unit,
-    searchResults: List<String>,
-    onSearchQuery: (String) -> Unit
-) {
-    var searchQuery by remember { mutableStateOf("") }
+    val message = error.message ?: "Unknown error"
+    val isNoSubscriptions = message.contains("No subscribed subreddits") || message.contains("No subscriptions")
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Search Bar
-        TextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = {
-                Text(
-                    "Search subreddits...",
-                    color = Color.White.copy(alpha = 0.4f),
-                    fontSize = 15.sp
-                )
-            },
-            leadingIcon = {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    tint = Color.Red.copy(alpha = 0.7f),
-                    modifier = Modifier.size(20.dp)
-                )
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(
-                        onClick = {
-                            val query = searchQuery.trim().replace(" ", "")
-                            if (query.isNotEmpty()) {
-                                onSubredditSelect(query)
-                            }
-                        }
-                    ) {
-                        Icon(
-                            Icons.Default.ArrowForward,
-                            contentDescription = "Go",
-                            tint = Color.Red,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp)),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                cursorColor = Color.Red,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent
-            ),
-            singleLine = true,
-            shape = RoundedCornerShape(16.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Search results from Reddit API
-        val trimmedQuery = searchQuery.trim().lowercase()
-        if (trimmedQuery.isNotEmpty()) {
-            LaunchedEffect(trimmedQuery) { onSearchQuery(trimmedQuery) }
-            if (searchResults.isNotEmpty()) {
-                Column(modifier = Modifier.wrapContentHeight()) {
-                    searchResults.forEach { sub ->
-                        val isSubbed = currentSubscribed.contains(sub.lowercase())
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White.copy(alpha = 0.04f))
-                                .clickable { onSubredditSelect(sub) }
-                                .padding(vertical = 10.dp, horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color.Red.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) { Text(sub.take(1).uppercase(), color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("r/$sub", color = Color.White, fontSize = 14.sp)
-                            }
-                            TextButton(onClick = { onSubscribeToggle(sub) }) {
-                                Text(if (isSubbed) "Unsub" else "Sub", color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-        }
-
-        // Subscriptions Section
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "My Subscriptions",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.3.sp
-            )
-            Text(
-                "${currentSubscribed.size}",
-                color = Color.White.copy(alpha = 0.3f),
-                fontSize = 13.sp
-            )
-        }
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Subscriptions List
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            if (currentSubscribed.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.15f),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            "No subscriptions yet",
-                            color = Color.White.copy(alpha = 0.3f),
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            } else {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    currentSubscribed.sorted().forEachIndexed { i, sub ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (i % 2 == 0) Color.White.copy(alpha = 0.03f) else Color.Transparent)
-                                .clickable { onSubredditSelect(sub) }
-                                .padding(vertical = 10.dp, horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.Red.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        sub.take(1).uppercase(),
-                                        color = Color.Red,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text("r/$sub", color = Color.White, fontSize = 15.sp)
-                            }
-                            IconButton(onClick = { onSubscribeToggle(sub) }, modifier = Modifier.size(28.dp)) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Remove",
-                                    tint = Color.White.copy(alpha = 0.3f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun VideoPage(
-    post: RedditPost,
-    isActive: Boolean,
-    subscribedSet: Set<String> = emptySet(),
-    onSubscribeToggle: (String) -> Unit = {},
-    onRemoveVideo: (String, String) -> Unit = { _, _ -> },
-    onNext: () -> Unit = {}
-) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val sharedPreferences = remember { context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE) }
-    
-    // Player State
-    var currentQuality by remember { mutableStateOf(sharedPreferences.getString("saved_quality", "Auto") ?: "Auto") }
-    val exoPlayer = remember(post.id) {
-        val url = post.dashUrl.ifEmpty { post.hlsUrl }.ifEmpty { post.videoUrl }
-        val httpFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("org.quantumbadger.redreader/1.25.1")
-            .setConnectTimeoutMs(30000)
-            .setReadTimeoutMs(30000)
-            .setAllowCrossProtocolRedirects(true)
-        val dataSourceFactory = DefaultDataSource.Factory(context, httpFactory)
-        val player = ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-            .build()
-        player.apply {
-            repeatMode = if (sharedPreferences.getBoolean("auto_next", false)) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
-            setAudioAttributes(androidx.media3.exoplayer.audio.AudioAttributes.Builder()
-                .setUsage(androidx.media3.exoplayer.audio.AudioUsageUsage.MEDIA)
-                .setContentType(androidx.media3.exoplayer.audio.AudioContentType.CONTENT_TYPE_MOVIE)
-                .build(), true)
-            val mediaItem = MediaItem.Builder()
-                .setUri(Uri.parse(url))
-                .build()
-            setMediaItem(mediaItem)
-            playWhenReady = true
-            prepare()
-        }
-        player
-    }
-
-    // Buffering & Playback status
-    var isBuffering by remember { mutableStateOf(true) }
-    var isPlaying by remember { mutableStateOf(true) }
-    
-    DisposableEffect(post.id) {
-        val tag = "VideoPlayer"
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                val s = when (state) { Player.STATE_IDLE -> "IDLE"; Player.STATE_BUFFERING -> "BUFFERING"; Player.STATE_READY -> "READY"; Player.STATE_ENDED -> "ENDED"; else -> "$state" }
-                Log.i(tag, "state=$s")
-                isBuffering = state == Player.STATE_BUFFERING
-                // Auto-next: advance to next video when current ends
-                if (state == Player.STATE_ENDED && sharedPreferences.getBoolean("auto_next", false)) {
-                    onNext()
-                }
-            }
-
-            override fun onIsPlayingChanged(playing: Boolean) {
-                Log.i(tag, "playing=$playing")
-                isPlaying = playing
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                Log.e(tag, "error=${error.localizedMessage}, cause=${error.cause?.localizedMessage}")
-            }
-        }
-        exoPlayer.addListener(listener)
-        onDispose {
-            exoPlayer.removeListener(listener)
-            exoPlayer.release()
-        }
-    }
-
-    // Play/Pause active page
-    LaunchedEffect(isActive) {
-        if (isActive) {
-            exoPlayer.playWhenReady = true
-            exoPlayer.play()
-        } else {
-            exoPlayer.pause()
-        }
-    }
-
-    // Quality setting application
-    LaunchedEffect(currentQuality) {
-        applyQualitySetting(exoPlayer, currentQuality)
-    }
-
-    // Update repeat mode when auto-next changes
-    val autoNext by remember { mutableStateOf(sharedPreferences.getBoolean("auto_next", false)) }
-    LaunchedEffect(autoNext) {
-        exoPlayer.repeatMode = if (autoNext) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
-    }
-
-    // Gesture State HUDs
-    var brightnessPercentage by remember { mutableStateOf(-1f) }
-    var volumePercentage by remember { mutableStateOf(-1f) }
-    var showBrightnessHud by remember { mutableStateOf(false) }
-    var showVolumeHud by remember { mutableStateOf(false) }
-    var hudJob by remember { mutableStateOf<Job?>(null) }
-
-    // Transient Play/Pause indicator
-    var showPlayPauseTransient by remember { mutableStateOf<Boolean?>(null) }
-    var transientJob by remember { mutableStateOf<Job?>(null) }
-
-    // Downloader status
-    var downloadProgress by remember { mutableStateOf<String?>(null) }
-
-    // Rotation status
-    var isRotationLocked by remember { mutableStateOf(true) }
-    val activity = context as? Activity
-    
-    // Initialize orientation to locked portrait on active
-    LaunchedEffect(isActive) {
-        if (isActive && activity != null) {
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            isRotationLocked = true
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // ExoPlayer Canvas
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures {
-                        if (exoPlayer.isPlaying) {
-                            exoPlayer.pause()
-                            showPlayPauseTransient = false
-                        } else {
-                            exoPlayer.play()
-                            showPlayPauseTransient = true
-                        }
-                        transientJob?.cancel()
-                        transientJob = coroutineScope.launch {
-                            delay(600)
-                            showPlayPauseTransient = null
-                        }
-                    }
-                }
-        ) {
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        player = exoPlayer
-                        useController = false
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        setBackgroundColor(android.graphics.Color.BLACK)
-                    }
-                },
-                update = { pv -> pv.player = exoPlayer },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        // Auto-track watched: mark after 50% of video watched
-        LaunchedEffect(isActive, post.id) {
-            if (isActive) {
-                // Wait until player is ready to get duration
-                while (exoPlayer.duration <= 0) delay(500)
-                val duration = exoPlayer.duration
-                val threshold = duration / 10 // 10%
-                // Check every second
-                while (isActive) {
-                    delay(1000)
-                    if (exoPlayer.currentPosition >= threshold && exoPlayer.isPlaying) {
-                        onRemoveVideo(post.id, post.title)
-                        break
-                    }
-                }
-            }
-        }
-
-        // Bottom Transparent Gradient overlay for readability
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.35f)
-                .align(Alignment.BottomCenter)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
-                    )
-                )
-        )
-
-        // Left Edge Gesture Zone (Brightness)
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(0.18f)
-                .align(Alignment.CenterStart)
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onDragStart = {
-                            showBrightnessHud = true
-                            showVolumeHud = false
-                        },
-                        onVerticalDrag = { change, dragAmount ->
-                            change.consume()
-                            if (activity != null) {
-                                val lp = activity.window.attributes
-                                val currentBright = if (lp.screenBrightness < 0f) {
-                                    Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
-                                } else {
-                                    lp.screenBrightness
-                                }
-                                val sensitivity = 0.003f
-                                val nextBright = (currentBright - dragAmount * sensitivity).coerceIn(0.01f, 1f)
-                                lp.screenBrightness = nextBright
-                                activity.window.attributes = lp
-                                brightnessPercentage = nextBright
-                            }
-                            hudJob?.cancel()
-                            hudJob = coroutineScope.launch {
-                                delay(1000)
-                                showBrightnessHud = false
-                            }
-                        },
-                        onDragEnd = {
-                            hudJob?.cancel()
-                            hudJob = coroutineScope.launch {
-                                delay(800)
-                                showBrightnessHud = false
-                            }
-                        }
-                    )
-                }
-        )
-
-        // Right Edge Gesture Zone (Volume)
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(0.18f)
-                .align(Alignment.CenterEnd)
-                .pointerInput(Unit) {
-                    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    detectVerticalDragGestures(
-                        onDragStart = {
-                            showVolumeHud = true
-                            showBrightnessHud = false
-                        },
-                        onVerticalDrag = { change, dragAmount ->
-                            change.consume()
-                            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                            val currentPercent = currentVol.toFloat() / maxVol
-                            val sensitivity = 0.003f
-                            val nextPercent = (currentPercent - dragAmount * sensitivity).coerceIn(0f, 1f)
-                            audioManager.setStreamVolume(
-                                AudioManager.STREAM_MUSIC,
-                                (nextPercent * maxVol).toInt(),
-                                0
-                            )
-                            volumePercentage = nextPercent
-                            hudJob?.cancel()
-                            hudJob = coroutineScope.launch {
-                                delay(1000)
-                                showVolumeHud = false
-                            }
-                        },
-                        onDragEnd = {
-                            hudJob?.cancel()
-                            hudJob = coroutineScope.launch {
-                                delay(800)
-                                showVolumeHud = false
-                            }
-                        }
-                    )
-                }
-        )
-
-        // ponytail: vertical sliders removed in favor of unified bottom horizontal sliders
-
-        // Buffering circular progress indicator
-        if (isBuffering) {
-            CircularProgressIndicator(
-                color = Color.White.copy(alpha = 0.8f),
-                modifier = Modifier
-                    .size(48.dp)
-                    .align(Alignment.Center)
-            )
-        }
-
-        // Transient play/pause visual feed
-        showPlayPauseTransient?.let { state ->
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), shape = CircleShape)
-                    .align(Alignment.Center),
-                contentAlignment = Alignment.Center
-            ) {
-                if (state) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(36.dp)
-                    )
-                } else {
-                    PauseIcon(modifier = Modifier.size(36.dp))
-                }
-            }
-        }
-
-        // Bottom Metadata, Quick Actions and Sliders Overlay
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 24.dp)
-        ) {
-            // Subreddit/Author details with subscribe toggle
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "r/${post.subreddit}",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                val isSubbed = subscribedSet.contains(post.subreddit.lowercase())
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color.Red.copy(alpha = if (isSubbed) 0.2f else 0.15f))
-                        .clickable { onSubscribeToggle(post.subreddit.lowercase()) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (isSubbed) "✓" else "+",
-                        color = Color.Red,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "• u/${post.author}",
-                    color = Color.LightGray,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Post Title
-            Text(
-                text = post.title,
-                color = Color.White,
-                fontSize = 14.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Horizontal row of quick action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Simulated Likes Button
-                MinimalButton(
-                    onClick = {},
-                    label = formatScore(post.score)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ThumbUp,
-                        contentDescription = "Likes",
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-
-                // Rotation Lock Toggle — icon only, no label
-                MinimalButton(
-                    onClick = {
-                        if (activity != null) {
-                            if (isRotationLocked) {
-                                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                                isRotationLocked = false
-                            } else {
-                                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                isRotationLocked = true
-                            }
-                        }
-                    },
-                    label = ""
-                ) {
-                    if (isRotationLocked) {
-                        LockIcon(modifier = Modifier.size(14.dp), tint = Color.Red)
-                    } else {
-                        LockOpenIcon(modifier = Modifier.size(14.dp), tint = Color.White)
-                    }
-                }
-
-                // Auto Next toggle
-                var autoNext by remember { mutableStateOf(sharedPreferences.getBoolean("auto_next", false)) }
-                MinimalButton(
-                    onClick = {
-                        autoNext = !autoNext
-                        sharedPreferences.edit().putBoolean("auto_next", autoNext).apply()
-                    },
-                    label = ""
-                ) {
-                    SkipNextIcon(modifier = Modifier.size(14.dp), tint = if (autoNext) Color.Red else Color.White)
-                }
-
-                // Quality Selection Button
-                var showQualityMenu by remember { mutableStateOf(false) }
-                MinimalButton(
-                    onClick = { showQualityMenu = true },
-                    label = currentQuality
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Quality",
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-
-                if (showQualityMenu) {
-                    AlertDialog(
-                        onDismissRequest = { showQualityMenu = false },
-                        title = { Text("Playback Quality", color = Color.White) },
-                        containerColor = Color.Black,
-                        confirmButton = {},
-                        dismissButton = {
-                            TextButton(onClick = { showQualityMenu = false }) {
-                                Text("Cancel", color = Color.Red)
-                            }
-                        },
-                        text = {
-                            Column {
-                                val qualities = listOf("Auto", "1080p", "720p", "480p", "360p", "240p")
-                                qualities.forEach { qual ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                currentQuality = qual
-                                                sharedPreferences.edit().putString("saved_quality", qual).apply()
-                                                showQualityMenu = false
-                                                Toast.makeText(context, "Quality updated to $qual", Toast.LENGTH_SHORT).show()
-                                            }
-                                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(qual, color = Color.White, fontSize = 16.sp)
-                                        if (currentQuality == qual) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = null,
-                                                tint = Color.Red,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    )
-                }
-
-                // Download/Save Button
-                MinimalButton(
-                    onClick = {
-                        if (downloadProgress == null) {
-                            coroutineScope.launch {
-                                DownloadHelper.downloadRedditVideo(
-                                    context = context,
-                                    fallbackUrl = post.fallbackUrl,
-                                    dashUrl = post.dashUrl,
-                                    title = post.title,
-                                    onProgress = { text ->
-                                        downloadProgress = text
-                                    },
-                                    onComplete = { success, result ->
-                                        downloadProgress = null
-                                        if (success) {
-                                            Toast.makeText(context, "Saved to Downloads: $result", Toast.LENGTH_LONG).show()
-                                        } else {
-                                            Toast.makeText(context, "Download failed: $result", Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    },
-                    label = "Save"
-                ) {
-                    DownloadIcon(modifier = Modifier.size(14.dp))
-                }
-            }
-
-            // Brightness and Volume vertical sliders on each side
-        }
-
-        // Left vertical brightness slider
-        if (showBrightnessHud) {
-            val displayBright = if (brightnessPercentage < 0f && activity != null) {
-                val lp = activity.window.attributes
-                if (lp.screenBrightness < 0f) {
-                    Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
-                } else lp.screenBrightness
-            } else brightnessPercentage
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(32.dp)
-                    .align(Alignment.CenterStart)
-                    .padding(start = 4.dp, top = 360.dp, bottom = 360.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Canvas(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        val trackW = 3.dp.toPx()
-                        val fillH = size.height * displayBright.coerceIn(0f, 1f)
-                        drawRoundRect(
-                            color = Color.White.copy(alpha = 0.3f),
-                            topLeft = Offset((size.width - trackW) / 2f, 0f),
-                            size = Size(trackW, size.height),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
-                        )
-                        drawRoundRect(
-                            color = Color.White,
-                            topLeft = Offset((size.width - trackW) / 2f, size.height - fillH),
-                            size = Size(trackW, fillH),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
-                        )
-                    }
-                    BrightnessIcon(modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-            }
-        }
-
-        // Right vertical volume slider
-        if (showVolumeHud) {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val displayVol = if (volumePercentage < 0f) {
-                audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            } else volumePercentage
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(32.dp)
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 4.dp, top = 360.dp, bottom = 360.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Canvas(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        val trackW = 3.dp.toPx()
-                        val fillH = size.height * displayVol.coerceIn(0f, 1f)
-                        drawRoundRect(
-                            color = Color.White.copy(alpha = 0.3f),
-                            topLeft = Offset((size.width - trackW) / 2f, 0f),
-                            size = Size(trackW, size.height),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
-                        )
-                        drawRoundRect(
-                            color = Color.White,
-                            topLeft = Offset((size.width - trackW) / 2f, size.height - fillH),
-                            size = Size(trackW, fillH),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackW / 2f)
-                        )
-                    }
-                    VolumeIcon(modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-            }
-        }
-
-        // Global download status message overlay
-        downloadProgress?.let { text ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 64.dp, start = 16.dp, end = 16.dp)
-                    .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(8.dp))
-                    .padding(12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(
-                        color = Color.Red,
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = text, color = Color.White, fontSize = 14.sp)
-                }
-            }
-        }
-    }
-}
-
-// ponytail: Canvas-based icons to avoid importing heavy material-icons-extended dependencies
-@Composable
-fun PauseIcon(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        drawRect(color = Color.White, topLeft = Offset(w * 0.28f, h * 0.2f), size = Size(w * 0.12f, h * 0.6f))
-        drawRect(color = Color.White, topLeft = Offset(w * 0.6f, h * 0.2f), size = Size(w * 0.12f, h * 0.6f))
-    }
-}
-
-// ponytail: Canvas lock icons — cleaner geometry for small sizes
-@Composable
-fun LockIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
-    Canvas(modifier = modifier) {
-        val s = size.minDimension
-        val stroke = s * 0.12f
-        // shackle (rounded arc)
-        drawArc(tint, 160f, 220f, false,
-            topLeft = Offset(s * 0.3f, s * 0.08f),
-            size = Size(s * 0.4f, s * 0.38f),
-            style = Stroke(width = stroke)
-        )
-        // body (filled rectangle)
-        drawRoundRect(tint, Offset(s * 0.2f, s * 0.38f), Size(s * 0.6f, s * 0.55f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.08f)
-        )
-        // keyhole
-        drawCircle(tint, s * 0.06f, Offset(s * 0.5f, s * 0.58f))
-        drawLine(tint, Offset(s * 0.5f, s * 0.64f), Offset(s * 0.5f, s * 0.78f), stroke * 0.8f)
-    }
-}
-
-@Composable
-fun LockOpenIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
-    Canvas(modifier = modifier) {
-        val s = size.minDimension
-        val stroke = s * 0.12f
-        // open shackle (gap at bottom-right)
-        drawArc(tint, 150f, 230f, false,
-            topLeft = Offset(s * 0.3f, s * 0.08f),
-            size = Size(s * 0.4f, s * 0.38f),
-            style = Stroke(width = stroke)
-        )
-        // body (filled)
-        drawRoundRect(tint, Offset(s * 0.2f, s * 0.38f), Size(s * 0.6f, s * 0.55f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.08f)
-        )
-        // keyhole
-        drawCircle(tint, s * 0.06f, Offset(s * 0.5f, s * 0.58f))
-        drawLine(tint, Offset(s * 0.5f, s * 0.64f), Offset(s * 0.5f, s * 0.78f), stroke * 0.8f)
-    }
-}
-
-@Composable
-fun DownloadIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        drawLine(color = color, start = Offset(w * 0.5f, h * 0.15f), end = Offset(w * 0.5f, h * 0.65f), strokeWidth = 2.dp.toPx())
-        val path = Path().apply {
-            moveTo(w * 0.25f, h * 0.45f)
-            lineTo(w * 0.5f, h * 0.7f)
-            lineTo(w * 0.75f, h * 0.45f)
-        }
-        drawPath(path, color = color, style = Stroke(width = 2.dp.toPx()))
-        drawLine(color = color, start = Offset(w * 0.2f, h * 0.85f), end = Offset(w * 0.8f, h * 0.85f), strokeWidth = 2.dp.toPx())
-    }
-}
-
-@Composable
-fun MinimalButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    label: String,
-    icon: @Composable () -> Unit
-) {
-    Row(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha = 0.12f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = if (label.isEmpty()) 8.dp else 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+            .fillMaxSize()
+            .padding(if (isNoSubscriptions) 32.dp else 24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        icon()
-        if (label.isNotEmpty()) {
-            Spacer(modifier = Modifier.width(4.dp))
+        if (isNoSubscriptions) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add",
+                tint = Color.Red,
+                modifier = Modifier.size(64.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = label,
+                text = "No Subscriptions",
                 color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
             )
-        }
-    }
-}
-
-@Composable
-fun SkipNextIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        // play triangle
-        val path = Path().apply {
-            moveTo(w * 0.1f, h * 0.15f)
-            lineTo(w * 0.55f, h * 0.5f)
-            lineTo(w * 0.1f, h * 0.85f)
-            close()
-        }
-        drawPath(path, color = tint)
-        // vertical bar
-        drawRect(color = tint, topLeft = Offset(w * 0.65f, h * 0.15f), size = Size(w * 0.12f, h * 0.7f))
-    }
-}
-
-@Composable
-fun BrightnessIcon(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val center = Offset(size.width / 2, size.height / 2)
-        val radius = size.minDimension / 4
-        drawCircle(color = Color.White, radius = radius)
-        
-        val rayStart = size.minDimension * 0.35f
-        val rayEnd = size.minDimension * 0.48f
-        for (i in 0 until 8) {
-            val angle = i * Math.PI / 4
-            val start = Offset(
-                (center.x + rayStart * Math.cos(angle)).toFloat(),
-                (center.y + rayStart * Math.sin(angle)).toFloat()
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Tap the search icon in the top right to discover and subscribe to subreddits.",
+                color = Color.LightGray,
+                fontSize = 14.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                lineHeight = 20.sp
             )
-            val end = Offset(
-                (center.x + rayEnd * Math.cos(angle)).toFloat(),
-                (center.y + rayEnd * Math.sin(angle)).toFloat()
+        } else {
+            Text(
+                text = if (error is RedditError.MissingClientId) "Configuration Required" else "Failed to load videos.",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
             )
-            drawLine(color = Color.White, start = start, end = end, strokeWidth = 2.dp.toPx())
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = message,
+                color = Color.LightGray,
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onRefresh,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            ) {
+                Text("Try Again", color = Color.White)
+            }
         }
     }
-}
-
-@Composable
-fun VolumeIcon(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val path = Path().apply {
-            moveTo(w * 0.2f, h * 0.35f)
-            lineTo(w * 0.45f, h * 0.35f)
-            lineTo(w * 0.7f, h * 0.15f)
-            lineTo(w * 0.7f, h * 0.85f)
-            lineTo(w * 0.45f, h * 0.65f)
-            lineTo(w * 0.2f, h * 0.65f)
-            close()
-        }
-        drawPath(path, color = Color.White)
-        drawArc(
-            color = Color.White,
-            startAngle = -45f,
-            sweepAngle = 90f,
-            useCenter = false,
-            topLeft = Offset(w * 0.15f, h * 0.15f),
-            size = Size(w * 0.7f, h * 0.7f),
-            style = Stroke(width = 2.dp.toPx())
-        )
-    }
-}
-
-private fun formatScore(score: Int): String {
-    return when {
-        score >= 1000000 -> String.format("%.1fM", score / 1000000f)
-        score >= 1000 -> String.format("%.1fk", score / 1000f)
-        else -> score.toString()
-    }
-}
-
-private fun applyQualitySetting(player: ExoPlayer, quality: String) {
-    val maxVideoSize = when (quality) {
-        "240p" -> Pair(426, 240)
-        "360p" -> Pair(640, 360)
-        "480p" -> Pair(854, 480)
-        "720p" -> Pair(1280, 720)
-        "1080p" -> Pair(1920, 1080)
-        else -> Pair(Int.MAX_VALUE, Int.MAX_VALUE)
-    }
-    val parameters = player.trackSelectionParameters.buildUpon()
-        .setMaxVideoSize(maxVideoSize.first, maxVideoSize.second)
-        .build()
-    player.trackSelectionParameters = parameters
 }

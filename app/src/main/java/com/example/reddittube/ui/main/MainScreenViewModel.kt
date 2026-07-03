@@ -1,8 +1,11 @@
 package com.example.reddittube.ui.main
 
+import android.util.Log
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.reddittube.data.DataRepository
+import com.example.reddittube.data.RedditError
 import com.example.reddittube.data.RedditPost
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,6 +13,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 // ponytail: Simplified UI state container. Now manages separate states for Explore and Subscribed sections.
+@Immutable
+sealed interface MainScreenUiState {
+    data object Loading : MainScreenUiState
+    data class Error(val throwable: RedditError) : MainScreenUiState
+    data class Success(val data: List<RedditPost>, val isLoadingMore: Boolean = false) : MainScreenUiState
+}
+
 class MainScreenViewModel(private val dataRepository: DataRepository) : ViewModel() {
     private val _exploreState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
     val exploreState: StateFlow<MainScreenUiState> = _exploreState.asStateFlow()
@@ -34,7 +44,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             obj.keys().asSequence().associateWith { obj.getString(it) }.toMutableMap()
         } else mutableMapOf()
     } catch (_: Exception) { mutableMapOf() }
-    init { android.util.Log.i("WatchedVM", "loaded ${watchedIds.size} watched IDs: $watchedIds") }
+    init { Log.i("WatchedVM", "loaded ${watchedIds.size} watched IDs: $watchedIds") }
 
     fun searchSubreddits(query: String) {
         if (query.length < 2) { _searchResults.value = emptyList(); return }
@@ -57,8 +67,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 dataRepository.fetchRedditVideos(query).collect { posts ->
                     _exploreState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
                 }
-            } catch (e: Exception) {
+            } catch (e: RedditError) {
                 _exploreState.value = MainScreenUiState.Error(e)
+            } catch (e: Exception) {
+                _exploreState.value = MainScreenUiState.Error(RedditError.Unknown(e.message ?: "Unknown error", e))
             }
         }
     }
@@ -67,7 +79,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         subscribedQuery = query
         viewModelScope.launch {
             if (query.isEmpty()) {
-                _subscribedState.value = MainScreenUiState.Error(Exception("No subscribed subreddits. Use the search icon to add subreddits."))
+                _subscribedState.value = MainScreenUiState.Error(RedditError.Unknown("No subscribed subreddits. Use the search icon to add subreddits."))
                 return@launch
             }
             _subscribedState.value = MainScreenUiState.Loading
@@ -75,8 +87,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 dataRepository.fetchRedditVideos(query).collect { posts ->
                     _subscribedState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
                 }
-            } catch (e: Exception) {
+            } catch (e: RedditError) {
                 _subscribedState.value = MainScreenUiState.Error(e)
+            } catch (e: Exception) {
+                _subscribedState.value = MainScreenUiState.Error(RedditError.Unknown(e.message ?: "Unknown error", e))
             }
         }
     }
@@ -123,15 +137,9 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             .putStringSet("watched_ids", watchedIds.toSet())
             .putString("watched_titles", org.json.JSONObject(watchedTitles).toString())
             .commit()
-        android.util.Log.i("WatchedVM", "markAsWatched $id, total=${watchedIds.size}")
+        Log.i("WatchedVM", "markAsWatched $id, total=${watchedIds.size}")
         // ponytail: don't remove from current list — only filter on next refresh to avoid auto-advance
     }
 
     fun getWatchedTitles(): Map<String, String> = watchedTitles.toMap()
-}
-
-sealed interface MainScreenUiState {
-    object Loading : MainScreenUiState
-    data class Error(val throwable: Throwable) : MainScreenUiState
-    data class Success(val data: List<RedditPost>, val isLoadingMore: Boolean = false) : MainScreenUiState
 }

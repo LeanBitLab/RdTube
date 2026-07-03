@@ -17,6 +17,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 // ponytail: Simplified representation of Reddit posts containing video elements. Enforces OAuth.
+@androidx.compose.runtime.Immutable
 data class RedditPost(
     val id: String,
     val title: String,
@@ -29,6 +30,16 @@ data class RedditPost(
     val dashUrl: String,
     val hlsUrl: String
 )
+
+// ponytail: Sealed error hierarchy for typed error handling
+sealed class RedditError(message: String, cause: Throwable? = null) : Exception(message, cause) {
+    class MissingClientId : RedditError("Reddit API Client ID is not configured. Tap Settings gear → API Settings to configure.")
+    class NetworkError(msg: String, cause: Throwable? = null) : RedditError(msg, cause)
+    class RateLimited(retryAfter: Long) : RedditError("Rate limited by Reddit API. Retry after ${retryAfter}s")
+    class NoVideosFound(subreddits: String) : RedditError("Could not retrieve videos from r/$subreddits. Check your API Client ID and connection.")
+    class TokenExpired : RedditError("Access token expired. Retrying...")
+    class Unknown(msg: String, cause: Throwable? = null) : RedditError(msg, cause)
+}
 
 interface DataRepository {
     fun getContext(): Context
@@ -78,14 +89,14 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     override fun fetchRedditVideos(subreddits: String): Flow<List<RedditPost>> = flow {
         val clientId = RedditOAuthHelper.getClientId(context)
         if (clientId.isEmpty()) {
-            throw Exception("Reddit API Client ID is not configured. Tap the gear icon in the top right to configure your API setup.")
+            throw RedditError.MissingClientId()
         }
 
         Log.i("RedditRepository", "Connecting to Reddit API using Client ID...")
         val list = fetchOAuthJsonVideos(subreddits)
         
         if (list.isEmpty()) {
-            throw Exception("Could not retrieve videos from r/$subreddits. Check your API Client ID and connection.")
+            throw RedditError.NoVideosFound(subreddits)
         }
         
         emit(list)
@@ -117,7 +128,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     val json = JSONObject(reader.readText())
                     reader.close()
                     val data = json.optJSONObject("data") ?: continue
-                    after = data.optString("after", null)
+                    after = if (data.has("after") && !data.isNull("after")) data.optString("after") else null
                     val children = data.optJSONArray("children") ?: continue
                     for (i in 0 until children.length()) {
                         val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
@@ -232,7 +243,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
 
                 val jsonObject = JSONObject(response)
                 val data = jsonObject.optJSONObject("data") ?: break
-                after = data.optString("after", null)
+                after = if (data.has("after") && !data.isNull("after")) data.optString("after") else null
                 val children = data.optJSONArray("children")
                 if (children == null || children.length() == 0) break
 
