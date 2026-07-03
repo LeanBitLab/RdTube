@@ -93,7 +93,7 @@ fun VideoPage(
                 .setContentType(androidx.media3.common.C.CONTENT_TYPE_MOVIE)
                 .build(), true)
             setMediaItem(MediaItem.Builder().setUri(Uri.parse(url)).build())
-            playWhenReady = true
+            playWhenReady = false
             prepare()
         }
         player
@@ -102,7 +102,7 @@ fun VideoPage(
     // Buffering & playback status
     var isBuffering by remember { mutableStateOf(true) }
     var isPlaying by remember { mutableStateOf(true) }
-    var justAutoPlayed by remember { mutableStateOf(false) }
+    var pendingAutoPlay by remember { mutableStateOf(false) }
 
     DisposableEffect(post.id) {
         val tag = "VideoPlayer"
@@ -133,8 +133,7 @@ fun VideoPage(
             if (exoPlayer.playbackState == Player.STATE_ENDED) exoPlayer.seekTo(0)
             exoPlayer.playWhenReady = true
             exoPlayer.play()
-            justAutoPlayed = true
-            coroutineScope.launch { delay(500); justAutoPlayed = false }
+            pendingAutoPlay = true
         } else {
             exoPlayer.pause()
         }
@@ -224,8 +223,20 @@ Box(
                                     showOverlay = false
                                 }
                             }
-                            // Toggle play/pause (skip if just auto-played to avoid scroll gesture tap interference)
-                            if (!justAutoPlayed) {
+                            // Consume pendingAutoPlay flag to suppress spurious tap after scroll
+                            if (pendingAutoPlay) {
+                                pendingAutoPlay = false
+                                if (!exoPlayer.isPlaying) {
+                                    exoPlayer.play()
+                                    showPlayPauseTransient = true
+                                    transientJob?.cancel()
+                                    transientJob = coroutineScope.launch {
+                                        delay(600)
+                                        showPlayPauseTransient = null
+                                    }
+                                }
+                            } else {
+                                // Toggle play/pause
                                 if (exoPlayer.isPlaying) {
                                     exoPlayer.pause()
                                     showPlayPauseTransient = false
