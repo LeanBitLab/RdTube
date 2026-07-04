@@ -20,6 +20,13 @@ sealed interface MainScreenUiState {
     data class Success(val data: List<RedditPost>, val isLoadingMore: Boolean = false) : MainScreenUiState
 }
 
+// ponytail: sort options for Reddit feed
+enum class SortOption(val value: String, val label: String) {
+    HOT("hot", "Hot"),
+    NEW("new", "New"),
+    TOP("top", "Top")
+}
+
 class MainScreenViewModel(private val dataRepository: DataRepository) : ViewModel() {
     private val _exploreState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
     val exploreState: StateFlow<MainScreenUiState> = _exploreState.asStateFlow()
@@ -30,6 +37,9 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     var exploreQuery = "shorts+TikTokCringe+funny+videos"
         private set
     var subscribedQuery = ""
+        private set
+
+    var currentSort: SortOption = SortOption.HOT
         private set
 
     private val _searchResults = MutableStateFlow<List<String>>(emptyList())
@@ -59,12 +69,17 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         }
     }
 
+    fun setSort(sort: SortOption) {
+        currentSort = sort
+        refreshExplore()
+    }
+
     fun refreshExplore(query: String = exploreQuery) {
         exploreQuery = query
         viewModelScope.launch {
             _exploreState.value = MainScreenUiState.Loading
             try {
-                dataRepository.fetchRedditVideos(query).collect { posts ->
+                dataRepository.fetchRedditVideos(query, currentSort.value).collect { posts ->
                     _exploreState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
                 }
             } catch (e: RedditError) {
@@ -111,7 +126,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 _subscribedState.value = current.copy(isLoadingMore = true)
             }
             try {
-                dataRepository.fetchMoreVideos(query, afterMap).collect { result ->
+                dataRepository.fetchMoreVideos(query, afterMap, currentSort.value).collect { result ->
                     dataRepository.saveAfterMap(result.afterMap)
                     val updated = current.data + result.posts.filter { it.id !in watchedIds }
                     if (isExplore) {

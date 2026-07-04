@@ -27,6 +27,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import com.example.reddittube.RedditTubeApp
 import com.example.reddittube.data.RedditError
+import com.example.reddittube.ui.main.SortOption
 import kotlinx.coroutines.launch
 
 // ponytail: Main orchestrator — manages HorizontalPager (Explore / Search / Subscribed),
@@ -188,6 +189,21 @@ fun MainScreen(
                             onClick = { showMenu = false; showHistoryDialog = true },
                             leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) }
                         )
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f), thickness = 0.5.dp)
+                        SortOption.entries.forEach { sort ->
+                            val isActive = viewModel.currentSort == sort
+                            DropdownMenuItem(
+                                text = { Text(sort.label, color = if (isActive) Color.Red else Color.White) },
+                                onClick = { showMenu = false; viewModel.setSort(sort) },
+                                leadingIcon = {
+                                    if (isActive) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                    } else {
+                                        Spacer(modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }

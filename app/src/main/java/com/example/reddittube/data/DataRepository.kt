@@ -42,9 +42,9 @@ sealed class RedditError(message: String, cause: Throwable? = null) : Exception(
 
 interface DataRepository {
     fun getContext(): Context
-    fun fetchRedditVideos(subreddits: String): Flow<List<RedditPost>>
+    fun fetchRedditVideos(subreddits: String, sort: String = "hot"): Flow<List<RedditPost>>
     fun searchSubreddits(query: String): Flow<List<String>>
-    fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>): Flow<FetchMoreResult>
+    fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String = "hot"): Flow<FetchMoreResult>
     fun getAfterMap(): Map<String, String?>
     fun saveAfterMap(map: Map<String, String?>)
 }
@@ -85,9 +85,9 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         emit(results)
     }.flowOn(Dispatchers.IO)
 
-    override fun fetchRedditVideos(subreddits: String): Flow<List<RedditPost>> = flow {
-        Log.i("RedditRepository", "Connecting to Reddit API using RedReader Client ID...")
-        val list = fetchOAuthJsonVideos(subreddits)
+    override fun fetchRedditVideos(subreddits: String, sort: String): Flow<List<RedditPost>> = flow {
+        Log.i("RedditRepository", "Connecting to Reddit API using RedReader Client ID, sort=$sort")
+        val list = fetchOAuthJsonVideos(subreddits, sort)
         
         if (list.isEmpty()) {
             throw RedditError.NoVideosFound(subreddits)
@@ -96,7 +96,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         emit(list)
     }.flowOn(Dispatchers.IO)
 
-    override fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>): Flow<FetchMoreResult> = flow {
+    override fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String): Flow<FetchMoreResult> = flow {
         val token = RedditOAuthHelper.getOrFetchAccessToken(context) ?: run { emit(FetchMoreResult(emptyList(), afterMap)); return@flow }
         val subs = subreddits.replace(" ", "").trim().split("+").filter { it.isNotEmpty() }
         if (subs.isEmpty()) { emit(FetchMoreResult(emptyList(), afterMap)); return@flow }
@@ -104,66 +104,67 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val nextAfterMap = afterMap.toMutableMap()
         val allPosts = mutableListOf<RedditPost>()
         for (sub in subs) {
-            val cursor = afterMap[sub]
-            if (cursor == null) continue  // no more pages for this sub
-            var after: String? = cursor
-            // fetch 1 additional page per sub
-            try {
-                val urlStr = "https://oauth.reddit.com/r/$sub/hot.json?limit=25&raw_json=1&include_over_18=on" +
-                    (if (after.isNotEmpty()) "&after=$after" else "")
-                val conn = URL(urlStr).openConnection() as HttpURLConnection
-                conn.requestMethod = "GET"
-                conn.setRequestProperty("Authorization", "Bearer $token")
-                conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
-                conn.connectTimeout = 15000
-                conn.readTimeout = 15000
-                if (conn.responseCode == 200) {
-                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                    val json = JSONObject(reader.readText())
-                    reader.close()
-                    val data = json.optJSONObject("data") ?: continue
-                    after = if (data.has("after") && !data.isNull("after")) data.optString("after") else null
-                    val children = data.optJSONArray("children") ?: continue
-                    for (i in 0 until children.length()) {
-                        val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
-                        var isVideo = childData.optBoolean("is_video", false)
-                        var redditVideo = childData.optJSONObject("media")?.optJSONObject("reddit_video")
-                        if (redditVideo == null) {
-                            val preview = childData.optJSONObject("preview")
-                            redditVideo = preview?.optJSONObject("reddit_video_preview")
-                            if (redditVideo != null) isVideo = true
-                        }
-                        if (isVideo && redditVideo != null) {
-                            val videoUrl = redditVideo.optString("fallback_url").replace("&amp;", "&")
-                            if (videoUrl.isNotEmpty()) {
-                                allPosts.add(RedditPost(
-                                    id = childData.optString("id"),
-                                    title = childData.optString("title"),
-                                    subreddit = childData.optString("subreddit"),
-                                    author = childData.optString("author"),
-                                    score = childData.optInt("score"),
-                                    permalink = childData.optString("permalink"),
-                                    videoUrl = videoUrl,
-                                    fallbackUrl = videoUrl,
-                                    dashUrl = redditVideo.optString("dash_url").replace("&amp;", "&"),
-                                    hlsUrl = redditVideo.optString("hls_url").replace("&amp;", "&")
-                                ))
+            var after = afterMap[sub] ?: continue  // no more pages for this sub
+            // ponytail: fetch up to 3 more pages per sub, stop early at 15
+            for (page in 0 until 3) {
+                if (allPosts.count { it.subreddit == sub } >= 15) break
+                try {
+                    val urlStr = "https://oauth.reddit.com/r/$sub/$sort.json?limit=25&raw_json=1&include_over_18=on" +
+                        (if (after.isNotEmpty()) "&after=$after" else "")
+                    val conn = URL(urlStr).openConnection() as HttpURLConnection
+                    conn.requestMethod = "GET"
+                    conn.setRequestProperty("Authorization", "Bearer $token")
+                    conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
+                    conn.connectTimeout = 15000
+                    conn.readTimeout = 15000
+                    if (conn.responseCode == 200) {
+                        val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                        val json = JSONObject(reader.readText())
+                        reader.close()
+                        val data = json.optJSONObject("data") ?: break
+                        after = if (data.has("after") && !data.isNull("after")) data.optString("after") else break
+                        val children = data.optJSONArray("children") ?: break
+                        for (i in 0 until children.length()) {
+                            val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
+                            var isVideo = childData.optBoolean("is_video", false)
+                            var redditVideo = childData.optJSONObject("media")?.optJSONObject("reddit_video")
+                            if (redditVideo == null) {
+                                val preview = childData.optJSONObject("preview")
+                                redditVideo = preview?.optJSONObject("reddit_video_preview")
+                                if (redditVideo != null) isVideo = true
+                            }
+                            if (isVideo && redditVideo != null) {
+                                val videoUrl = redditVideo.optString("fallback_url").replace("&amp;", "&")
+                                if (videoUrl.isNotEmpty()) {
+                                    allPosts.add(RedditPost(
+                                        id = childData.optString("id"),
+                                        title = childData.optString("title"),
+                                        subreddit = childData.optString("subreddit"),
+                                        author = childData.optString("author"),
+                                        score = childData.optInt("score"),
+                                        permalink = childData.optString("permalink"),
+                                        videoUrl = videoUrl,
+                                        fallbackUrl = videoUrl,
+                                        dashUrl = redditVideo.optString("dash_url").replace("&amp;", "&"),
+                                        hlsUrl = redditVideo.optString("hls_url").replace("&amp;", "&")
+                                    ))
+                                }
                             }
                         }
+                    } else {
+                        break
                     }
-                    nextAfterMap[sub] = after  // null = no more pages
-                } else {
-                    nextAfterMap[sub] = null
+                } catch (e: Exception) {
+                    Log.e("RedditRepository", "fetchMore r/$sub page $page error: ${e.message}")
+                    break
                 }
-            } catch (e: Exception) {
-                Log.e("RedditRepository", "fetchMore r/$sub error: ${e.message}")
-                nextAfterMap[sub] = null
             }
+            nextAfterMap[sub] = after
         }
         emit(FetchMoreResult(allPosts, nextAfterMap))
     }.flowOn(Dispatchers.IO)
 
-    private suspend fun fetchOAuthJsonVideos(subreddits: String): List<RedditPost> {
+    private suspend fun fetchOAuthJsonVideos(subreddits: String, sort: String = "hot"): List<RedditPost> {
         val cleanSubs = subreddits.replace(" ", "").trim()
         val subs = cleanSubs.split("+").filter { it.isNotEmpty() }
         if (subs.isEmpty()) return emptyList()
@@ -173,13 +174,13 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val lists = coroutineScope {
             subs.map { sub ->
                 async {
-                    var result = performOAuthRequest(sub, token)
+                    var result = performOAuthRequest(sub, token, sort)
                     if (result.isEmpty()) {
                         val prefs = context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
                         prefs.edit().remove("reddit_access_token").remove("reddit_token_expires_at").apply()
                         val freshToken = RedditOAuthHelper.getOrFetchAccessToken(context)
                         if (freshToken != null) {
-                            result = performOAuthRequest(sub, freshToken)
+                            result = performOAuthRequest(sub, freshToken, sort)
                         }
                     }
                     result
@@ -213,13 +214,13 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         _afterMap.putAll(map)
     }
 
-    private fun performOAuthRequest(subreddit: String, token: String): List<RedditPost> {
+    private fun performOAuthRequest(subreddit: String, token: String, sort: String = "hot"): List<RedditPost> {
         val list = mutableListOf<RedditPost>()
         var after: String? = null
         for (page in 0 until 3) {
             if (list.size >= 15) break
             try {
-                val urlStr = "https://oauth.reddit.com/r/$subreddit/hot.json?limit=25&raw_json=1&include_over_18=on" +
+                val urlStr = "https://oauth.reddit.com/r/$subreddit/$sort.json?limit=25&raw_json=1&include_over_18=on" +
                     (if (after != null) "&after=$after" else "")
                 val connection = URL(urlStr).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
