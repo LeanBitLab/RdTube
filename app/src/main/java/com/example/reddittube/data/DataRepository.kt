@@ -33,7 +33,6 @@ data class RedditPost(
 
 // ponytail: Sealed error hierarchy for typed error handling
 sealed class RedditError(message: String, cause: Throwable? = null) : Exception(message, cause) {
-    class MissingClientId : RedditError("Reddit API Client ID is not configured. Tap Settings gear → API Settings to configure.")
     class NetworkError(msg: String, cause: Throwable? = null) : RedditError(msg, cause)
     class RateLimited(retryAfter: Long) : RedditError("Rate limited by Reddit API. Retry after ${retryAfter}s")
     class NoVideosFound(subreddits: String) : RedditError("Could not retrieve videos from r/$subreddits. Check your API Client ID and connection.")
@@ -65,7 +64,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
+            conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
             if (conn.responseCode == 200) {
@@ -87,12 +86,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     }.flowOn(Dispatchers.IO)
 
     override fun fetchRedditVideos(subreddits: String): Flow<List<RedditPost>> = flow {
-        val clientId = RedditOAuthHelper.getClientId(context)
-        if (clientId.isEmpty()) {
-            throw RedditError.MissingClientId()
-        }
-
-        Log.i("RedditRepository", "Connecting to Reddit API using Client ID...")
+        Log.i("RedditRepository", "Connecting to Reddit API using RedReader Client ID...")
         val list = fetchOAuthJsonVideos(subreddits)
         
         if (list.isEmpty()) {
@@ -120,7 +114,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 val conn = URL(urlStr).openConnection() as HttpURLConnection
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("Authorization", "Bearer $token")
-                conn.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
+                conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
                 conn.connectTimeout = 15000
                 conn.readTimeout = 15000
                 if (conn.responseCode == 200) {
@@ -230,7 +224,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 val connection = URL(urlStr).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("Authorization", "Bearer $token")
-                connection.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
+                connection.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
                 connection.connectTimeout = 15000
                 connection.readTimeout = 15000
 

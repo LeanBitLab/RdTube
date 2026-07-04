@@ -33,9 +33,6 @@ class DataRepositoryTest {
 
     @Test
     fun `redditError hierarchy covers all types`() {
-        val missingClientId = RedditError.MissingClientId()
-        assert(missingClientId.message?.contains("Client ID") == true)
-
         val networkError = RedditError.NetworkError("Timeout", null)
         assert(networkError.message == "Timeout")
 

@@ -92,7 +92,8 @@ fun PlayerSlider(
                             dragFraction = (offset.x / size.width).coerceIn(0f, 1f)
                         },
                         onDragEnd = {
-                            player.seekTo((clampedProgress * duration).toLong())
+                            val frac = dragFraction.coerceIn(0f, 1f)
+                            player.seekTo((frac * duration).toLong())
                             dragFraction = -1f
                         },
                         onDragCancel = { dragFraction = -1f },

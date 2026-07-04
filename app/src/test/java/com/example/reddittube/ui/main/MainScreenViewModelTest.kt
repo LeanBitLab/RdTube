@@ -89,14 +89,14 @@ class MainScreenViewModelTest {
 
     @Test
     fun `refreshExplore emits Error when repository throws`() = runTest(testDispatcher) {
-        val repo = FakeRepository(fetchResult = { flow { throw RedditError.MissingClientId() } })
+        val repo = FakeRepository(fetchResult = { flow { throw RedditError.NetworkError("Timeout") } })
         val viewModel = MainScreenViewModel(repo)
         viewModel.refreshExplore()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = viewModel.exploreState.value
         assert(state is MainScreenUiState.Error) { "Expected Error, got $state" }
-        assert((state as MainScreenUiState.Error).throwable is RedditError.MissingClientId)
+        assert((state as MainScreenUiState.Error).throwable is RedditError.NetworkError)
     }
 
     @Test

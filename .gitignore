@@ -22,3 +22,7 @@ opencode.json
 
 # Antigravity files
 .antigravityignore
+
+# npm collateral (not an Android dependency)
+package.json
+package-lock.json

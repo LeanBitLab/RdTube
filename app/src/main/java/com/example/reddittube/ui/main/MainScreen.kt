@@ -45,7 +45,6 @@ fun MainScreen(
     val coroutineScope = rememberCoroutineScope()
     val horizontalPagerState = rememberPagerState(pageCount = { 3 })
 
-    var showSettingsDialog by remember { mutableStateOf(false) }
     var showHistoryDialog by remember { mutableStateOf(false) }
 
     var subscribedSet by remember {
@@ -180,11 +179,6 @@ fun MainScreen(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Settings", color = Color.White) },
-                            onClick = { showMenu = false; showSettingsDialog = true },
-                            leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) }
-                        )
-                        DropdownMenuItem(
                             text = { Text("Refresh", color = Color.White) },
                             onClick = { showMenu = false; refreshCurrentFeed() },
                             leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) }
@@ -255,7 +249,6 @@ fun MainScreen(
         }
 
         // Overlays
-        if (showSettingsDialog) SettingsDialog(onDismissRequest = { showSettingsDialog = false })
         if (showHistoryDialog) HistoryDialog(onDismissRequest = { showHistoryDialog = false })
     }
 }
@@ -342,7 +335,7 @@ private fun ErrorPage(
             )
         } else {
             Text(
-                text = if (error is RedditError.MissingClientId) "Configuration Required" else "Failed to load videos.",
+                text = "Failed to load videos.",
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold

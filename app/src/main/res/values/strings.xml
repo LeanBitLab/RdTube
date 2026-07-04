@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">RedditTube</string>
-    <string name="menu_settings">Settings</string>
     <string name="menu_refresh">Refresh</string>
     <string name="menu_history">History</string>
     <string name="tab_explore">Explore</string>
@@ -11,11 +10,6 @@
     <string name="speed_normal">Normal</string>
     <string name="save_label">Save</string>
     <string name="loading_more">Finding more…</string>
-    <string name="api_settings_title">API Settings</string>
-    <string name="api_client_id_label">Reddit API Client ID</string>
-    <string name="api_user_agent_label">User Agent</string>
-    <string name="api_redirect_uri_label">Redirect URI</string>
-    <string name="settings_saved">Settings saved. Please refresh.</string>
     <string name="back_again_to_exit">Press back again to exit</string>
     <string name="saved_to_downloads">Saved to Downloads: %1$s</string>
     <string name="download_failed">Download failed: %1$s</string>
@@ -23,7 +17,6 @@
     <string name="speed_updated">Speed set to %1$s</string>
     <string name="no_subscriptions">No subreddits subscribed yet! Use search.</string>
     <string name="error_title">Failed to load videos.</string>
-    <string name="error_config_required">Configuration Required</string>
     <string name="try_again">Try Again</string>
     <string name="sub_btn">Sub</string>
     <string name="unsub_btn">Unsub</string>
