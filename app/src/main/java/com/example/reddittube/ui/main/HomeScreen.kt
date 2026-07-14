@@ -117,7 +117,7 @@ fun HomeScreen(
     ) {
         HorizontalPager(
             state = horizontalPagerState,
-            modifier = Modifier.fillMaxSize().padding(bottom = 88.dp),
+            modifier = Modifier.fillMaxSize(),
             userScrollEnabled = false
         ) { pageIndex ->
             when (pageIndex) {
