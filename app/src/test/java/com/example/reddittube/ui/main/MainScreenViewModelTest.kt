@@ -121,7 +121,8 @@ class MainScreenViewModelTest {
             }
         )
         val viewModel = MainScreenViewModel(repo)
-        viewModel.markAsWatched("existing_id", "Old Video")
+        val existing = RedditPost("existing_id", "Old Video", "test", "author", 100, "/r/test/1", "url", "url", "", "")
+        viewModel.markAsWatched(existing)
         viewModel.refreshExplore()
         testDispatcher.scheduler.advanceUntilIdle()
 

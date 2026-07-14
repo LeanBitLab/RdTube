@@ -16,7 +16,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.BrightnessHigh
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,7 +55,6 @@ import com.example.reddittube.data.RedditPost
 import com.example.reddittube.ui.main.components.MinimalButton
 import com.example.reddittube.ui.main.components.PlayerSlider
 import com.example.reddittube.ui.main.components.QualityBottomSheet
-import com.example.reddittube.ui.main.icons.*
 import com.example.reddittube.utils.DownloadHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -61,7 +67,7 @@ fun VideoPage(
     isActive: Boolean,
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
-    onRemoveVideo: (String, String) -> Unit = { _, _ -> },
+    onRemoveVideo: (RedditPost) -> Unit = {},
     onNext: () -> Unit = {},
     isMuted: Boolean = false,
     onMuteChange: (Boolean) -> Unit = {}
@@ -277,7 +283,7 @@ Box(
                 while (isActive) {
                     delay(1000)
                     if (exoPlayer.currentPosition >= threshold && exoPlayer.isPlaying) {
-                        onRemoveVideo(post.id, post.title)
+                        onRemoveVideo(post)
                         break
                     }
                 }
@@ -398,11 +404,12 @@ Box(
                     .align(Alignment.Center),
                 contentAlignment = Alignment.Center
             ) {
-                if (state) {
-                    PlayArrowIcon(modifier = Modifier.size(36.dp))
-                } else {
-                    PauseIcon(modifier = Modifier.size(36.dp))
-                }
+                Icon(
+                    if (state) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp)
+                )
             }
         }
 
@@ -494,8 +501,12 @@ MinimalButton(
                         },
                         label = ""
                     ) {
-                        if (isRotationLocked) LockIcon(modifier = Modifier.size(14.dp), tint = Color.Red)
-                        else LockOpenIcon(modifier = Modifier.size(14.dp), tint = Color.White)
+                        Icon(
+                            if (isRotationLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                            contentDescription = "Rotation",
+                            tint = if (isRotationLocked) Color.Red else Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
                     }
 
                     // Mute/unmute
@@ -503,8 +514,12 @@ MinimalButton(
                         onClick = { onMuteChange(!isMuted) },
                         label = ""
                     ) {
-                        if (isMuted) MuteIcon(modifier = Modifier.size(14.dp), tint = Color.Red)
-                        else VolumeIcon(modifier = Modifier.size(14.dp))
+                        Icon(
+                            if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Mute",
+                            tint = if (isMuted) Color.Red else Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
                     }
 
                     // Auto-next
@@ -516,7 +531,12 @@ MinimalButton(
                         },
                         label = ""
                     ) {
-                        SkipNextIcon(modifier = Modifier.size(14.dp), tint = if (localAutoNext) Color.Red else Color.White)
+                        Icon(
+                            Icons.Default.SkipNext,
+                            contentDescription = "Auto-next",
+                            tint = if (localAutoNext) Color.Red else Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
                     }
 
 // Download / Save
@@ -541,7 +561,7 @@ MinimalButton(
                         },
         label = ""
     ) {
-        DownloadIcon(modifier = Modifier.size(14.dp))
+        Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White, modifier = Modifier.size(14.dp))
     }
                 }
 
@@ -585,7 +605,7 @@ MinimalButton(
                             cornerRadius = CornerRadius(trackW / 2f)
                         )
                     }
-                    BrightnessIcon(modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
+                    Icon(Icons.Default.BrightnessHigh, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
                     Spacer(modifier = Modifier.height(20.dp))
                 }
             }
@@ -621,7 +641,7 @@ MinimalButton(
                             cornerRadius = CornerRadius(trackW / 2f)
                         )
                     }
-                    VolumeIcon(modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
+                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
                     Spacer(modifier = Modifier.height(20.dp))
                 }
             }

@@ -26,12 +26,13 @@ fun VideoFeedContent(
     modifier: Modifier = Modifier,
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
-    onRemoveVideo: (String, String) -> Unit = { _, _ -> },
+    onRemoveVideo: (RedditPost) -> Unit = {},
     onLoadMore: () -> Unit = {},
     onRefresh: () -> Unit = {},
-    isLoadingMore: Boolean = false
+    isLoadingMore: Boolean = false,
+    startIndex: Int = 0
 ) {
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { data.size })
+    val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { data.size })
     val coroutineScope = rememberCoroutineScope()
     var isMuted by remember { mutableStateOf(false) }
 

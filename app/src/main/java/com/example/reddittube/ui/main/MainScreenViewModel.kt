@@ -1,6 +1,7 @@
 package com.example.reddittube.ui.main
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -45,16 +46,60 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _searchResults = MutableStateFlow<List<String>>(emptyList())
     val searchResults: StateFlow<List<String>> = _searchResults.asStateFlow()
 
+    // ponytail: list + index opened from the browse/home grid, played by PlayerScreen
+    private val _playerList = MutableStateFlow<List<RedditPost>>(emptyList())
+    val playerList: StateFlow<List<RedditPost>> = _playerList.asStateFlow()
+    var playerStartIndex = 0
+        private set
+
+    fun openPlayer(list: List<RedditPost>, index: Int) {
+        _playerList.value = list
+        playerStartIndex = index
+    }
+
     // ponytail: persist watched IDs to SharedPreferences so they survive app restart
+    // ponytail: cap at 1000 entries, trim oldest via watched_order list
+    companion object { private const val WATCHED_CAP = 1000 }
     private val prefs = dataRepository.getContext().getSharedPreferences("reddittube_prefs", android.content.Context.MODE_PRIVATE)
     private val watchedIds = prefs.getStringSet("watched_ids", emptySet())?.toMutableSet() ?: mutableSetOf()
+    private val watchedOrder: MutableList<String> = try {
+        org.json.JSONArray(prefs.getString("watched_order", "[]") ?: "[]").let { arr ->
+            (0 until arr.length()).map { arr.getString(it) }.toMutableList()
+        }
+    } catch (_: Exception) { mutableListOf() }
     private val watchedTitles: MutableMap<String, String> = try {
         val json = prefs.getString("watched_titles", null)
         if (json != null) org.json.JSONObject(json).let { obj ->
             obj.keys().asSequence().associateWith { obj.getString(it) }.toMutableMap()
         } else mutableMapOf()
     } catch (_: Exception) { mutableMapOf() }
-    init { Log.i("WatchedVM", "loaded ${watchedIds.size} watched IDs: $watchedIds") }
+    private val watchedPosts: MutableMap<String, RedditPost> = try {
+        val json = prefs.getString("watched_posts", null)
+        if (json != null) org.json.JSONArray(json).let { arr ->
+            (0 until arr.length()).mapNotNull { i -> runCatching { jsonToPost(arr.getJSONObject(i)) }.getOrNull() }
+                .associateBy { it.id }.toMutableMap()
+        } else mutableMapOf()
+    } catch (_: Exception) { mutableMapOf() }
+    init {
+        // ponytail: trim to cap on load
+        if (watchedOrder.size > WATCHED_CAP) {
+            val trim = watchedOrder.size - WATCHED_CAP
+            val removeIds = watchedOrder.take(trim)
+            repeat(trim) { watchedOrder.removeAt(0) }
+            removeIds.forEach { watchedIds.remove(it); watchedTitles.remove(it); watchedPosts.remove(it) }
+            saveWatched()
+        }
+        Log.i("WatchedVM", "loaded ${watchedIds.size} watched IDs")
+    }
+
+    private fun showError(e: Throwable) {
+        val msg = e.message ?: "Unknown error"
+        // ponytail: show toast for rate limit so user knows to wait
+        if (e is RedditError.RateLimited) {
+            Toast.makeText(dataRepository.getContext(), "Rate limited by Reddit. Wait ${e.message?.substringAfter("after ")?.trim()?.removeSuffix("s") ?: ""}s", Toast.LENGTH_LONG).show()
+        }
+        Log.e("WatchedVM", "error: $msg")
+    }
 
     fun searchSubreddits(query: String) {
         if (query.length < 2) { _searchResults.value = emptyList(); return }
@@ -83,8 +128,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                     _exploreState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
                 }
             } catch (e: RedditError) {
+                showError(e)
                 _exploreState.value = MainScreenUiState.Error(e)
             } catch (e: Exception) {
+                showError(e)
                 _exploreState.value = MainScreenUiState.Error(RedditError.Unknown(e.message ?: "Unknown error", e))
             }
         }
@@ -103,8 +150,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                     _subscribedState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
                 }
             } catch (e: RedditError) {
+                showError(e)
                 _subscribedState.value = MainScreenUiState.Error(e)
             } catch (e: Exception) {
+                showError(e)
                 _subscribedState.value = MainScreenUiState.Error(RedditError.Unknown(e.message ?: "Unknown error", e))
             }
         }
@@ -135,7 +184,8 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                         _subscribedState.value = MainScreenUiState.Success(updated, isLoadingMore = false)
                     }
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                showError(e)
                 if (isExplore) {
                     _exploreState.value = current.copy(isLoadingMore = false)
                 } else {
@@ -145,16 +195,51 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         }
     }
 
-    fun markAsWatched(id: String, title: String = "") {
+    fun markAsWatched(post: RedditPost) {
+        val id = post.id
+        if (id in watchedIds) return  // ponytail: already tracked, skip
         watchedIds.add(id)
-        if (title.isNotEmpty()) watchedTitles[id] = title
-        prefs.edit()
-            .putStringSet("watched_ids", watchedIds.toSet())
-            .putString("watched_titles", org.json.JSONObject(watchedTitles).toString())
-            .commit()
+        watchedOrder.add(id)
+        watchedTitles[id] = post.title
+        watchedPosts[id] = post
+        // ponytail: trim oldest if over cap
+        while (watchedOrder.size > WATCHED_CAP) {
+            val oldest = watchedOrder.removeAt(0)
+            watchedIds.remove(oldest)
+            watchedTitles.remove(oldest)
+            watchedPosts.remove(oldest)
+        }
+        saveWatched()
         Log.i("WatchedVM", "markAsWatched $id, total=${watchedIds.size}")
         // ponytail: don't remove from current list — only filter on next refresh to avoid auto-advance
     }
 
-    fun getWatchedTitles(): Map<String, String> = watchedTitles.toMap()
+    private fun saveWatched() {
+        prefs.edit()
+            .putStringSet("watched_ids", watchedIds.toSet())
+            .putString("watched_order", org.json.JSONArray(watchedOrder).toString())
+            .putString("watched_titles", org.json.JSONObject(watchedTitles).toString())
+            .putString("watched_posts", org.json.JSONArray().apply { watchedPosts.values.forEach { put(postToJson(it)) } }.toString())
+            .commit()
+    }
+
+    fun getWatchedPosts(): List<RedditPost> {
+        return watchedOrder.mapNotNull { id ->
+            watchedPosts[id] ?: watchedTitles[id]?.let { RedditPost(id, it, "", "", 0, "", "", "", "", "") }
+        }
+    }
+
+    private fun postToJson(p: RedditPost) = org.json.JSONObject().apply {
+        put("id", p.id); put("title", p.title); put("subreddit", p.subreddit); put("author", p.author)
+        put("score", p.score); put("permalink", p.permalink); put("videoUrl", p.videoUrl)
+        put("fallbackUrl", p.fallbackUrl); put("dashUrl", p.dashUrl); put("hlsUrl", p.hlsUrl)
+        put("thumbnailUrl", p.thumbnailUrl); put("numComments", p.numComments)
+    }
+
+    private fun jsonToPost(o: org.json.JSONObject) = RedditPost(
+        id = o.optString("id"), title = o.optString("title"), subreddit = o.optString("subreddit"),
+        author = o.optString("author"), score = o.optInt("score"), permalink = o.optString("permalink"),
+        videoUrl = o.optString("videoUrl"), fallbackUrl = o.optString("fallbackUrl"), dashUrl = o.optString("dashUrl"),
+        hlsUrl = o.optString("hlsUrl"), thumbnailUrl = o.optString("thumbnailUrl"), numComments = o.optInt("numComments")
+    )
 }
