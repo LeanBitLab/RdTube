@@ -222,16 +222,18 @@ fun HomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
+                    .background(Color.Black.copy(alpha = 0.6f))
                     .clickable { showPanel = false }
             ) {
                 Surface(
                     color = Color(0xFF1A1A1A),
-                    shadowElevation = 12.dp,
+                    shape = RoundedCornerShape(16.dp),
+                    shadowElevation = 16.dp,
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .fillMaxHeight()
                         .width(300.dp)
+                        .padding(top = 16.dp, bottom = 16.dp, start = 24.dp, end = 16.dp)
                         .clickable { }  // ponytail: consume clicks so scrim close doesn't fire
                 ) {
                     Column(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
