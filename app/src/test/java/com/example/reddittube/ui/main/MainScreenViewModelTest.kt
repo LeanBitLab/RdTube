@@ -43,11 +43,11 @@ class FakeRepository(
         Mockito.`when`(ctx.applicationContext).thenReturn(ctx)
     }
     override fun getContext(): Context = mockContext
-    override fun fetchRedditVideos(subreddits: String, sort: String) = fetchResult()
+    override fun fetchRedditVideos(subreddits: String, sort: String, feed: String) = fetchResult()
     override fun searchSubreddits(query: String) = searchResult()
-    override fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String) = fetchMoreResult()
-    override fun getAfterMap(): Map<String, String?> = afterMap()
-    override fun saveAfterMap(map: Map<String, String?>) = onSaveAfterMap(map)
+    override fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String, feed: String) = fetchMoreResult()
+    override fun getAfterMap(feed: String): Map<String, String?> = afterMap()
+    override fun saveAfterMap(map: Map<String, String?>, feed: String) = onSaveAfterMap(map)
 }
 
 class MainScreenViewModelTest {

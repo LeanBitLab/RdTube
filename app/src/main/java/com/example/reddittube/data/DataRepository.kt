@@ -13,6 +13,8 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
 
 // ponytail: Simplified representation of Reddit posts containing video elements. Enforces OAuth.
@@ -43,11 +45,11 @@ sealed class RedditError(message: String, cause: Throwable? = null) : Exception(
 
 interface DataRepository {
     fun getContext(): Context
-    fun fetchRedditVideos(subreddits: String, sort: String = "hot"): Flow<List<RedditPost>>
+    fun fetchRedditVideos(subreddits: String, sort: String = "hot", feed: String = "explore"): Flow<List<RedditPost>>
     fun searchSubreddits(query: String): Flow<List<String>>
-    fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String = "hot"): Flow<FetchMoreResult>
-    fun getAfterMap(): Map<String, String?>
-    fun saveAfterMap(map: Map<String, String?>)
+    fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String = "hot", feed: String = "explore"): Flow<FetchMoreResult>
+    fun getAfterMap(feed: String = "explore"): Map<String, String?>
+    fun saveAfterMap(map: Map<String, String?>, feed: String = "explore")
 }
 
 // ponytail: batch result plus per-subreddit cursors for infinite scroll
@@ -58,6 +60,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
 
     // ponytail: throttle to 55 req/min (limit is 60), global across all callers
     private val lastRequestTime = AtomicLong(0)
+    private val requestMutex = Mutex()
     private companion object {
         const val MIN_REQUEST_INTERVAL_MS = 1100L  // ~55 req/min
         const val MAX_RETRIES = 2
@@ -69,13 +72,15 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
      */
     private suspend fun performRequest(urlStr: String, token: String, timeout: Int = 15000): JSONObject? {
         for (attempt in 0 until MAX_RETRIES) {
-            // throttle: wait minimum interval between requests
-            val now = System.currentTimeMillis()
-            val elapsed = now - lastRequestTime.get()
-            if (elapsed < MIN_REQUEST_INTERVAL_MS) {
-                delay(MIN_REQUEST_INTERVAL_MS - elapsed)
+            // throttle: serialize the wait so concurrent flows can't both pass the interval check
+            requestMutex.withLock {
+                val now = System.currentTimeMillis()
+                val elapsed = now - lastRequestTime.get()
+                if (elapsed < MIN_REQUEST_INTERVAL_MS) {
+                    delay(MIN_REQUEST_INTERVAL_MS - elapsed)
+                }
+                lastRequestTime.set(System.currentTimeMillis())
             }
-            lastRequestTime.set(System.currentTimeMillis())
 
             val conn = URL(urlStr).openConnection() as HttpURLConnection
             try {
@@ -142,9 +147,9 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         emit(results)
     }.flowOn(Dispatchers.IO)
 
-    override fun fetchRedditVideos(subreddits: String, sort: String): Flow<List<RedditPost>> = flow {
-        Log.i("RedditRepository", "Connecting to Reddit API using RedReader Client ID, sort=$sort")
-        val list = fetchOAuthJsonVideos(subreddits, sort)
+    override fun fetchRedditVideos(subreddits: String, sort: String, feed: String): Flow<List<RedditPost>> = flow {
+        Log.i("RedditRepository", "Connecting to Reddit API using RedReader Client ID, sort=$sort, feed=$feed")
+        val list = fetchOAuthJsonVideos(subreddits, sort, feed)
         
         if (list.isEmpty()) {
             throw RedditError.NoVideosFound(subreddits)
@@ -153,7 +158,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         emit(list)
     }.flowOn(Dispatchers.IO)
 
-    override fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String): Flow<FetchMoreResult> = flow {
+    override fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String, feed: String): Flow<FetchMoreResult> = flow {
         val token = RedditOAuthHelper.getOrFetchAccessToken(context) ?: run { emit(FetchMoreResult(emptyList(), afterMap)); return@flow }
         val subs = subreddits.replace(" ", "").trim().split("+").filter { it.isNotEmpty() }
         if (subs.isEmpty()) { emit(FetchMoreResult(emptyList(), afterMap)); return@flow }
@@ -190,16 +195,18 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     }.flowOn(Dispatchers.IO)
 
     // ponytail: serialize per-subreddit fetches to stay under rate limit
-    private suspend fun fetchOAuthJsonVideos(subreddits: String, sort: String = "hot"): List<RedditPost> {
+    private suspend fun fetchOAuthJsonVideos(subreddits: String, sort: String = "hot", feed: String = "explore"): List<RedditPost> {
         val cleanSubs = subreddits.replace(" ", "").trim()
         val subs = cleanSubs.split("+").filter { it.isNotEmpty() }
         if (subs.isEmpty()) return emptyList()
 
-        val token = RedditOAuthHelper.getOrFetchAccessToken(context) ?: return emptyList()
+        // ponytail: surface auth failure as a clear error instead of a misleading "No videos found"
+        val token = RedditOAuthHelper.getOrFetchAccessToken(context)
+            ?: throw RedditError.Unknown("Failed to authenticate with Reddit. Check your connection.")
         
         val allLists = mutableListOf<List<RedditPost>>()
         for (sub in subs) {
-            var result = performOAuthRequest(sub, token, sort)
+            var result = performOAuthRequest(sub, token, sort, feed)
             if (result.isEmpty()) {
                 val prefs = context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
                 prefs.edit().remove("reddit_access_token").remove("reddit_token_expires_at").apply()
@@ -228,13 +235,18 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         return mergedList
     }
 
-    /** per-subreddit after cursors, updated after each initial fetch */
-    private val _afterMap = mutableMapOf<String, String?>()
+    // ponytail: per-feed after cursors (explore + subscribed kept separate so a sub in both feeds doesn't clobber)
+    private val afterMaps = mutableMapOf<String, MutableMap<String, String?>>().apply {
+        put("explore", mutableMapOf())
+        put("subscribed", mutableMapOf())
+    }
 
-    override fun getAfterMap(): Map<String, String?> = _afterMap.toMap()
+    private fun feedMap(feed: String): MutableMap<String, String?> = afterMaps.getOrPut(feed) { mutableMapOf() }
 
-    override fun saveAfterMap(map: Map<String, String?>) {
-        _afterMap.putAll(map)
+    override fun getAfterMap(feed: String): Map<String, String?> = feedMap(feed).toMap()
+
+    override fun saveAfterMap(map: Map<String, String?>, feed: String) {
+        feedMap(feed).putAll(map)
     }
 
     // ponytail: shared parser — extracts RedditPost (with thumbnail + comment count) from a child "data" object
@@ -280,7 +292,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         )
     }
 
-    private suspend fun performOAuthRequest(subreddit: String, token: String, sort: String = "hot"): List<RedditPost> {
+    private suspend fun performOAuthRequest(subreddit: String, token: String, sort: String = "hot", feed: String = "explore"): List<RedditPost> {
         val list = mutableListOf<RedditPost>()
         var after: String? = null
         for (page in 0 until 3) {
@@ -308,7 +320,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 break
             }
         }
-        _afterMap[subreddit] = after
+        feedMap(feed)[subreddit] = after
         Log.i("RedditRepository", "r/$subreddit parsed ${list.size} videos, after=$after")
         return list
     }

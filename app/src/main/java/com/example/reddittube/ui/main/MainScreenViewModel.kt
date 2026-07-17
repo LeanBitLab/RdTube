@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.reddittube.data.DataRepository
 import com.example.reddittube.data.RedditError
 import com.example.reddittube.data.RedditPost
+import com.example.reddittube.utils.toJson
+import com.example.reddittube.utils.toRedditPost
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -61,6 +63,21 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     // ponytail: cap at 1000 entries, trim oldest via watched_order list
     companion object { private const val WATCHED_CAP = 1000 }
     private val prefs = dataRepository.getContext().getSharedPreferences("reddittube_prefs", android.content.Context.MODE_PRIVATE)
+    private val _subscribedSubreddits = MutableStateFlow(
+        prefs.getStringSet("subscriptions", setOf("shorts", "TikTokCringe", "funny", "videos"))!!
+            .map { it.lowercase() }.toSet()
+    )
+    val subscribedSubreddits: StateFlow<Set<String>> = _subscribedSubreddits.asStateFlow()
+
+    fun toggleSubscription(sub: String) {
+        val next = sub.lowercase().trim().replace(" ", "")
+        if (next.isEmpty()) return
+        val updated = if (_subscribedSubreddits.value.contains(next)) _subscribedSubreddits.value - next else _subscribedSubreddits.value + next
+        _subscribedSubreddits.value = updated
+        prefs.edit().putStringSet("subscriptions", updated).apply()
+        refreshSubscribed(updated.sorted().joinToString("+"))
+    }
+
     private val watchedIds = prefs.getStringSet("watched_ids", emptySet())?.toMutableSet() ?: mutableSetOf()
     private val watchedOrder: MutableList<String> = try {
         org.json.JSONArray(prefs.getString("watched_order", "[]") ?: "[]").let { arr ->
@@ -76,7 +93,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val watchedPosts: MutableMap<String, RedditPost> = try {
         val json = prefs.getString("watched_posts", null)
         if (json != null) org.json.JSONArray(json).let { arr ->
-            (0 until arr.length()).mapNotNull { i -> runCatching { jsonToPost(arr.getJSONObject(i)) }.getOrNull() }
+            (0 until arr.length()).mapNotNull { i -> runCatching { arr.getJSONObject(i).toRedditPost() }.getOrNull() }
                 .associateBy { it.id }.toMutableMap()
         } else mutableMapOf()
     } catch (_: Exception) { mutableMapOf() }
@@ -146,7 +163,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             }
             _subscribedState.value = MainScreenUiState.Loading
             try {
-                dataRepository.fetchRedditVideos(query).collect { posts ->
+                dataRepository.fetchRedditVideos(query, currentSort.value, "subscribed").collect { posts ->
                     _subscribedState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
                 }
             } catch (e: RedditError) {
@@ -164,7 +181,8 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         if (current !is MainScreenUiState.Success) return
         if (current.isLoadingMore) return  // already loading
         val query = if (isExplore) exploreQuery else subscribedQuery
-        val afterMap = dataRepository.getAfterMap()
+        val feed = if (isExplore) "explore" else "subscribed"
+        val afterMap = dataRepository.getAfterMap(feed)
         if (afterMap.values.all { it == null }) return  // no more pages anywhere
 
         viewModelScope.launch {
@@ -175,8 +193,8 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 _subscribedState.value = current.copy(isLoadingMore = true)
             }
             try {
-                dataRepository.fetchMoreVideos(query, afterMap, currentSort.value).collect { result ->
-                    dataRepository.saveAfterMap(result.afterMap)
+                dataRepository.fetchMoreVideos(query, afterMap, currentSort.value, feed).collect { result ->
+                    dataRepository.saveAfterMap(result.afterMap, feed)
                     val updated = current.data + result.posts.filter { it.id !in watchedIds }
                     if (isExplore) {
                         _exploreState.value = MainScreenUiState.Success(updated, isLoadingMore = false)
@@ -219,7 +237,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             .putStringSet("watched_ids", watchedIds.toSet())
             .putString("watched_order", org.json.JSONArray(watchedOrder).toString())
             .putString("watched_titles", org.json.JSONObject(watchedTitles).toString())
-            .putString("watched_posts", org.json.JSONArray().apply { watchedPosts.values.forEach { put(postToJson(it)) } }.toString())
+            .putString("watched_posts", org.json.JSONArray().apply { watchedPosts.values.forEach { put(it.toJson()) } }.toString())
             .commit()
     }
 
@@ -229,17 +247,4 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         }
     }
 
-    private fun postToJson(p: RedditPost) = org.json.JSONObject().apply {
-        put("id", p.id); put("title", p.title); put("subreddit", p.subreddit); put("author", p.author)
-        put("score", p.score); put("permalink", p.permalink); put("videoUrl", p.videoUrl)
-        put("fallbackUrl", p.fallbackUrl); put("dashUrl", p.dashUrl); put("hlsUrl", p.hlsUrl)
-        put("thumbnailUrl", p.thumbnailUrl); put("numComments", p.numComments)
-    }
-
-    private fun jsonToPost(o: org.json.JSONObject) = RedditPost(
-        id = o.optString("id"), title = o.optString("title"), subreddit = o.optString("subreddit"),
-        author = o.optString("author"), score = o.optInt("score"), permalink = o.optString("permalink"),
-        videoUrl = o.optString("videoUrl"), fallbackUrl = o.optString("fallbackUrl"), dashUrl = o.optString("dashUrl"),
-        hlsUrl = o.optString("hlsUrl"), thumbnailUrl = o.optString("thumbnailUrl"), numComments = o.optInt("numComments")
-    )
 }

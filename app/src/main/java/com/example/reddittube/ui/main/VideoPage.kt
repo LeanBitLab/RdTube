@@ -160,10 +160,10 @@ fun VideoPage(
         exoPlayer.volume = if (isMuted) 0f else 1f
     }
 
-    // Auto-next repeat mode
-    val autoNext by remember { mutableStateOf(sharedPreferences.getBoolean("auto_next", false)) }
-    LaunchedEffect(autoNext) {
-        exoPlayer.repeatMode = if (autoNext) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+    // Auto-next repeat mode (single source of truth, reacts to live toggles)
+    var autoNextEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("auto_next", false)) }
+    LaunchedEffect(autoNextEnabled) {
+        exoPlayer.repeatMode = if (autoNextEnabled) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
     }
 
     // Gesture HUDs
@@ -182,7 +182,20 @@ fun VideoPage(
 
     // Rotation status
     var isRotationLocked by remember { mutableStateOf(true) }
+    var originalBrightness by remember { mutableStateOf<Float?>(null) }
     val activity = context as? Activity
+
+    // ponytail: restore system brightness when leaving the player (gesture writes it globally)
+    DisposableEffect(Unit) {
+        onDispose {
+            originalBrightness?.let { orig ->
+                activity?.window?.attributes?.let { lp ->
+                    lp.screenBrightness = orig
+                    activity.window.attributes = lp
+                }
+            }
+        }
+    }
 
     // Overlay visibility (auto-hide)
     var showOverlay by remember { mutableStateOf(true) }
@@ -316,6 +329,9 @@ Box(
                         onDragStart = {
                             showBrightnessHud = true
                             showVolumeHud = false
+                            if (originalBrightness == null) {
+                                originalBrightness = activity?.window?.attributes?.screenBrightness
+                            }
                         },
                         onVerticalDrag = { change, dragAmount ->
                             change.consume()
@@ -475,10 +491,6 @@ Box(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-// Likes
-MinimalButton(onClick = {}, label = formatScore(post.score)) {
-    Icon(Icons.Default.ThumbUp, contentDescription = "Likes", tint = Color.White, modifier = Modifier.size(14.dp))
-}
 // Quality / Speed
 MinimalButton(
     onClick = { showQualitySheet = true },
@@ -523,18 +535,17 @@ MinimalButton(
                     }
 
                     // Auto-next
-                    var localAutoNext by remember { mutableStateOf(sharedPreferences.getBoolean("auto_next", false)) }
                     MinimalButton(
                         onClick = {
-                            localAutoNext = !localAutoNext
-                            sharedPreferences.edit().putBoolean("auto_next", localAutoNext).apply()
+                            autoNextEnabled = !autoNextEnabled
+                            sharedPreferences.edit().putBoolean("auto_next", autoNextEnabled).apply()
                         },
                         label = ""
                     ) {
                         Icon(
                             Icons.Default.SkipNext,
                             contentDescription = "Auto-next",
-                            tint = if (localAutoNext) Color.Red else Color.White,
+                            tint = if (autoNextEnabled) Color.Red else Color.White,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -687,13 +698,6 @@ MinimalButton(
     }
 }
 
-private fun formatScore(score: Int): String {
-    return when {
-        score >= 1000000 -> String.format("%.1fM", score / 1000000f)
-        score >= 1000 -> String.format("%.1fk", score / 1000f)
-        else -> score.toString()
-    }
-}
 
 private fun applyQualitySetting(player: ExoPlayer, quality: String) {
     val maxVideoSize = when (quality) {

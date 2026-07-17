@@ -25,6 +25,8 @@ fun PlayerScreen(
     modifier: Modifier = Modifier
 ) {
     val list by viewModel.playerList.collectAsStateWithLifecycle()
+    val exploreState by viewModel.exploreState.collectAsStateWithLifecycle()
+    val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
         if (list.isNotEmpty()) {
@@ -32,8 +34,13 @@ fun PlayerScreen(
                 data = list,
                 modifier = Modifier.fillMaxSize(),
                 startIndex = viewModel.playerStartIndex,
-                isLoadingMore = false,
-                onRemoveVideo = { viewModel.markAsWatched(it) }
+                isLoadingMore = (exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false,
+                subscribedSet = subscribedSubreddits,
+                onSubscribeToggle = viewModel::toggleSubscription,
+                onRemoveVideo = { viewModel.markAsWatched(it) },
+                onLoadMore = { viewModel.loadMore(true) },
+                onRefresh = { viewModel.refreshExplore() },
+                isRefreshing = exploreState is MainScreenUiState.Loading
             )
         }
 

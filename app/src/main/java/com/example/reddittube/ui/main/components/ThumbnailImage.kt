@@ -50,9 +50,14 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
                     conn.readTimeout = 15000
                     conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
                     if (conn.responseCode == 200) {
-                        // ponytail: full-quality decode (inSampleSize=1); cache keeps repeat opens instant
-                        val opts = BitmapFactory.Options().apply { inSampleSize = 1 }
-                        BitmapFactory.decodeStream(conn.inputStream, null, opts)
+                        // ponytail: downsample to ~480px to cap memory; cache keeps repeat opens instant
+                        val bytes = conn.inputStream.readBytes()
+                        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+                        opts.inJustDecodeBounds = false
+                        opts.inSampleSize = (opts.outWidth / 480f).coerceAtLeast(opts.outHeight / 480f)
+                            .toInt().coerceAtLeast(1)
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
                     } else null
                 } finally {
                     conn.disconnect()

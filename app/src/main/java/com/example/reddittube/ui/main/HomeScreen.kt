@@ -34,6 +34,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.reddittube.data.RedditError
 import com.example.reddittube.data.RedditPost
 import com.example.reddittube.ui.main.SortOption
+import com.example.reddittube.utils.formatScore
+import com.example.reddittube.utils.toJson
+import com.example.reddittube.utils.toRedditPost
 import com.example.reddittube.ui.main.components.ThumbnailImage
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -51,6 +54,7 @@ fun HomeScreen(
     val context = LocalContext.current.applicationContext
     val exploreState by viewModel.exploreState.collectAsStateWithLifecycle()
     val subscribedState by viewModel.subscribedState.collectAsStateWithLifecycle()
+    val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
 
     val coroutineScope = rememberCoroutineScope()
     val horizontalPagerState = rememberPagerState(pageCount = { 3 })
@@ -59,28 +63,11 @@ fun HomeScreen(
     var sortExpanded by remember { mutableStateOf(false) }
     var panelView by remember { mutableStateOf(PanelView.Menu) }
 
-    var subscribedSet by remember {
-        val saved = context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
-            .getStringSet("subscriptions", setOf("shorts", "TikTokCringe", "funny", "videos")) ?: emptySet()
-        mutableStateOf(saved.map { it.lowercase() }.toSet())
-    }
-
     LaunchedEffect(Unit) {
         // ponytail: only fetch on first open; ViewModel state persists across navigation so returning to Home stays instant
         if (exploreState is MainScreenUiState.Loading) viewModel.refreshExplore()
-        if (subscribedSet.isNotEmpty() && subscribedState is MainScreenUiState.Loading) {
-            viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
-        }
-    }
-
-    val toggleSubscription = { sub: String ->
-        val next = sub.lowercase().trim().replace(" ", "")
-        if (next.isNotEmpty()) {
-            val updated = if (subscribedSet.contains(next)) subscribedSet - next else subscribedSet + next
-            subscribedSet = updated
-            context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE)
-                .edit().putStringSet("subscriptions", updated).apply()
-            viewModel.refreshSubscribed(updated.sorted().joinToString("+"))
+        if (subscribedSubreddits.isNotEmpty() && subscribedState is MainScreenUiState.Loading) {
+            viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+"))
         }
     }
 
@@ -88,7 +75,7 @@ fun HomeScreen(
         if (horizontalPagerState.currentPage == 0) {
             viewModel.refreshExplore()
         } else {
-            viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+"))
+            viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+"))
         }
     }
 
@@ -131,8 +118,8 @@ fun HomeScreen(
                     isLoadingMore = (exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
                 1 -> SearchPage(
-                    currentSubscribed = subscribedSet,
-                    onSubscribeToggle = toggleSubscription,
+                    currentSubscribed = subscribedSubreddits,
+                    onSubscribeToggle = viewModel::toggleSubscription,
                     onSubredditSelect = {
                         viewModel.refreshExplore(it)
                         coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
@@ -146,7 +133,7 @@ fun HomeScreen(
                     onLike = { toggleLike(it) },
                     onItemClick = { list: List<RedditPost>, index: Int -> viewModel.openPlayer(list, index); onItemClick() },
                     onLoadMore = { viewModel.loadMore(false) },
-                    onRefresh = { viewModel.refreshSubscribed(subscribedSet.sorted().joinToString("+")) },
+                    onRefresh = { viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+")) },
                     isLoadingMore = (subscribedState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
             }
@@ -207,7 +194,7 @@ fun HomeScreen(
                     Icon(Icons.Default.Star, contentDescription = "Subscribed",
                         tint = if (isSubscribed) Color.Red else Color.LightGray,
                         modifier = Modifier.clip(CircleShape).clickable {
-                            if (subscribedSet.isEmpty()) {
+                            if (subscribedSubreddits.isEmpty()) {
                                 Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
                             } else {
                                 coroutineScope.launch { horizontalPagerState.animateScrollToPage(2) }
@@ -519,44 +506,15 @@ private fun PostGridContent(
     }
 }
 
-private fun postToJson(p: RedditPost) = JSONObject().apply {
-    put("id", p.id)
-    put("title", p.title)
-    put("subreddit", p.subreddit)
-    put("author", p.author)
-    put("score", p.score)
-    put("permalink", p.permalink)
-    put("videoUrl", p.videoUrl)
-    put("fallbackUrl", p.fallbackUrl)
-    put("dashUrl", p.dashUrl)
-    put("hlsUrl", p.hlsUrl)
-    put("thumbnailUrl", p.thumbnailUrl)
-    put("numComments", p.numComments)
-}
-
-private fun jsonToPost(o: JSONObject) = RedditPost(
-    id = o.optString("id"),
-    title = o.optString("title"),
-    subreddit = o.optString("subreddit"),
-    author = o.optString("author"),
-    score = o.optInt("score"),
-    permalink = o.optString("permalink"),
-    videoUrl = o.optString("videoUrl"),
-    fallbackUrl = o.optString("fallbackUrl"),
-    dashUrl = o.optString("dashUrl"),
-    hlsUrl = o.optString("hlsUrl"),
-    thumbnailUrl = o.optString("thumbnailUrl"),
-    numComments = o.optInt("numComments")
-)
 
 private fun likedPostsToJson(list: List<RedditPost>) =
-    JSONArray().apply { list.forEach { put(postToJson(it)) } }.toString()
+    JSONArray().apply { list.forEach { put(it.toJson()) } }.toString()
 
 private fun loadLikedPosts(prefs: SharedPreferences): List<RedditPost> {
     val str = prefs.getString("liked_posts", null) ?: return emptyList()
     return try {
         val arr = JSONArray(str)
-        (0 until arr.length()).map { jsonToPost(arr.getJSONObject(it)) }
+        (0 until arr.length()).map { arr.getJSONObject(it).toRedditPost() }
     } catch (_: Exception) {
         emptyList()
     }
@@ -603,10 +561,4 @@ private fun ErrorPage(
     }
 }
 
-private fun formatScore(score: Int): String {
-    return when {
-        score >= 1000000 -> String.format("%.1fM", score / 1000000f)
-        score >= 1000 -> String.format("%.1fk", score / 1000f)
-        else -> score.toString()
-    }
-}
+

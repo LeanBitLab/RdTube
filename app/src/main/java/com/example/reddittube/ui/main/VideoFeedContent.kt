@@ -30,6 +30,7 @@ fun VideoFeedContent(
     onLoadMore: () -> Unit = {},
     onRefresh: () -> Unit = {},
     isLoadingMore: Boolean = false,
+    isRefreshing: Boolean = false,
     startIndex: Int = 0
 ) {
     val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { data.size })
@@ -57,7 +58,7 @@ fun VideoFeedContent(
     val visibleRange = (currentPage - 2).coerceAtLeast(0)..(currentPage + 2).coerceAtMost(data.size - 1)
 
     PullToRefreshBox(
-        isRefreshing = false,
+        isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         modifier = modifier.fillMaxSize()
     ) {
