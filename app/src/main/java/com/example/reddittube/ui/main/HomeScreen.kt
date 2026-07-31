@@ -177,17 +177,7 @@ fun HomeScreen(
                     onScrollDirection = { bottomBarVisible = !it },
                     isLoadingMore = (exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
-                1 -> SearchPage(
-                    currentSubscribed = subscribedSubreddits,
-                    onSubscribeToggle = viewModel::toggleSubscription,
-                    onSubredditSelect = {
-                        viewModel.refreshExplore(it)
-                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
-                    },
-                    searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
-                    onSearchQuery = { viewModel.searchSubreddits(it) }
-                )
-                2 -> BrowseGrid(
+                1 -> BrowseGrid(
                     uiState = subscribedState,
                     likedIds = likedIds,
                     onLike = viewModel::toggleLike,
@@ -199,6 +189,16 @@ fun HomeScreen(
                     onRefresh = { viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+")) },
                     onScrollDirection = { bottomBarVisible = !it },
                     isLoadingMore = (subscribedState as? MainScreenUiState.Success)?.isLoadingMore ?: false
+                )
+                2 -> SearchPage(
+                    currentSubscribed = subscribedSubreddits,
+                    onSubscribeToggle = viewModel::toggleSubscription,
+                    onSubredditSelect = {
+                        viewModel.refreshExplore(it)
+                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
+                    },
+                    searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
+                    onSearchQuery = { viewModel.searchSubreddits(it) }
                 )
                 3 -> AboutPage()
             }
@@ -246,7 +246,7 @@ fun HomeScreen(
 
         // Solid full-width bottom navigation bar — hides on scroll down (except search page), black background
         AnimatedVisibility(
-            visible = bottomBarVisible || horizontalPagerState.currentPage == 1,
+            visible = bottomBarVisible || horizontalPagerState.currentPage == 2,
             modifier = Modifier.align(Alignment.BottomCenter),
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
@@ -277,15 +277,9 @@ fun HomeScreen(
                         }
                     )
                     BottomNavItem(
-                        icon = Icons.Default.Search,
-                        label = "Search",
-                        selected = horizontalPagerState.currentPage == 1,
-                        onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(1) } }
-                    )
-                    BottomNavItem(
                         icon = Icons.Default.Star,
                         label = "Subscribed",
-                        selected = horizontalPagerState.currentPage == 2,
+                        selected = horizontalPagerState.currentPage == 1,
                         onClick = {
                             if (subscribedSubreddits.isEmpty()) {
                                 Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
@@ -293,9 +287,15 @@ fun HomeScreen(
                                 if (viewModel.subscribedQuery != defaultSubscribedQuery) {
                                     viewModel.refreshSubscribed(defaultSubscribedQuery)
                                 }
-                                coroutineScope.launch { horizontalPagerState.animateScrollToPage(2) }
+                                coroutineScope.launch { horizontalPagerState.animateScrollToPage(1) }
                             }
                         }
+                    )
+                    BottomNavItem(
+                        icon = Icons.Default.Search,
+                        label = "Search",
+                        selected = horizontalPagerState.currentPage == 2,
+                        onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(2) } }
                     )
                     BottomNavItem(
                         icon = Icons.Default.Info,

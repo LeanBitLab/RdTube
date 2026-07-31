@@ -62,7 +62,8 @@ fun SearchPage(
             .fillMaxSize()
             .background(RichObsidian)
             .statusBarsPadding()
-            .padding(start = HPad, top = TopBarHeight, end = HPad, bottom = 8.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(start = HPad, top = TopBarHeight, end = HPad, bottom = 84.dp)
     ) {
         TextField(
             value = searchQuery,
@@ -123,7 +124,7 @@ fun SearchPage(
         if (trimmedQuery.isNotEmpty()) {
             LaunchedEffect(trimmedQuery) { onSearchQuery(trimmedQuery) }
             if (searchResults.isNotEmpty()) {
-                Column(modifier = Modifier.wrapContentHeight()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     searchResults.forEach { sub ->
                         val isSubbed = currentSubscribed.contains(sub.lowercase())
                         Surface(
@@ -172,7 +173,7 @@ fun SearchPage(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
 
@@ -197,73 +198,72 @@ fun SearchPage(
         }
         Spacer(modifier = Modifier.height(10.dp))
 
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            if (currentSubscribed.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = null,
-                            tint = TextMuted,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            "No subscriptions yet",
-                            color = TextMuted,
-                            fontSize = 14.sp
-                        )
-                    }
+        if (currentSubscribed.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = TextMuted,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "No subscriptions yet",
+                        color = TextMuted,
+                        fontSize = 14.sp
+                    )
                 }
-            } else {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    currentSubscribed.sorted().forEach { sub ->
-                        Surface(
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                currentSubscribed.sorted().forEach { sub ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clickable { onSubredditSelect(sub) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SurfaceBase,
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable { onSubredditSelect(sub) },
-                            shape = RoundedCornerShape(12.dp),
-                            color = SurfaceBase,
-                            border = BorderStroke(1.dp, GlassBorder)
+                                .padding(vertical = 10.dp, horizontal = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 10.dp, horizontal = 14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(CircleShape)
-                                            .background(BrandRed.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            sub.take(1).uppercase(),
-                                            color = BrandRed,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Text("r/$sub", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                                }
-                                IconButton(onClick = { onSubscribeToggle(sub) }, modifier = Modifier.size(28.dp)) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Remove",
-                                        tint = TextMuted,
-                                        modifier = Modifier.size(16.dp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(BrandRed.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        sub.take(1).uppercase(),
+                                        color = BrandRed,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("r/$sub", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            }
+                            IconButton(onClick = { onSubscribeToggle(sub) }, modifier = Modifier.size(28.dp)) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Remove",
+                                    tint = TextMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
                     }

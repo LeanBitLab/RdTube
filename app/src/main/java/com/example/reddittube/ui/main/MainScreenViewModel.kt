@@ -10,10 +10,13 @@ import com.lean.reddittube.data.RedditError
 import com.lean.reddittube.data.RedditPost
 import com.lean.reddittube.utils.toJson
 import com.lean.reddittube.utils.toRedditPost
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 // ponytail: Simplified UI state container. Now manages separate states for Explore and Subscribed sections.
 @Immutable
@@ -182,11 +185,28 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         Log.e("WatchedVM", "error: $msg")
     }
 
+    private var searchJob: Job? = null
+    private val searchCache = ConcurrentHashMap<String, List<String>>()
+
     fun searchSubreddits(query: String) {
-        if (query.length < 2) { _searchResults.value = emptyList(); return }
-        viewModelScope.launch {
+        val trimmed = query.trim().lowercase()
+        if (trimmed.length < 2) { 
+            _searchResults.value = emptyList()
+            return 
+        }
+
+        val cached = searchCache[trimmed]
+        if (cached != null) {
+            _searchResults.value = cached
+            return
+        }
+
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            delay(200) // Debounce fast typing
             try {
-                dataRepository.searchSubreddits(query).collect { results ->
+                dataRepository.searchSubreddits(trimmed).collect { results ->
+                    searchCache[trimmed] = results
                     _searchResults.value = results
                 }
             } catch (_: Exception) {
