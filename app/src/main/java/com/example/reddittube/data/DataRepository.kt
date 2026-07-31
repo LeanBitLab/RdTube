@@ -90,6 +90,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("Authorization", "Bearer $token")
                 conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
+                conn.setRequestProperty("Connection", "keep-alive")
                 conn.connectTimeout = timeout
                 conn.readTimeout = timeout
 
@@ -97,9 +98,12 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 Log.i("RedditRepository", "request $urlStr → $code (attempt ${attempt + 1})")
 
                 if (code == 200) {
-                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                    val body = reader.readText()
-                    reader.close()
+                    val stream = if ("gzip".equals(conn.contentEncoding, ignoreCase = true)) {
+                        java.util.zip.GZIPInputStream(conn.inputStream)
+                    } else {
+                        conn.inputStream
+                    }
+                    val body = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                     return JSONObject(body)
                 }
 
@@ -171,8 +175,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             subs.map { sub ->
                 async(Dispatchers.IO) {
                     val subPosts = mutableListOf<RedditPost>()
-                    var after = afterMap[sub] ?: return@async emptyList<RedditPost>()
-                    for (page in 0 until 3) {
+                    var after = afterMap[sub] ?: ""
+                    for (page in 0 until 5) {
                         if (subPosts.size >= 15) break
                         try {
                             val urlStr = "https://oauth.reddit.com/r/$sub/$sort.json?limit=25&raw_json=1&include_over_18=on" +
@@ -313,10 +317,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     private suspend fun performOAuthRequest(subreddit: String, token: String, sort: String = "hot", feed: String = "explore"): List<RedditPost> {
         val list = mutableListOf<RedditPost>()
         var after: String? = null
-        for (page in 0 until 1) {
-            if (list.size >= 15) break
+        for (page in 0 until 3) {
+            if (list.size >= 20) break
             try {
-                val urlStr = "https://oauth.reddit.com/r/$subreddit/$sort.json?limit=25&raw_json=1&include_over_18=on" +
+                val urlStr = "https://oauth.reddit.com/r/$subreddit/$sort.json?limit=50&raw_json=1&include_over_18=on" +
                     (if (after != null) "&after=$after" else "")
                 // ponytail: throttled request
                 val json = performRequest(urlStr, token) ?: break
@@ -338,6 +342,28 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 break
             }
         }
+
+        // ponytail: server-side video filtering for text-heavy subreddits
+        if (list.size < 8) {
+            try {
+                val searchUrl = "https://oauth.reddit.com/r/$subreddit/search.json?q=site:v.redd.it&restrict_sr=1&sort=$sort&limit=50&raw_json=1&include_over_18=on"
+                val json = performRequest(searchUrl, token)
+                val data = json?.optJSONObject("data")
+                val children = data?.optJSONArray("children")
+                if (children != null) {
+                    for (i in 0 until children.length()) {
+                        val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
+                        val post = parseRedditPost(childData)
+                        if (post != null && list.none { it.id == post.id }) {
+                            list.add(post)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("RedditRepository", "r/$subreddit site:v.redd.it search fallback failed: ${e.message}")
+            }
+        }
+
         feedMap(feed)[subreddit] = after
         Log.i("RedditRepository", "r/$subreddit parsed ${list.size} videos, after=$after")
         return list

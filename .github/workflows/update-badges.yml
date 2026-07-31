@@ -1,0 +1,69 @@
+name: Update README Badges
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Midnight UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-badges:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch GitHub stats
+        id: stats
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          
+          # Latest version
+          VERSION=$(gh api repos/$REPO/releases/latest --jq '.tag_name' | sed 's/^v//' 2>/dev/null || echo "1.0.0")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Total downloads
+          DOWNLOADS=$(gh api repos/$REPO/releases --paginate --jq '.[] | .assets[]?.download_count' 2>/dev/null | jq -s 'add // 0')
+          echo "downloads=$DOWNLOADS" >> $GITHUB_OUTPUT
+          
+          # Stars
+          STARS=$(gh api repos/$REPO --jq '.stargazers_count' 2>/dev/null || echo "0")
+          echo "stars=$STARS" >> $GITHUB_OUTPUT
+
+      - name: Generate badge SVGs
+        env:
+          VERSION: ${{ steps.stats.outputs.version }}
+          DOWNLOADS: ${{ steps.stats.outputs.downloads }}
+          STARS: ${{ steps.stats.outputs.stars }}
+        run: |
+          mkdir -p docs/badges
+          
+          # Format numbers with commas
+          DOWNLOADS_FMT=$(printf "%'d" "$DOWNLOADS" 2>/dev/null || echo "$DOWNLOADS")
+          STARS_FMT=$(printf "%'d" "$STARS" 2>/dev/null || echo "$STARS")
+          
+          # Download version badge
+          cat > docs/badges/download.svg << EOF
+          <svg xmlns="http://www.w3.org/2000/svg" width="94" height="28" viewBox="0 0 94 28"><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="94" height="28" rx="4" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="50" height="28" fill="#555"/><rect x="50" width="44" height="28" fill="#FF2A4B"/><rect width="94" height="28" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11"><text x="25" y="19" fill="#010101" fill-opacity=".3">Version</text><text x="25" y="18">Version</text><text x="72" y="19" fill="#010101" fill-opacity=".3">v${VERSION}</text><text x="72" y="18">v${VERSION}</text></g></svg>
+          EOF
+          
+          # Downloads count badge
+          cat > docs/badges/downloads.svg << EOF
+          <svg xmlns="http://www.w3.org/2000/svg" width="105" height="28" viewBox="0 0 105 28"><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="105" height="28" rx="4" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="64" height="28" fill="#555"/><rect x="64" width="41" height="28" fill="#FF2A4B"/><rect width="105" height="28" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11"><text x="32" y="19" fill="#010101" fill-opacity=".3">Downloads</text><text x="32" y="18">Downloads</text><text x="84.5" y="19" fill="#010101" fill-opacity=".3">${DOWNLOADS_FMT}</text><text x="84.5" y="18">${DOWNLOADS_FMT}</text></g></svg>
+          EOF
+          
+          # Stars badge
+          cat > docs/badges/stars.svg << EOF
+          <svg xmlns="http://www.w3.org/2000/svg" width="72" height="28" viewBox="0 0 72 28"><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="72" height="28" rx="4" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="38" height="28" fill="#555"/><rect x="38" width="34" height="28" fill="#FF2A4B"/><rect width="72" height="28" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11"><text x="19" y="19" fill="#010101" fill-opacity=".3">Stars</text><text x="19" y="18">Stars</text><text x="55" y="19" fill="#010101" fill-opacity=".3">${STARS_FMT}</text><text x="55" y="18">${STARS_FMT}</text></g></svg>
+          EOF
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/badges/
+          git diff --staged --quiet || git commit -m "chore: update README badges [skip ci]"
+          git push

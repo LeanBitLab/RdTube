@@ -1,6 +1,8 @@
 package com.lean.reddittube.ui.main
 import com.lean.reddittube.theme.*
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -23,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
@@ -54,7 +57,7 @@ fun AboutPage(
             .fillMaxSize()
             .background(RichObsidian)
             .statusBarsPadding()
-            .padding(start = HPad, top = TopBarHeight + 8.dp, end = HPad, bottom = 8.dp)
+            .padding(start = HPad, top = TopBarHeight + 8.dp, end = HPad, bottom = 96.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -86,7 +89,7 @@ fun AboutPage(
             letterSpacing = (-0.3).sp
         )
         Text(
-            "Version 1.0.0",
+            "Version 1.0.0 • No API Key • No Account",
             color = TextSecondary,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium
@@ -110,7 +113,7 @@ fun AboutPage(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "RdTube is a sleek, ultra-fast video browsing client for Reddit. Designed with Jetpack Compose and ExoPlayer for high stability and smooth performance.",
+                    "RdTube is a sleek, privacy-focused video client for Reddit that works instantly without requiring any API keys or user accounts. Enjoy fast, single-column video feeds and Shorts playback out of the box with zero setup.",
                     color = TextSecondary,
                     fontSize = 13.sp,
                     lineHeight = 19.sp
@@ -129,7 +132,7 @@ fun AboutPage(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    "Key Features",
+                    "Key Highlights",
                     color = TextPrimary,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
@@ -137,11 +140,13 @@ fun AboutPage(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 val features = listOf(
-                    "YouTube-style video browse & single-column feeds",
-                    "Integrated video player with quality & speed controls",
-                    "Subreddit subscriptions & instant search",
-                    "Watch history and liked videos persistence",
-                    "Process-lifetime LRU thumbnail caching"
+                    "🔑 No API Key required – Ready out of the box",
+                    "👤 No Account required – 100% anonymous & private",
+                    "📺 YouTube-style video browse & single-column feeds",
+                    "🎬 Integrated player with quality & speed controls",
+                    "⭐ Subreddit subscriptions & instant search",
+                    "📜 Local watch history & liked videos persistence",
+                    "⚡ High-throughput parallel coroutine fetching"
                 )
 
                 features.forEach { feat ->
@@ -164,6 +169,50 @@ fun AboutPage(
                             fontSize = 13.sp
                         )
                     }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Sponsor Development Card
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = SurfaceRaised,
+            border = BorderStroke(1.dp, BrandRed.copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Sponsor Development",
+                        color = TextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Support free open-source development",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+                Button(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sponsors/LeanBitLab"))
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandRed),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Sponsor", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

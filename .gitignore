@@ -20,3 +20,10 @@ local.properties
 node_modules/
 package.json
 package-lock.json
+
+# Keystore & Signing Secrets
+*.jks
+*.keystore
+keystore.properties
+
+.gradle_user_home/

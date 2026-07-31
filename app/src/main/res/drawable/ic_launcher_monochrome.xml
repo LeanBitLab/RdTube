@@ -7,5 +7,6 @@
     <!-- Single-color silhouette for Material You themed icons -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M40,36 L40,72 L76,54 Z" />
+        android:pathData="M42,35.5 C39.5,34.1 36.5,35.8 36.5,38.6 V69.4 C36.5,72.2 39.5,73.9 42,72.5 L71.5,55.5 C73.8,54.2 73.8,53.8 71.5,52.5 Z" />
 </vector>
+

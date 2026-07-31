@@ -56,6 +56,7 @@ fun PlayerScreen(
                 onSubscribeToggle = viewModel::toggleSubscription,
                 onRemoveVideo = { viewModel.markAsWatched(it) },
                 onLike = viewModel::toggleLike,
+                onSubredditClick = { sub -> viewModel.refreshExplore(sub); onBack() },
                 onLoadMore = { if (feed != "other") viewModel.loadMore(feed != "subscribed") },
                 onRefresh = { viewModel.refreshExplore() },
                 isRefreshing = exploreState is MainScreenUiState.Loading

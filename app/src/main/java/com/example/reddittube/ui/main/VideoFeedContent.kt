@@ -1,10 +1,19 @@
 package com.lean.reddittube.ui.main
 import com.lean.reddittube.theme.*
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -29,6 +38,7 @@ fun VideoFeedContent(
     onSubscribeToggle: (String) -> Unit = {},
     onRemoveVideo: (RedditPost) -> Unit = {},
     onLike: (RedditPost) -> Unit = {},
+    onSubredditClick: (String) -> Unit = {},
     onLoadMore: () -> Unit = {},
     onRefresh: () -> Unit = {},
     isLoadingMore: Boolean = false,
@@ -48,10 +58,10 @@ fun VideoFeedContent(
         }
     }
 
-    // ponytail: trigger loadMore when reaching the last page, but not during initial load
+    // ponytail: trigger loadMore when user approaches end of feed (within last 2 items, minimum 10 items)
     val currentPage by remember { derivedStateOf { pagerState.currentPage } }
-    LaunchedEffect(currentPage) {
-        if (currentPage >= data.size - 3 && data.size > 1 && !isLoadingMore) {
+    LaunchedEffect(currentPage, data.size, isLoadingMore) {
+        if (data.isNotEmpty() && !isLoadingMore && currentPage >= (data.size - 3).coerceAtLeast(0)) {
             onLoadMore()
         }
     }
@@ -83,7 +93,8 @@ fun VideoFeedContent(
                             onRemoveVideo = onRemoveVideo,
                             onLike = onLike,
                             onSwipeAdvance = onNext,
-                            onNext = onNext
+                            onNext = onNext,
+                            onSubredditClick = onSubredditClick
                         )
                     } else {
                         // Placeholder to maintain pager structure without heavy player
@@ -98,18 +109,28 @@ fun VideoFeedContent(
                             )
                         }
                     }
+                }
+            }
 
-                    if (pageIndex == data.size - 1 && isLoadingMore) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 24.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            SectionLoadingIndicator(label = "Finding more…")
-                        }
-                    }
+            // Sleek glassmorphic minimal loading badge overlay when fetching next video batch
+            AnimatedVisibility(
+                visible = isLoadingMore && currentPage >= (data.size - 4).coerceAtLeast(0),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 72.dp),
+                enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.9f),
+                exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.9f)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = SurfaceBase.copy(alpha = 0.88f),
+                    border = BorderStroke(1.dp, GlassBorder),
+                    shadowElevation = 8.dp
+                ) {
+                    SectionLoadingIndicator(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        label = "Loading more videos…"
+                    )
                 }
             }
         }

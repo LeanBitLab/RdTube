@@ -30,10 +30,13 @@ import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 
-// LRU cache capped at 64 entries to prevent memory growth
-private val thumbCache = object : LinkedHashMap<String, Bitmap>(128, 0.75f, true) {
-    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>): Boolean = size > 64
-}
+// Adaptive Cache Engine with heap-aware dynamic sizing and time-decayed eviction score S(i)
+private val thumbCache = com.lean.reddittube.util.AdaptiveCacheEngine<String, Bitmap>(
+    lowerBound = 32,
+    upperBound = 300,
+    memoryFraction = 0.15f,
+    sizeEstimator = { bmp -> bmp.allocationByteCount.toLong().coerceAtLeast(1024L) }
+)
 
 @Composable
 fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier = Modifier) {
@@ -47,11 +50,17 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
             withContext(Dispatchers.IO) {
                 val conn = URL(url).openConnection() as HttpURLConnection
                 try {
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 15000
+                    conn.connectTimeout = 10000
+                    conn.readTimeout = 10000
                     conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
+                    conn.setRequestProperty("Connection", "keep-alive")
                     if (conn.responseCode == 200) {
-                        val bytes = conn.inputStream.readBytes()
+                        val stream = if ("gzip".equals(conn.contentEncoding, ignoreCase = true)) {
+                            java.util.zip.GZIPInputStream(conn.inputStream)
+                        } else {
+                            conn.inputStream
+                        }
+                        val bytes = stream.readBytes()
                         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
                         opts.inJustDecodeBounds = false
@@ -64,7 +73,7 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
                 }
             }
         }.onSuccess { bmp ->
-            if (bmp != null) { thumbCache[url] = bmp; bitmap = bmp } else failed = true
+            if (bmp != null) { thumbCache.put(url, bmp); bitmap = bmp } else failed = true
         }.onFailure { failed = true }
     }
 

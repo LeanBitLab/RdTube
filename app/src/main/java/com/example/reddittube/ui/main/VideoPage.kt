@@ -86,6 +86,7 @@ fun VideoPage(
     onLike: (RedditPost) -> Unit = {},
     onSwipeAdvance: () -> Unit = {},
     onNext: () -> Unit = {},
+    onSubredditClick: (String) -> Unit = {},
     isMuted: Boolean = false,
     onMuteChange: (Boolean) -> Unit = {}
 ) {
@@ -100,14 +101,11 @@ fun VideoPage(
 
     val exoPlayer = remember(post.id) {
         val url = post.dashUrl.ifEmpty { post.hlsUrl }.ifEmpty { post.videoUrl }
-        val httpFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("org.quantumbadger.redreader/1.25.1")
-            .setConnectTimeoutMs(30000)
-            .setReadTimeoutMs(30000)
-            .setAllowCrossProtocolRedirects(true)
-        val dataSourceFactory = DefaultDataSource.Factory(context, httpFactory)
+        val cacheDataSourceFactory = com.example.reddittube.util.MediaCacheManager.getCacheDataSourceFactory(context)
+        val loadControl = com.example.reddittube.util.MediaCacheManager.getLowLatencyLoadControl()
         val player = ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory))
+            .setLoadControl(loadControl)
             .build()
         player.apply {
             repeatMode = if (sharedPreferences.getBoolean("auto_next", false)) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
@@ -555,9 +553,10 @@ Box(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "r/${post.subreddit}",
-                        color = Color.White,
+                        color = BrandRed,
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { onSubredditClick(post.subreddit) }
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     val isSubbed = subscribedSet.contains(post.subreddit.lowercase())
