@@ -113,7 +113,7 @@ fun AboutPage(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "RdTube is a sleek, privacy-focused video client for Reddit that works instantly without requiring any API keys or user accounts. Enjoy fast, single-column video feeds and Shorts playback out of the box with zero setup.",
+                    "RdTube is a sleek, privacy-focused video client for Reddit that works instantly without requiring any API keys or user accounts. As an entirely community-funded project, we rely on your support to keep going—please consider becoming a Sponsor!",
                     color = TextSecondary,
                     fontSize = 13.sp,
                     lineHeight = 19.sp
@@ -123,7 +123,7 @@ fun AboutPage(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Feature Highlights Card
+        // Feature Highlights Card (Compact)
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -137,37 +137,44 @@ fun AboutPage(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 val features = listOf(
-                    "🔑 No API Key required – Ready out of the box",
-                    "👤 No Account required – 100% anonymous & private",
-                    "📺 YouTube-style video browse & single-column feeds",
-                    "🎬 Integrated player with quality & speed controls",
-                    "⭐ Subreddit subscriptions & instant search",
-                    "📜 Local watch history & liked videos persistence",
-                    "⚡ High-throughput parallel coroutine fetching"
+                    "🔑 No API Key or Account Needed",
+                    "📺 YouTube-Style Video Browse",
+                    "🎬 Integrated Player & Controls",
+                    "⭐ Subscriptions & Subreddit Search",
+                    "📜 Local History & Likes Persistence",
+                    "⚡ Adaptive Telemetry & Dynamic Cache"
                 )
 
-                features.forEach { feat ->
+                features.chunked(2).forEach { pair ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(vertical = 3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = BrandRed,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            feat,
-                            color = TextPrimary,
-                            fontSize = 13.sp
-                        )
+                        pair.forEach { feat ->
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(SurfaceGlass, shape = RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    feat,
+                                    color = TextPrimary,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        if (pair.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }
@@ -191,13 +198,13 @@ fun AboutPage(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Sponsor Development",
+                        "Become a Sponsor",
                         color = TextPrimary,
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Support free open-source development",
+                        "Keep RdTube 100% free & open-source",
                         color = TextSecondary,
                         fontSize = 12.sp
                     )

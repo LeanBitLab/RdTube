@@ -160,7 +160,8 @@ fun HomeScreen(
         HorizontalPager(
             state = horizontalPagerState,
             modifier = Modifier.fillMaxSize(),
-            userScrollEnabled = false
+            userScrollEnabled = false,
+            beyondViewportPageCount = 1
         ) { pageIndex ->
             when (pageIndex) {
                 0 -> BrowseGrid(
@@ -170,7 +171,7 @@ fun HomeScreen(
                     onItemClick = { list: List<RedditPost>, index: Int -> viewModel.openPlayer(list, index, "explore"); onItemClick() },
                     onSubredditClick = { sub ->
                         viewModel.refreshExplore(sub)
-                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
+                        coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
                     },
                     onLoadMore = { viewModel.loadMore(true) },
                     onRefresh = { viewModel.refreshExplore() },
@@ -195,7 +196,7 @@ fun HomeScreen(
                     onSubscribeToggle = viewModel::toggleSubscription,
                     onSubredditSelect = {
                         viewModel.refreshExplore(it)
-                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
+                        coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
                     },
                     searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
                     onSearchQuery = { viewModel.searchSubreddits(it) }
@@ -273,7 +274,7 @@ fun HomeScreen(
                             if (viewModel.exploreQuery != defaultExploreQuery) {
                                 viewModel.refreshExplore(defaultExploreQuery)
                             }
-                            coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
+                            coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
                         }
                     )
                     BottomNavItem(
@@ -287,7 +288,7 @@ fun HomeScreen(
                                 if (viewModel.subscribedQuery != defaultSubscribedQuery) {
                                     viewModel.refreshSubscribed(defaultSubscribedQuery)
                                 }
-                                coroutineScope.launch { horizontalPagerState.animateScrollToPage(1) }
+                                coroutineScope.launch { horizontalPagerState.scrollToPage(1) }
                             }
                         }
                     )
@@ -295,13 +296,13 @@ fun HomeScreen(
                         icon = Icons.Default.Search,
                         label = "Search",
                         selected = horizontalPagerState.currentPage == 2,
-                        onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(2) } }
+                        onClick = { coroutineScope.launch { horizontalPagerState.scrollToPage(2) } }
                     )
                     BottomNavItem(
                         icon = Icons.Default.Info,
                         label = "About",
                         selected = horizontalPagerState.currentPage == 3,
-                        onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(3) } }
+                        onClick = { coroutineScope.launch { horizontalPagerState.scrollToPage(3) } }
                     )
                 }
             }
