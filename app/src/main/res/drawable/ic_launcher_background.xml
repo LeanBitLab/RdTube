@@ -4,15 +4,22 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Dark obsidian base background -->
+
+    <!-- Dark obsidian base -->
     <path
         android:fillColor="#0D0E15"
         android:pathData="M0,0h108v108h-108z" />
-    <!-- Subtle circular ring framing the adaptive icon safe zone -->
+
+    <!-- Subtle inner disc -->
     <path
-        android:fillColor="#141622"
+        android:fillColor="#121420"
+        android:pathData="M54,20 A34,34 0 1,1 53.99,20 Z" />
+
+    <!-- Subtle ring outline -->
+    <path
+        android:fillColor="#00000000"
         android:strokeColor="#1E2233"
         android:strokeWidth="1"
-        android:pathData="M54,19 A35,35 0 1,1 53.99,19 Z" />
-</vector>
+        android:pathData="M54,20 A34,34 0 1,1 53.99,20 Z" />
 
+</vector>
