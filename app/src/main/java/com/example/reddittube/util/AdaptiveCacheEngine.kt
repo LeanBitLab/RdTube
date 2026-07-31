@@ -13,6 +13,7 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
     private val lowerBound: Int = 32,
     private val upperBound: Int = 500,
     private val memoryFraction: Float = 0.15f,
+    private val isProtectedKey: (K) -> Boolean = { false },
     private val sizeEstimator: (V) -> Long = { 1024L }
 ) {
     private data class CacheNode<V>(
@@ -58,22 +59,24 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
     }
 
     /**
-     * Compute eviction score S(i):
-     * S(i) = (f_i * exp(-lambda * delta_t)) / (1 + ln(1 + weight))
+     * Compute keep_score S(i) from Plan.md:
+     * keep_score = ((1 + freq)^0.9) * exp(-lambda * age_sec) / (1 + ln(1 + size_weight))
      */
     private fun computeScore(node: CacheNode<V>, nowMs: Long): Double {
         val deltaSec = ((nowMs - node.lastAccessedMs) / 1000.0).coerceAtLeast(0.0)
+        val freqFactor = Math.pow(1.0 + node.frequency, 0.9)
         val decay = kotlin.math.exp(-lambda * deltaSec)
-        val weightFactor = 1.0 + ln(1.0 + node.sizeBytes)
-        return (node.frequency * decay) / weightFactor
+        val sizeWeightMB = node.sizeBytes / (1024.0 * 1024.0)
+        val weightFactor = 1.0 + ln(1.0 + sizeWeightMB)
+        return (freqFactor * decay) / weightFactor
     }
 
     private fun trimToCapacity() {
         val target = dynamicCapacity
         val now = SystemClock.elapsedRealtime()
         while (store.size > target) {
-            val lowest = store.minByOrNull { computeScore(it.value, now) } ?: break
-            store.remove(lowest.key)
+            val candidate = store.filter { !isProtectedKey(it.key) }.minByOrNull { computeScore(it.value, now) } ?: break
+            store.remove(candidate.key)
         }
     }
 

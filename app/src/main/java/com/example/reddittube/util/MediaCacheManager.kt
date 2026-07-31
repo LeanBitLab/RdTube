@@ -53,12 +53,20 @@ object MediaCacheManager {
     }
 
     fun getLowLatencyLoadControl(): LoadControl {
+        return getAdaptiveLoadControl(500, 1000, 10000)
+    }
+
+    fun getAdaptiveLoadControl(
+        bufferPlayMs: Int = 300,
+        bufferRebufferMs: Int = 800,
+        bufferMaxMs: Int = 12000
+    ): LoadControl {
         return DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                /* minBufferMs = */ 2500,
-                /* maxBufferMs = */ 10000,
-                /* bufferForPlaybackMs = */ 500,
-                /* bufferForPlaybackAfterRebufferMs = */ 1000
+                /* minBufferMs = */ bufferMaxMs,
+                /* maxBufferMs = */ bufferMaxMs,
+                /* bufferForPlaybackMs = */ bufferPlayMs,
+                /* bufferForPlaybackAfterRebufferMs = */ bufferRebufferMs
             )
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()

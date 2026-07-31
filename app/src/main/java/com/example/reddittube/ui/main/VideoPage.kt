@@ -27,6 +27,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -99,10 +100,17 @@ fun VideoPage(
     var currentSpeed by remember { mutableStateOf(1.0f) }
     var showQualitySheet by remember { mutableStateOf(false) }
 
+    val perfController = remember { com.lean.reddittube.util.PerfTelemetryController.getInstance(context) }
+    val perfParams by perfController.params.collectAsStateWithLifecycle()
+
     val exoPlayer = remember(post.id) {
         val url = post.dashUrl.ifEmpty { post.hlsUrl }.ifEmpty { post.videoUrl }
         val cacheDataSourceFactory = com.example.reddittube.util.MediaCacheManager.getCacheDataSourceFactory(context)
-        val loadControl = com.example.reddittube.util.MediaCacheManager.getLowLatencyLoadControl()
+        val loadControl = com.example.reddittube.util.MediaCacheManager.getAdaptiveLoadControl(
+            bufferPlayMs = perfParams.bufferPlayMs,
+            bufferRebufferMs = perfParams.bufferRebufferMs,
+            bufferMaxMs = perfParams.bufferMaxMs
+        )
         val player = ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory))
             .setLoadControl(loadControl)
