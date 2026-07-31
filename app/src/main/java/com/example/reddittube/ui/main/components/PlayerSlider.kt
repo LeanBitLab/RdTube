@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.util.Locale
 
 @Composable
@@ -45,15 +46,16 @@ fun PlayerSlider(
     var dragFraction by remember { mutableFloatStateOf(-1f) }
 
     LaunchedEffect(player) {
-        while (true) {
-            delay(200)
+        while (isActive) {
+            val isPlaying = player.isPlaying
             val dur = player.duration
             if (dur > 0) {
                 duration = dur.toFloat()
-                if (dragFraction < 0f) {
+                if (dragFraction < 0f && isPlaying) {
                     currentPosition = player.currentPosition.toFloat()
                 }
             }
+            delay(if (isPlaying) 200L else 500L)
         }
     }
 

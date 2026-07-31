@@ -54,13 +54,18 @@ class PerfTelemetryController private constructor(context: Context) {
         startTelemetryLoop()
     }
 
+    @Volatile
+    var isPaused: Boolean = false
+
     private fun startTelemetryLoop() {
         scope.launch {
             while (isActive) {
-                try {
-                    updateTelemetry()
-                } catch (e: Exception) {
-                    Log.w("PerfTelemetry", "Error updating telemetry: ${e.message}")
+                if (!isPaused) {
+                    try {
+                        updateTelemetry()
+                    } catch (e: Exception) {
+                        Log.w("PerfTelemetry", "Error updating telemetry: ${e.message}")
+                    }
                 }
                 delay(2000) // Audit every 2 seconds
             }
@@ -79,46 +84,65 @@ class PerfTelemetryController private constructor(context: Context) {
         val usedHeap = totalHeap - freeHeap
         val memPressure = (usedHeap.toDouble() / maxHeap.toDouble()).toFloat().coerceIn(0f, 1f)
 
+        // Native memory budget dynamically derived from total system RAM
+        val am = appContext.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+        val memInfo = android.app.ActivityManager.MemoryInfo()
+        am?.getMemoryInfo(memInfo)
+        val totalRamMb = (memInfo.totalMem / (1024L * 1024L)).toInt()
+        val nativeBudgetMb = when {
+            totalRamMb < 3000 -> 256L
+            totalRamMb <= 6000 -> 384L
+            else -> 512L
+        }
         val nativeAllocated = Debug.getNativeHeapAllocatedSize()
-        val estimatedNativeCeiling = 384L * 1024L * 1024L // 384 MB baseline safe ceiling
+        val estimatedNativeCeiling = nativeBudgetMb * 1024L * 1024L
         val nativePressure = (nativeAllocated.toDouble() / estimatedNativeCeiling.toDouble()).toFloat().coerceIn(0f, 1f)
 
+        val pm = appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
         var thermalStatus = 0.0f
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val pm = appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
-            val status = pm?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE
-            thermalStatus = (status.toFloat() / PowerManager.THERMAL_STATUS_SHUTDOWN.toFloat()).coerceIn(0f, 1f)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && pm != null) {
+            thermalStatus = when (pm.currentThermalStatus) {
+                PowerManager.THERMAL_STATUS_NONE -> 0.0f
+                PowerManager.THERMAL_STATUS_LIGHT -> 0.25f
+                PowerManager.THERMAL_STATUS_MODERATE -> 0.50f
+                PowerManager.THERMAL_STATUS_SEVERE -> 0.75f
+                PowerManager.THERMAL_STATUS_CRITICAL -> 0.90f
+                PowerManager.THERMAL_STATUS_EMERGENCY -> 1.0f
+                else -> 0.0f
+            }
         }
 
-        // OOM Risk Equation: sigmoid(10 * (mem_pressure - 0.82)) + 0.5 * sigmoid(10 * (native_pressure - 0.80))
+        val isPowerSave = pm?.isPowerSaveMode == true
+
+        // OOM Risk Equation strictly clamped 0.0..1.0
         val oomRisk = (
             sigmoid(10f * (memPressure - 0.82f)) +
             0.5f * sigmoid(10f * (nativePressure - 0.80f))
-        ).coerceIn(0f, 1f)
+        ).coerceIn(0.0f, 1.0f)
 
-        // Adaptive alpha (cache memory fraction): 0.15 * (1 - 0.35 * mem_pressure) * (1 - 0.25 * thermal)
+        // Adaptive alpha (cache memory fraction)
         val alpha = (0.15f * (1.0f - 0.35f * memPressure) * (1.0f - 0.25f * thermalStatus)).coerceIn(0.08f, 0.20f)
 
-        // Adaptive Prefetch Depth D: floor(2 * (1 - mem_pressure) * (1 - thermal))
-        val D = if (oomRisk > 0.35f || memPressure > 0.85f) 0 else {
+        // Adaptive Prefetch Depth D
+        var D = if (oomRisk > 0.35f || memPressure > 0.85f) 0 else {
             floor(2.0f * (1.0f - memPressure) * (1.0f - thermalStatus)).toInt().coerceIn(0, 4)
+        }
+        if (isPowerSave) {
+            D = min(D, 1)
         }
 
         val videoStallRatio = (videoStallDurationMs.toDouble() / totalWatchDurationMs.toDouble()).toFloat().coerceIn(0f, 1f)
 
-        // B_play: 300ms baseline + 150ms * video_stall
-        val B_play = (300f + 150f * videoStallRatio).toInt().coerceIn(250, 900)
+        val B_play = if (thermalStatus >= 0.75f || isPowerSave) 250 else (300f + 150f * videoStallRatio).toInt().coerceIn(250, 700)
+        val B_rebuffer = if (thermalStatus >= 0.75f || isPowerSave) 600 else 800
+        val B_max = if (thermalStatus >= 0.75f || isPowerSave) 8000 else (12000f * (1.0f + videoStallRatio)).toInt().coerceIn(8000, 20000)
+        val B_min = (B_max / 2).coerceIn(4000, 12000)
 
-        // B_rebuffer: 800ms
-        val B_rebuffer = 800
-
-        // B_max: 12000ms * (1 + video_stall)
-        val B_max = (12000f * (1.0f + videoStallRatio)).toInt().coerceIn(8000, 20000)
-
-        // k_net: network concurrency
-        val k_net = if (oomRisk > 0.35f) 1 else floor(3.0f * (1.0f - memPressure) * (1.0f - thermalStatus)).toInt().coerceIn(1, 4)
-
-        val q_img = (1.0f - 0.35f * memPressure - 0.30f * thermalStatus).coerceIn(0.45f, 1.0f)
+        var k_net = if (oomRisk > 0.35f || isPowerSave) 1 else floor(3.0f * (1.0f - memPressure) * (1.0f - thermalStatus)).toInt().coerceIn(1, 4)
+        var q_img = (1.0f - 0.35f * memPressure - 0.30f * thermalStatus).coerceIn(0.45f, 1.0f)
+        if (isPowerSave) {
+            q_img = min(q_img, 0.70f)
+        }
 
         val updated = PerfParams(
             alpha = alpha,
@@ -135,7 +159,7 @@ class PerfTelemetryController private constructor(context: Context) {
         )
 
         _params.value = updated
-        Log.d("PerfTelemetry", "Telemetry update: mem=${(memPressure*100).toInt()}%, native=${(nativePressure*100).toInt()}%, oomRisk=${String.format("%.2f", oomRisk)}, alpha=${String.format("%.2f", alpha)}, B_play=${B_play}ms")
+        Log.d("PerfTelemetry", "Telemetry update: mem=${(memPressure*100).toInt()}%, native=${(nativePressure*100).toInt()}%, oomRisk=${String.format("%.2f", oomRisk)}, powerSave=$isPowerSave, B_min=${B_min}ms, B_max=${B_max}ms")
     }
 
     fun recordStall(durationMs: Long) {
