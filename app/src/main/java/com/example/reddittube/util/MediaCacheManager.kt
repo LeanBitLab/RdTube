@@ -61,7 +61,7 @@ object MediaCacheManager {
         bufferRebufferMs: Int = 800,
         bufferMaxMs: Int = 12000
     ): LoadControl {
-        val minBuffer = (bufferMaxMs / 2).coerceIn(4000, 12000)
+        val minBuffer = (bufferMaxMs / 2).coerceIn(4000, minOf(12000, bufferMaxMs))
         return DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 /* minBufferMs = */ minBuffer,
