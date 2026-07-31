@@ -61,13 +61,20 @@ object MediaCacheManager {
         bufferRebufferMs: Int = 800,
         bufferMaxMs: Int = 12000
     ): LoadControl {
-        val minBuffer = (bufferMaxMs / 2).coerceIn(4000, minOf(12000, bufferMaxMs))
+        val upper = minOf(12000, bufferMaxMs)
+        val lower = minOf(4000, upper)
+        val minBufferMs = (bufferMaxMs / 2).coerceIn(lower, upper)
+
+        val safePlayMs = minOf(bufferPlayMs, minBufferMs)
+        val safeRebufferMs = minOf(bufferRebufferMs, minBufferMs)
+        val safeMaxMs = maxOf(bufferMaxMs, minBufferMs)
+
         return DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                /* minBufferMs = */ minBuffer,
-                /* maxBufferMs = */ bufferMaxMs,
-                /* bufferForPlaybackMs = */ bufferPlayMs,
-                /* bufferForPlaybackAfterRebufferMs = */ bufferRebufferMs
+                /* minBufferMs = */ minBufferMs,
+                /* maxBufferMs = */ safeMaxMs,
+                /* bufferForPlaybackMs = */ safePlayMs,
+                /* bufferForPlaybackAfterRebufferMs = */ safeRebufferMs
             )
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()

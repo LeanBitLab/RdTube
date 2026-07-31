@@ -45,17 +45,23 @@ fun PlayerSlider(
     var duration by remember { mutableFloatStateOf(0f) }
     var dragFraction by remember { mutableFloatStateOf(-1f) }
 
-    LaunchedEffect(player) {
-        while (isActive) {
-            val isPlaying = player.isPlaying
+    LaunchedEffect(player, player.isPlaying) {
+        if (!player.isPlaying) {
             val dur = player.duration
-            if (dur > 0) {
+            if (dur > 0 && dragFraction < 0f) {
                 duration = dur.toFloat()
-                if (dragFraction < 0f && isPlaying) {
-                    currentPosition = player.currentPosition.toFloat()
-                }
+                currentPosition = player.currentPosition.toFloat()
             }
-            delay(if (isPlaying) 200L else 500L)
+            return@LaunchedEffect
+        }
+
+        while (isActive) {
+            val dur = player.duration
+            if (dur > 0 && dragFraction < 0f) {
+                duration = dur.toFloat()
+                currentPosition = player.currentPosition.toFloat()
+            }
+            delay(250)
         }
     }
 

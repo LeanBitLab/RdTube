@@ -89,8 +89,9 @@ class PerfTelemetryController private constructor(context: Context) {
         val memInfo = android.app.ActivityManager.MemoryInfo()
         am?.getMemoryInfo(memInfo)
         val totalRamMb = (memInfo.totalMem / (1024L * 1024L)).toInt()
+        val isLowRam = am?.isLowRamDevice == true
         val nativeBudgetMb = when {
-            totalRamMb < 3000 -> 256L
+            isLowRam || totalRamMb < 3000 -> 256L
             totalRamMb <= 6000 -> 384L
             else -> 512L
         }
@@ -100,7 +101,7 @@ class PerfTelemetryController private constructor(context: Context) {
 
         val pm = appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
         var thermalStatus = 0.0f
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && pm != null) {
+        if (Build.VERSION.SDK_INT >= 29 && pm != null) {
             thermalStatus = when (pm.currentThermalStatus) {
                 PowerManager.THERMAL_STATUS_NONE -> 0.0f
                 PowerManager.THERMAL_STATUS_LIGHT -> 0.25f
