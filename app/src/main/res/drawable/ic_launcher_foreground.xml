@@ -5,28 +5,22 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Red rounded play-button outline -->
+    <!-- Crisp White Outer Border -->
     <path
-        android:fillColor="#FF2A4B"
-        android:strokeColor="#FF2A4B"
-        android:strokeWidth="8"
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6"
         android:strokeLineJoin="round"
         android:strokeLineCap="round"
         android:pathData="M44,36 L76,54 L44,72 Z" />
 
-    <!-- White play-button face -->
+    <!-- Solid Red Play Button Face -->
     <path
-        android:fillColor="#FFFFFFFF"
-        android:strokeColor="#FFFFFFFF"
+        android:fillColor="#FF2A4B"
+        android:strokeColor="#FF2A4B"
         android:strokeWidth="2"
         android:strokeLineJoin="round"
         android:strokeLineCap="round"
         android:pathData="M44,36 L76,54 L44,72 Z" />
-
-    <!-- Black R -->
-    <path
-        android:fillColor="#FF000000"
-        android:fillType="evenOdd"
-        android:pathData="M48,46.5 L54.3,46.5 C57.2,46.5 58.8,48.1 58.8,50.7 C58.8,53.1 57.4,54.6 55.0,55.0 L59.2,61.5 L55.8,61.5 L52.0,55.3 L51.0,55.3 L51.0,61.5 L48,61.5 Z M51.0,49.1 L51.0,52.7 L54.1,52.7 C55.4,52.7 56.1,52.0 56.1,50.9 C56.1,49.8 55.4,49.1 54.1,49.1 Z" />
 
 </vector>
