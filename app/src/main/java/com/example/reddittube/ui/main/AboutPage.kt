@@ -123,7 +123,7 @@ fun AboutPage(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Feature Highlights Card (Compact)
+        // Feature Highlights Card (Compact & Full-Width)
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -137,44 +137,37 @@ fun AboutPage(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 val features = listOf(
-                    "🔑 No API Key or Account Needed",
-                    "📺 YouTube-Style Video Browse",
-                    "🎬 Integrated Player & Controls",
-                    "⭐ Subscriptions & Subreddit Search",
-                    "📜 Local History & Likes Persistence",
-                    "⚡ Adaptive Telemetry & Dynamic Cache"
+                    "🔑 No API Key or Account required",
+                    "📺 YouTube-style video browse & feeds",
+                    "🎬 Integrated player with quality & speed controls",
+                    "⭐ Subreddit subscriptions & instant search",
+                    "📜 Local watch history & liked videos persistence",
+                    "⚡ High-speed video pre-fetching & cache"
                 )
 
-                features.chunked(2).forEach { pair ->
+                features.forEach { feat ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 3.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        pair.forEach { feat ->
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .background(SurfaceGlass, shape = RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    feat,
-                                    color = TextPrimary,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                        if (pair.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = BrandRed,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            feat,
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
