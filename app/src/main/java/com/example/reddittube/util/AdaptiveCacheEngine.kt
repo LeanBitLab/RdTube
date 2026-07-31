@@ -42,11 +42,27 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
             return calcCapacity.coerceIn(lowerBound, upperBound)
         }
 
+    private var hitCount = 0L
+    private var missCount = 0L
+    private val protectedTtlMs = 60_000L // 60s TTL for protected keys
+
+    val cacheHitRatio: Float
+        get() {
+            val total = hitCount + missCount
+            return if (total > 0) (hitCount.toFloat() / total.toFloat()) else 1.0f
+        }
+
     operator fun get(key: K): V? {
-        val node = store[key] ?: return null
-        node.frequency += 1
-        node.lastAccessedMs = SystemClock.elapsedRealtime()
-        return node.value
+        val node = store[key]
+        if (node != null) {
+            hitCount++
+            node.frequency += 1
+            node.lastAccessedMs = SystemClock.elapsedRealtime()
+            return node.value
+        } else {
+            missCount++
+            return null
+        }
     }
 
     operator fun set(key: K, value: V) = put(key, value)
@@ -75,7 +91,9 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
         val target = dynamicCapacity
         val now = SystemClock.elapsedRealtime()
         while (store.size > target) {
-            val candidate = store.filter { !isProtectedKey(it.key) }.minByOrNull { computeScore(it.value, now) } ?: break
+            val candidate = store.filter { (k, n) ->
+                !isProtectedKey(k) || (now - n.lastAccessedMs > protectedTtlMs)
+            }.minByOrNull { computeScore(it.value, now) } ?: break
             store.remove(candidate.key)
         }
     }

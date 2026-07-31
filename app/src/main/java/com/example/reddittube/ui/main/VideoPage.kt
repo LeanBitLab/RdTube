@@ -135,7 +135,12 @@ fun VideoPage(
 
     DisposableEffect(post.id) {
         val tag = "VideoPlayer"
+        val initTime = android.os.SystemClock.elapsedRealtime()
         val listener = object : Player.Listener {
+            override fun onRenderedFirstFrame() {
+                val startupMs = android.os.SystemClock.elapsedRealtime() - initTime
+                perfController.recordStartupTime(startupMs)
+            }
             override fun onPlaybackStateChanged(state: Int) {
                 isBuffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED && sharedPreferences.getBoolean("auto_next", false)) {
