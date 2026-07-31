@@ -1,4 +1,5 @@
-package com.example.reddittube.ui.main
+package com.lean.reddittube.ui.main
+import com.lean.reddittube.theme.*
 
 import android.app.Activity
 import android.content.Context
@@ -7,11 +8,22 @@ import android.net.Uri
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +42,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -51,11 +66,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import com.example.reddittube.data.RedditPost
-import com.example.reddittube.ui.main.components.MinimalButton
-import com.example.reddittube.ui.main.components.PlayerSlider
-import com.example.reddittube.ui.main.components.QualityBottomSheet
-import com.example.reddittube.utils.DownloadHelper
+import com.lean.reddittube.data.RedditPost
+import com.lean.reddittube.ui.main.components.MinimalButton
+import com.lean.reddittube.ui.main.components.PlayerSlider
+import com.lean.reddittube.ui.main.components.QualityBottomSheet
+import com.lean.reddittube.utils.DownloadHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -68,13 +83,15 @@ fun VideoPage(
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
     onRemoveVideo: (RedditPost) -> Unit = {},
+    onLike: (RedditPost) -> Unit = {},
+    onSwipeAdvance: () -> Unit = {},
     onNext: () -> Unit = {},
     isMuted: Boolean = false,
     onMuteChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val sharedPreferences = remember { context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE) }
+    val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
 
     // Player state
     var currentQuality by remember { mutableStateOf(sharedPreferences.getString("saved_quality", "Auto") ?: "Auto") }
@@ -166,7 +183,8 @@ fun VideoPage(
         exoPlayer.repeatMode = if (autoNextEnabled) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
     }
 
-    // Gesture HUDs
+    // Swipe-to-like / swipe-to-history live indicator
+    var swipeProgress by remember { mutableStateOf(0f) } // -1 left (history) .. +1 right (like)
     var brightnessPercentage by remember { mutableStateOf(-1f) }
     var volumePercentage by remember { mutableStateOf(-1f) }
     var showBrightnessHud by remember { mutableStateOf(false) }
@@ -226,23 +244,22 @@ Box(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // ExoPlayer canvas
+        // ExoPlayer canvas — tap toggles overlay (reveal never pauses; pause only on a visible-surface tap)
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
-                            // Toggle overlay
+                            val wasShown = showOverlay
                             showOverlay = !showOverlay
                             if (showOverlay) {
                                 overlayJob?.cancel()
                                 overlayJob = coroutineScope.launch {
                                     delay(4000)
-                                    showOverlay = false
+                                    if (exoPlayer.isPlaying) showOverlay = false
                                 }
                             }
-                            // Consume pendingAutoPlay flag to suppress spurious tap after scroll
                             if (pendingAutoPlay) {
                                 pendingAutoPlay = false
                                 if (!exoPlayer.isPlaying) {
@@ -254,8 +271,7 @@ Box(
                                         showPlayPauseTransient = null
                                     }
                                 }
-                            } else {
-                                // Toggle play/pause
+                            } else if (wasShown) {
                                 if (exoPlayer.isPlaying) {
                                     exoPlayer.pause()
                                     showPlayPauseTransient = false
@@ -269,6 +285,33 @@ Box(
                                     showPlayPauseTransient = null
                                 }
                             }
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
+                    // ponytail: swipe left -> history (mark watched), swipe right -> like. Horizontal only,
+                    // so it never conflicts with vertical pager nav or edge volume/brightness.
+                    var totalX = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { totalX = 0f },
+                        onDragCancel = { totalX = 0f; swipeProgress = 0f },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            totalX += dragAmount
+                            val threshold = size.width * 0.25f
+                            swipeProgress = (totalX / threshold).coerceIn(-1f, 1f)
+                        },
+                        onDragEnd = {
+                            val threshold = size.width * 0.25f
+                            if (totalX <= -threshold) {
+                                onRemoveVideo(post)
+                                onSwipeAdvance()
+                            } else if (totalX >= threshold) {
+                                onLike(post)
+                                onSwipeAdvance()
+                            }
+                            totalX = 0f
+                            swipeProgress = 0f
                         }
                     )
                 }
@@ -287,45 +330,14 @@ Box(
             )
         }
 
-        // Auto-track watched: mark after 10% of video watched
-        LaunchedEffect(isActive, post.id) {
-            if (isActive) {
-                while (exoPlayer.duration <= 0) delay(500)
-                val duration = exoPlayer.duration
-                val threshold = duration / 10
-                while (isActive) {
-                    delay(1000)
-                    if (exoPlayer.currentPosition >= threshold && exoPlayer.isPlaying) {
-                        onRemoveVideo(post)
-                        break
-                    }
-                }
-            }
-        }
-
-        // Bottom gradient overlay for readability
-        if (showOverlay) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.5f)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
-                        )
-                    )
-            )
-        }
-
-        // Left edge gesture zone (brightness)
+        // Left edge: brightness. ponytail: long-press drag only, so a scroll swipe never adjusts it.
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .fillMaxWidth(0.18f)
+                .fillMaxWidth(0.2f)
                 .align(Alignment.CenterStart)
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures(
+                    detectDragGesturesAfterLongPress(
                         onDragStart = {
                             showBrightnessHud = true
                             showVolumeHud = false
@@ -333,8 +345,7 @@ Box(
                                 originalBrightness = activity?.window?.attributes?.screenBrightness
                             }
                         },
-                        onVerticalDrag = { change, dragAmount ->
-                            change.consume()
+                        onDrag = { change, dragAmount ->
                             if (activity != null) {
                                 val lp = activity.window.attributes
                                 val currentBright = if (lp.screenBrightness < 0f) {
@@ -343,7 +354,7 @@ Box(
                                     lp.screenBrightness
                                 }
                                 val sensitivity = 0.003f
-                                val nextBright = (currentBright - dragAmount * sensitivity).coerceIn(0.01f, 1f)
+                                val nextBright = (currentBright - dragAmount.y * sensitivity).coerceIn(0.01f, 1f)
                                 lp.screenBrightness = nextBright
                                 activity.window.attributes = lp
                                 brightnessPercentage = nextBright
@@ -365,22 +376,21 @@ Box(
                 }
         )
 
-        // Right edge gesture zone (volume)
+        // Right edge: volume. ponytail: long-press drag only, so a scroll swipe never adjusts it.
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .fillMaxWidth(0.18f)
+                .fillMaxWidth(0.2f)
                 .align(Alignment.CenterEnd)
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures(
+                    detectDragGesturesAfterLongPress(
                         onDragStart = {
                             showVolumeHud = true
                             showBrightnessHud = false
                         },
-                        onVerticalDrag = { change, dragAmount ->
-                            change.consume()
+                        onDrag = { change, dragAmount ->
                             val sensitivity = 0.003f
-                            val nextPercent = (exoPlayer.volume - dragAmount * sensitivity).coerceIn(0f, 1f)
+                            val nextPercent = (exoPlayer.volume - dragAmount.y * sensitivity).coerceIn(0f, 1f)
                             onMuteChange(nextPercent == 0f)
                             exoPlayer.volume = nextPercent
                             volumePercentage = nextPercent
@@ -401,27 +411,126 @@ Box(
                 }
         )
 
+        // Auto-track watched: mark after 10% of video watched
+        LaunchedEffect(isActive, post.id) {
+            if (isActive) {
+                while (exoPlayer.duration <= 0) delay(500)
+                val duration = exoPlayer.duration
+                val threshold = duration / 10
+                while (isActive) {
+                    delay(1000)
+                    if (exoPlayer.currentPosition >= threshold && exoPlayer.isPlaying) {
+                        onRemoveVideo(post)
+                        break
+                    }
+                }
+            }
+        }
+
+        // Bottom gradient overlay for readability
+        AnimatedVisibility(
+            visible = showOverlay,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(200))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.5f)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+                        )
+                    )
+            )
+        }
+
+        // ponytail: edge zones removed — unified gesture surface above classifies by start X.
+
+        // Swipe-to-like / swipe-to-history minimal glassmorphic visualizer
+        val likeAlpha = swipeProgress.coerceIn(0f, 1f)
+        if (likeAlpha > 0.05f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 28.dp)
+                    .alpha(likeAlpha)
+                    .scale(0.85f + likeAlpha * 0.15f),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = SurfaceBase.copy(alpha = 0.85f),
+                    border = BorderStroke(1.dp, BrandRed.copy(alpha = 0.6f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.ThumbUp, contentDescription = null, tint = BrandRed, modifier = Modifier.size(18.dp))
+                        Text("Liked", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+
+        val historyAlpha = (-swipeProgress).coerceIn(0f, 1f)
+        if (historyAlpha > 0.05f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 28.dp)
+                    .alpha(historyAlpha)
+                    .scale(0.85f + historyAlpha * 0.15f),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = SurfaceBase.copy(alpha = 0.85f),
+                    border = BorderStroke(1.dp, GlassBorder)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.History, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(18.dp))
+                        Text("History", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+
         // Buffering indicator
-        if (isBuffering) {
+        AnimatedVisibility(
+            visible = isBuffering,
+            modifier = Modifier.align(Alignment.Center),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150))
+        ) {
             CircularProgressIndicator(
                 color = Color.White.copy(alpha = 0.8f),
-                modifier = Modifier
-                    .size(48.dp)
-                    .align(Alignment.Center)
+                modifier = Modifier.size(48.dp)
             )
         }
 
         // Transient play/pause visual
-        showPlayPauseTransient?.let { state ->
+        AnimatedVisibility(
+            visible = showPlayPauseTransient != null,
+            modifier = Modifier.align(Alignment.Center),
+            enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.8f),
+            exit = fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.8f)
+        ) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), shape = CircleShape)
-                    .align(Alignment.Center),
+                    .background(Color.Black.copy(alpha = 0.5f), shape = CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    if (state) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    if (showPlayPauseTransient == true) Icons.Default.PlayArrow else Icons.Default.Pause,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(36.dp)
@@ -430,10 +539,14 @@ Box(
         }
 
         // Bottom metadata, quick actions, and player slider overlay
-        if (showOverlay) {
+        AnimatedVisibility(
+            visible = showOverlay,
+            modifier = Modifier.align(Alignment.BottomStart),
+            enter = fadeIn(tween(220)) + slideInVertically(tween(220), initialOffsetY = { it / 2 }),
+            exit = fadeOut(tween(180)) + slideOutVertically(tween(180), targetOffsetY = { it / 2 })
+        ) {
             Column(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 16.dp)
@@ -452,13 +565,13 @@ Box(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color.Red.copy(alpha = if (isSubbed) 0.2f else 0.15f))
+                            .background(BrandRed.copy(alpha = if (isSubbed) 0.2f else 0.15f))
                             .clickable { onSubscribeToggle(post.subreddit.lowercase()) },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (isSubbed) "\u2713" else "+",
-                            color = Color.Red,
+                            color = BrandRed,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -516,7 +629,7 @@ MinimalButton(
                         Icon(
                             if (isRotationLocked) Icons.Default.Lock else Icons.Default.LockOpen,
                             contentDescription = "Rotation",
-                            tint = if (isRotationLocked) Color.Red else Color.White,
+                            tint = if (isRotationLocked) BrandRed else Color.White,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -529,7 +642,7 @@ MinimalButton(
                         Icon(
                             if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
                             contentDescription = "Mute",
-                            tint = if (isMuted) Color.Red else Color.White,
+                            tint = if (isMuted) BrandRed else Color.White,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -545,7 +658,7 @@ MinimalButton(
                         Icon(
                             Icons.Default.SkipNext,
                             contentDescription = "Auto-next",
-                            tint = if (autoNextEnabled) Color.Red else Color.White,
+                            tint = if (autoNextEnabled) BrandRed else Color.White,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -583,79 +696,44 @@ MinimalButton(
             }
         }
 
-        // Brightness HUD slider
-        if (showBrightnessHud) {
+        // Brightness HUD (refined vertical slider)
+        AnimatedVisibility(
+            visible = showBrightnessHud,
+            modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150))
+        ) {
             val displayBright = if (brightnessPercentage < 0f && activity != null) {
                 val lp = activity.window.attributes
                 if (lp.screenBrightness < 0f) {
                     Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
                 } else lp.screenBrightness
             } else brightnessPercentage
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(32.dp)
-                    .align(Alignment.CenterStart)
-                    .padding(start = 4.dp, top = 360.dp, bottom = 360.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Canvas(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        val trackW = 3.dp.toPx()
-                        val fillH = size.height * displayBright.coerceIn(0f, 1f)
-                        drawRoundRect(
-                            color = Color.White.copy(alpha = 0.3f),
-                            topLeft = Offset((size.width - trackW) / 2f, 0f),
-                            size = Size(trackW, size.height),
-                            cornerRadius = CornerRadius(trackW / 2f)
-                        )
-                        drawRoundRect(
-                            color = Color.White,
-                            topLeft = Offset((size.width - trackW) / 2f, size.height - fillH),
-                            size = Size(trackW, fillH),
-                            cornerRadius = CornerRadius(trackW / 2f)
-                        )
-                    }
-                    Icon(Icons.Default.BrightnessHigh, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-            }
+            VerticalHud(
+                progress = displayBright.coerceIn(0f, 1f),
+                icon = { Icon(Icons.Default.BrightnessHigh, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+            )
         }
 
-        // Volume HUD slider
-        if (showVolumeHud) {
-            val displayVol = if (volumePercentage < 0f) {
-                exoPlayer.volume
-            } else volumePercentage
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(32.dp)
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 4.dp, top = 360.dp, bottom = 360.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Canvas(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        val trackW = 3.dp.toPx()
-                        val fillH = size.height * displayVol.coerceIn(0f, 1f)
-                        drawRoundRect(
-                            color = Color.White.copy(alpha = 0.3f),
-                            topLeft = Offset((size.width - trackW) / 2f, 0f),
-                            size = Size(trackW, size.height),
-                            cornerRadius = CornerRadius(trackW / 2f)
-                        )
-                        drawRoundRect(
-                            color = Color.White,
-                            topLeft = Offset((size.width - trackW) / 2f, size.height - fillH),
-                            size = Size(trackW, fillH),
-                            cornerRadius = CornerRadius(trackW / 2f)
-                        )
-                    }
-                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp).align(Alignment.CenterHorizontally))
-                    Spacer(modifier = Modifier.height(20.dp))
+        // Volume HUD (refined vertical slider)
+        AnimatedVisibility(
+            visible = showVolumeHud,
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150))
+        ) {
+            val displayVol = if (volumePercentage < 0f) exoPlayer.volume else volumePercentage
+            VerticalHud(
+                progress = displayVol.coerceIn(0f, 1f),
+                icon = {
+                    Icon(
+                        if (displayVol <= 0f) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
-            }
+            )
         }
 
         // Download progress overlay
@@ -672,7 +750,7 @@ MinimalButton(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
-                        color = Color.Red,
+                        color = BrandRed,
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp
                     )
@@ -698,6 +776,42 @@ MinimalButton(
     }
 }
 
+
+@Composable
+private fun VerticalHud(
+    progress: Float,
+    icon: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.width(56.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(Color.Black.copy(alpha = 0.5f), shape = CircleShape),
+            contentAlignment = Alignment.Center
+        ) { icon() }
+        Spacer(Modifier.height(14.dp))
+        Box(
+            modifier = Modifier
+                .height(160.dp)
+                .width(6.dp)
+                .background(Color.White.copy(alpha = 0.22f), shape = RoundedCornerShape(3.dp)),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(progress.coerceIn(0f, 1f))
+                    .background(Color.White, shape = RoundedCornerShape(3.dp))
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Text("${(progress.coerceIn(0f, 1f) * 100).toInt()}%", color = Color.White, fontSize = 12.sp)
+    }
+}
 
 private fun applyQualitySetting(player: ExoPlayer, quality: String) {
     val maxVideoSize = when (quality) {

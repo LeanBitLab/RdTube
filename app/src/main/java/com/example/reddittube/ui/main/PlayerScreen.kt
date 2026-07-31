@@ -1,4 +1,4 @@
-package com.example.reddittube.ui.main
+package com.lean.reddittube.ui.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,10 +12,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.lean.reddittube.theme.HPad
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lean.reddittube.data.RedditPost
 
 // ponytail: full-screen player launched from the browse grid — plays the chosen video on the existing player
 @Composable
@@ -26,19 +28,35 @@ fun PlayerScreen(
 ) {
     val list by viewModel.playerList.collectAsStateWithLifecycle()
     val exploreState by viewModel.exploreState.collectAsStateWithLifecycle()
+    val subscribedState by viewModel.subscribedState.collectAsStateWithLifecycle()
     val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
+    val feed = viewModel.playerFeed
+
+    // ponytail: pager must follow the live feed (explore/subscribed) so load-more actually grows it;
+    // for history/liked ("other") it stays the opened snapshot
+    val liveData: List<RedditPost> = when (feed) {
+        "explore" -> (exploreState as? MainScreenUiState.Success)?.data ?: list
+        "subscribed" -> (subscribedState as? MainScreenUiState.Success)?.data ?: list
+        else -> list
+    }
+    val liveLoadingMore = when (feed) {
+        "explore" -> (exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false
+        "subscribed" -> (subscribedState as? MainScreenUiState.Success)?.isLoadingMore ?: false
+        else -> false
+    }
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
-        if (list.isNotEmpty()) {
+        if (liveData.isNotEmpty()) {
             VideoFeedContent(
-                data = list,
+                data = liveData,
                 modifier = Modifier.fillMaxSize(),
                 startIndex = viewModel.playerStartIndex,
-                isLoadingMore = (exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false,
+                isLoadingMore = liveLoadingMore,
                 subscribedSet = subscribedSubreddits,
                 onSubscribeToggle = viewModel::toggleSubscription,
                 onRemoveVideo = { viewModel.markAsWatched(it) },
-                onLoadMore = { viewModel.loadMore(true) },
+                onLike = viewModel::toggleLike,
+                onLoadMore = { if (feed != "other") viewModel.loadMore(feed != "subscribed") },
                 onRefresh = { viewModel.refreshExplore() },
                 isRefreshing = exploreState is MainScreenUiState.Loading
             )
@@ -47,7 +65,7 @@ fun PlayerScreen(
         Box(
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(8.dp)
+                .padding(start = HPad, top = 8.dp)
                 .size(40.dp)
                 .clip(CircleShape)
                 .background(Color.Black.copy(alpha = 0.5f))

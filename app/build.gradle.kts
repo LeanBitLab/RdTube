@@ -5,10 +5,10 @@ plugins {
 }
 
 android {
-    namespace = "com.example.reddittube"
+    namespace = "com.lean.reddittube"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.example.reddittube"
+        applicationId = "com.lean.rdtube"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

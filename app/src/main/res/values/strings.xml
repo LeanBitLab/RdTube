@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">RedditTube</string>
+    <string name="app_name">RdTube</string>
     <string name="menu_refresh">Refresh</string>
     <string name="menu_history">History</string>
     <string name="tab_explore">Explore</string>

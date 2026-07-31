@@ -1,4 +1,5 @@
-package com.example.reddittube.ui.main.components
+package com.lean.reddittube.ui.main.components
+import com.lean.reddittube.theme.*
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
@@ -32,7 +35,6 @@ import androidx.media3.common.Player
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-// ponytail: Thin draggable seek bar with current position / duration display
 @Composable
 fun PlayerSlider(
     player: Player,
@@ -40,11 +42,11 @@ fun PlayerSlider(
 ) {
     var currentPosition by remember { mutableFloatStateOf(0f) }
     var duration by remember { mutableFloatStateOf(0f) }
-    var dragFraction by remember { mutableFloatStateOf(-1f) } // -1 = not dragging
+    var dragFraction by remember { mutableFloatStateOf(-1f) }
 
     LaunchedEffect(player) {
         while (true) {
-            delay(250)
+            delay(200)
             val dur = player.duration
             if (dur > 0) {
                 duration = dur.toFloat()
@@ -55,25 +57,27 @@ fun PlayerSlider(
         }
     }
 
-    if (duration <= 0f) return
-
-    val progress = if (dragFraction >= 0f) dragFraction else currentPosition / duration
+    val progress = if (duration > 0f) {
+        if (dragFraction >= 0f) dragFraction else currentPosition / duration
+    } else {
+        0f
+    }
     val clampedProgress = progress.coerceIn(0f, 1f)
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = formatTime((clampedProgress * duration).toLong()),
-            color = Color.White.copy(alpha = 0.8f),
+            color = Color.White,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
         )
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(10.dp))
 
         Box(
             modifier = Modifier
@@ -109,41 +113,43 @@ fun PlayerSlider(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(3.dp)
+                    .height(4.dp)
                     .align(Alignment.CenterStart)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.25f))
+                    .background(Color.White.copy(alpha = 0.2f))
             )
-            // Track fill + thumb container
+            // Filled track + glowing thumb
             Box(
                 modifier = Modifier
                     .fillMaxWidth(clampedProgress)
-                    .height(3.dp)
+                    .height(4.dp)
                     .align(Alignment.CenterStart)
             ) {
-                // Filled track
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(RoundedCornerShape(2.dp))
-                        .background(Color.Red)
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(BrandRed, BrandRedLight)
+                            )
+                        )
                 )
-                // Thumb circle at the end of the fill
                 Box(
                     modifier = Modifier
                         .size(12.dp)
                         .align(Alignment.CenterEnd)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(CircleShape)
                         .background(Color.White)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(10.dp))
 
         Text(
             text = formatTime(duration.toLong()),
-            color = Color.White.copy(alpha = 0.6f),
+            color = Color.White.copy(alpha = 0.65f),
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
         )

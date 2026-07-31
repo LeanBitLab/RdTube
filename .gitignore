@@ -1,28 +1,22 @@
 *.iml
 .gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+local.properties
+.idea/
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
-local.properties
 
-# Agent/opencode files (local only)
-AGENTS.md
-AGENTS.compact.md
-opencode.json
-.opencode/
-
-# Antigravity files
-.antigravityignore
+# Agent / AI files (local only)
+.agents/
+.gemini/
+.cursor/
+.cursorrules
+.clinerules
+*.prompt
 
 # npm collateral (not an Android dependency)
+node_modules/
 package.json
 package-lock.json

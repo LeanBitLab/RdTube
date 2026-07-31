@@ -1,4 +1,4 @@
-package com.example.reddittube.ui.main.components
+package com.lean.reddittube.ui.main.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,7 +31,7 @@ fun MinimalButton(
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
-            .padding(horizontal = if (label.isEmpty()) 8.dp else 10.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {

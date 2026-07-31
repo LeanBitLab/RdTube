@@ -1,4 +1,5 @@
-package com.example.reddittube.ui.main
+package com.lean.reddittube.ui.main
+import com.lean.reddittube.theme.*
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -6,6 +7,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -24,21 +26,34 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.reddittube.data.RedditError
-import com.example.reddittube.data.RedditPost
-import com.example.reddittube.ui.main.SortOption
-import com.example.reddittube.utils.formatScore
-import com.example.reddittube.utils.toJson
-import com.example.reddittube.utils.toRedditPost
-import com.example.reddittube.ui.main.components.ThumbnailImage
+import com.lean.reddittube.data.RedditError
+import com.lean.reddittube.data.RedditPost
+import com.lean.reddittube.ui.main.SortOption
+import com.lean.reddittube.utils.formatScore
+import com.lean.reddittube.utils.toJson
+import com.lean.reddittube.utils.toRedditPost
+import com.lean.reddittube.ui.main.components.ThumbnailImage
+import com.lean.reddittube.ui.main.components.SectionLoadingIndicator
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.snapshotFlow
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -57,50 +72,57 @@ fun HomeScreen(
     val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
 
     val coroutineScope = rememberCoroutineScope()
-    val horizontalPagerState = rememberPagerState(pageCount = { 3 })
+    val horizontalPagerState = rememberPagerState(pageCount = { 4 })
 
     var showPanel by remember { mutableStateOf(false) }
     var sortExpanded by remember { mutableStateOf(false) }
     var panelView by remember { mutableStateOf(PanelView.Menu) }
+    var bottomBarVisible by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        // ponytail: only fetch on first open; ViewModel state persists across navigation so returning to Home stays instant
         if (exploreState is MainScreenUiState.Loading) viewModel.refreshExplore()
         if (subscribedSubreddits.isNotEmpty() && subscribedState is MainScreenUiState.Loading) {
             viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+"))
         }
     }
+    LaunchedEffect(horizontalPagerState.currentPage) {
+        bottomBarVisible = true
+    }
 
     fun refreshCurrentFeed() {
         if (horizontalPagerState.currentPage == 0) {
             viewModel.refreshExplore()
-        } else {
+        } else if (horizontalPagerState.currentPage == 2) {
             viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+"))
         }
     }
 
-    // Liked state persisted
-    val prefs = remember { context.getSharedPreferences("reddittube_prefs", Context.MODE_PRIVATE) }
-    val savedLiked = prefs.getStringSet("liked_ids", emptySet()) ?: emptySet<String>()
-    val initialLiked: MutableSet<String> = mutableSetOf<String>().apply { addAll(savedLiked) }
-    var likedIds by remember { mutableStateOf(initialLiked) }
-    var likedPosts by remember { mutableStateOf(loadLikedPosts(prefs)) }
-
-    fun toggleLike(post: RedditPost) {
-        val id = post.id
-        val ids = if (likedIds.contains(id)) (likedIds - id) else (likedIds + id)
-        likedIds = ids.toMutableSet()
-        prefs.edit().putStringSet("liked_ids", ids).apply()
-        val posts = if (likedIds.contains(id)) (likedPosts + post).distinctBy { it.id }
-        else likedPosts.filter { it.id != id }
-        likedPosts = posts
-        prefs.edit().putString("liked_posts", likedPostsToJson(posts)).apply()
-    }
+    val likedIds by viewModel.likedIdsFlow.collectAsStateWithLifecycle()
+    val likedPosts = viewModel.getLikedPosts()
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
+            .pointerInput(Unit) {
+                var totalX = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { totalX = 0f },
+                    onDragCancel = { totalX = 0f },
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        totalX += dragAmount
+                    },
+                    onDragEnd = {
+                        val threshold = size.width * 0.25f
+                        if (totalX <= -threshold) {
+                            panelView = PanelView.Menu
+                            showPanel = true
+                        }
+                        totalX = 0f
+                    }
+                )
+            }
     ) {
         HorizontalPager(
             state = horizontalPagerState,
@@ -111,10 +133,11 @@ fun HomeScreen(
                 0 -> BrowseGrid(
                     uiState = exploreState,
                     likedIds = likedIds,
-                    onLike = { toggleLike(it) },
-                    onItemClick = { list: List<RedditPost>, index: Int -> viewModel.openPlayer(list, index); onItemClick() },
+                    onLike = viewModel::toggleLike,
+                    onItemClick = { list: List<RedditPost>, index: Int -> viewModel.openPlayer(list, index, "explore"); onItemClick() },
                     onLoadMore = { viewModel.loadMore(true) },
                     onRefresh = { viewModel.refreshExplore() },
+                    onScrollDirection = { bottomBarVisible = !it },
                     isLoadingMore = (exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
                 1 -> SearchPage(
@@ -130,103 +153,167 @@ fun HomeScreen(
                 2 -> BrowseGrid(
                     uiState = subscribedState,
                     likedIds = likedIds,
-                    onLike = { toggleLike(it) },
-                    onItemClick = { list: List<RedditPost>, index: Int -> viewModel.openPlayer(list, index); onItemClick() },
+                    onLike = viewModel::toggleLike,
+                    onItemClick = { list: List<RedditPost>, index: Int -> viewModel.openPlayer(list, index, "subscribed"); onItemClick() },
                     onLoadMore = { viewModel.loadMore(false) },
                     onRefresh = { viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+")) },
+                    onScrollDirection = { bottomBarVisible = !it },
                     isLoadingMore = (subscribedState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
+                3 -> AboutPage()
             }
         }
 
-        // Top header
-        Row(
+        // Top header with subtle scrim + brand mark
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .height(TopBarHeight)
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent)))
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("R", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text("Tube", color = Color.Red, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(28.dp)
-                    .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
-                    .clickable { showPanel = true; panelView = PanelView.Menu },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White, modifier = Modifier.size(18.dp))
-            }
-        }
-
-        // Floating bottom navigation (icons only)
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = Color(0xFF242424),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-                shadowElevation = 10.dp
+                    .fillMaxSize()
+                    .padding(horizontal = HPad),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val isExplore = horizontalPagerState.currentPage == 0
-                    val isSubscribed = horizontalPagerState.currentPage == 2
-                    Icon(Icons.Default.Home, contentDescription = "Explore",
-                        tint = if (isExplore) Color.Red else Color.LightGray,
-                        modifier = Modifier.clip(CircleShape).clickable { coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) } }.padding(horizontal = 24.dp, vertical = 12.dp).size(24.dp))
-                    Icon(Icons.Default.Search, contentDescription = "Search",
-                        tint = if (horizontalPagerState.currentPage == 1) Color.Red else Color.LightGray,
-                        modifier = Modifier.clip(CircleShape).clickable { coroutineScope.launch { horizontalPagerState.animateScrollToPage(1) } }.padding(horizontal = 24.dp, vertical = 12.dp).size(24.dp))
-                    Icon(Icons.Default.Star, contentDescription = "Subscribed",
-                        tint = if (isSubscribed) Color.Red else Color.LightGray,
-                        modifier = Modifier.clip(CircleShape).clickable {
-                            if (subscribedSubreddits.isEmpty()) {
-                                Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
-                            } else {
-                                coroutineScope.launch { horizontalPagerState.animateScrollToPage(2) }
-                            }
-                        }.padding(horizontal = 24.dp, vertical = 12.dp).size(24.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(BrandRed, shape = RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) { Text("Rd", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                    Text("Tube", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(SurfaceBar, shape = CircleShape)
+                        .clickable { showPanel = true; panelView = PanelView.Menu },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White, modifier = Modifier.size(20.dp))
                 }
             }
         }
 
-        // Right-side panel (menu / History grid / Liked grid)
-        if (showPanel) {
+        // Solid full-width bottom navigation bar — darker background, curved top corners, minimal height
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            color = SurfaceBase,
+            border = BorderStroke(1.dp, GlassBorder)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(top = 10.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BottomNavItem(
+                    icon = Icons.Default.Home,
+                    label = "Explore",
+                    selected = horizontalPagerState.currentPage == 0,
+                    onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) } }
+                )
+                BottomNavItem(
+                    icon = Icons.Default.Search,
+                    label = "Search",
+                    selected = horizontalPagerState.currentPage == 1,
+                    onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(1) } }
+                )
+                BottomNavItem(
+                    icon = Icons.Default.Star,
+                    label = "Subscribed",
+                    selected = horizontalPagerState.currentPage == 2,
+                    onClick = {
+                        if (subscribedSubreddits.isEmpty()) {
+                            Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            coroutineScope.launch { horizontalPagerState.animateScrollToPage(2) }
+                        }
+                    }
+                )
+                BottomNavItem(
+                    icon = Icons.Default.Info,
+                    label = "About",
+                    selected = horizontalPagerState.currentPage == 3,
+                    onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(3) } }
+                )
+            }
+        }
+
+        // Right-side panel (does not overlap status bar, starts below status bar)
+        AnimatedVisibility(
+            visible = showPanel,
+            enter = fadeIn(animationSpec = tween(200)),
+            exit = fadeOut(animationSpec = tween(200))
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.6f))
+                    .background(Scrim)
                     .clickable { showPanel = false }
+                    .pointerInput(Unit) {
+                        var totalX = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { totalX = 0f },
+                            onDragCancel = { totalX = 0f },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                totalX += dragAmount
+                            },
+                            onDragEnd = {
+                                val threshold = size.width * 0.25f
+                                if (totalX >= threshold) showPanel = false
+                                totalX = 0f
+                            }
+                        )
+                    }
             ) {
                 Surface(
-                    color = Color(0xFF1A1A1A),
-                    shape = RoundedCornerShape(16.dp),
-                    shadowElevation = 16.dp,
+                    color = SurfaceBase,
+                    border = BorderStroke(1.dp, GlassBorder),
+                    shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp),
+                    shadowElevation = 24.dp,
+                    tonalElevation = 0.dp,
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .fillMaxHeight()
-                        .width(300.dp)
-                        .padding(top = 16.dp, bottom = 16.dp, start = 24.dp, end = 16.dp)
-                        .clickable { }  // ponytail: consume clicks so scrim close doesn't fire
+                        .statusBarsPadding()
+                        .width(320.dp)
+                        .clickable { }
+                        .pointerInput(Unit) {
+                            var totalX = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { totalX = 0f },
+                                onDragCancel = { totalX = 0f },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    totalX += dragAmount
+                                },
+                                onDragEnd = {
+                                    val threshold = size.width * 0.25f
+                                    if (totalX >= threshold) showPanel = false
+                                    totalX = 0f
+                                }
+                            )
+                        }
                 ) {
                     Column(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
                         // Panel header: back (if subview) + title + close
                         Row(
-                            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -238,7 +325,7 @@ fun HomeScreen(
                                     ) { Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(22.dp)) }
                                     Spacer(Modifier.width(8.dp))
                                 }
-                                val titleText = when (panelView) { PanelView.Menu -> "R-Tube"; PanelView.History -> "History"; PanelView.Liked -> "Liked" }
+                                val titleText = when (panelView) { PanelView.Menu -> "RdTube"; PanelView.History -> "History"; PanelView.Liked -> "Liked" }
                                 Text(titleText, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                             }
                             Box(
@@ -260,20 +347,59 @@ fun HomeScreen(
                             PanelView.History -> PostGridContent(
                                 posts = viewModel.getWatchedPosts(),
                                 likedIds = likedIds,
-                                onLike = { toggleLike(it) },
-                                onItemClick = { list, index -> showPanel = false; viewModel.openPlayer(list, index); onItemClick() }
+                                onLike = viewModel::toggleLike,
+                                onItemClick = { list, index -> showPanel = false; viewModel.openPlayer(list, index, "other"); onItemClick() }
                             )
                             PanelView.Liked -> PostGridContent(
                                 posts = likedPosts,
                                 likedIds = likedIds,
-                                onLike = { toggleLike(it) },
-                                onItemClick = { list, index -> showPanel = false; viewModel.openPlayer(list, index); onItemClick() }
+                                onLike = viewModel::toggleLike,
+                                onItemClick = { list, index -> showPanel = false; viewModel.openPlayer(list, index, "other"); onItemClick() }
                             )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BottomNavItem(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(if (selected) BrandRed.copy(alpha = 0.18f) else Color.Transparent)
+                .padding(horizontal = 14.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = if (selected) BrandRed else TextSecondary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = label,
+            color = if (selected) BrandRed else TextMuted,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+        )
     }
 }
 
@@ -289,9 +415,11 @@ private fun PanelMenu(
 ) {
     val drawerColors = NavigationDrawerItemDefaults.colors(
         unselectedContainerColor = Color.Transparent,
-        selectedContainerColor = Color.White.copy(alpha = 0.1f),
-        unselectedTextColor = Color.White,
-        selectedTextColor = Color.Red
+        selectedContainerColor = BrandRed.copy(alpha = 0.16f),
+        unselectedTextColor = TextPrimary,
+        selectedTextColor = BrandRed,
+        unselectedIconColor = TextSecondary,
+        selectedIconColor = BrandRed
     )
     Column(Modifier.fillMaxSize().padding(8.dp).navigationBarsPadding()) {
         NavigationDrawerItem(
@@ -315,10 +443,10 @@ private fun PanelMenu(
         if (sortExpanded) {
             SortOption.entries.forEach { sort ->
                 NavigationDrawerItem(
-                    label = { Text(sort.label, modifier = Modifier.padding(start = 16.dp), color = if (currentSort == sort) Color.Red else Color.White) },
+                    label = { Text(sort.label, modifier = Modifier.padding(start = 16.dp), color = if (currentSort == sort) BrandRed else Color.White) },
                     selected = currentSort == sort,
                     onClick = { onSort(sort) },
-                    icon = { Icon(if (currentSort == sort) Icons.Default.Check else Icons.Default.RadioButtonUnchecked, contentDescription = null, tint = if (currentSort == sort) Color.Red else Color.LightGray, modifier = Modifier.size(18.dp)) },
+                    icon = { Icon(if (currentSort == sort) Icons.Default.Check else Icons.Default.RadioButtonUnchecked, contentDescription = null, tint = if (currentSort == sort) BrandRed else Color.LightGray, modifier = Modifier.size(18.dp)) },
                     colors = drawerColors
                 )
             }
@@ -335,7 +463,7 @@ private fun PanelMenu(
             label = { Text("Liked") },
             selected = false,
             onClick = onLiked,
-            icon = { Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.Red) },
+            icon = { Icon(Icons.Default.Favorite, contentDescription = null, tint = BrandRed) },
             colors = drawerColors
         )
     }
@@ -350,23 +478,35 @@ private fun BrowseGrid(
     onItemClick: (List<RedditPost>, Int) -> Unit,
     onLoadMore: () -> Unit,
     onRefresh: () -> Unit,
-    isLoadingMore: Boolean
+    isLoadingMore: Boolean,
+    onScrollDirection: (Boolean) -> Unit = {}
 ) {
     when (uiState) {
         MainScreenUiState.Loading -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color.Red)
+                CircularProgressIndicator(color = BrandRed)
             }
         }
         is MainScreenUiState.Success -> {
             val data = uiState.data
             val gridState = rememberLazyGridState()
             LaunchedEffect(gridState.firstVisibleItemIndex) {
-                if (data.isNotEmpty() && !isLoadingMore &&
-                    gridState.firstVisibleItemIndex + 8 >= data.size
-                ) {
+                val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                if (data.isNotEmpty() && !isLoadingMore && lastVisible >= data.size - 12) {
                     onLoadMore()
                 }
+            }
+            var prevIndex by remember { mutableIntStateOf(0) }
+            var prevOffset by remember { mutableIntStateOf(0) }
+            LaunchedEffect(Unit) {
+                snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
+                    .collect { (index, offset) ->
+                        val atTop = index == 0 && offset == 0
+                        val scrollingDown = index > prevIndex || (index == prevIndex && offset > prevOffset)
+                        prevIndex = index
+                        prevOffset = offset
+                        onScrollDirection(!atTop && scrollingDown)
+                    }
             }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(1),
@@ -374,7 +514,7 @@ private fun BrowseGrid(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .padding(top = 56.dp, bottom = 8.dp),
+                    .padding(top = TopBarHeight, bottom = 8.dp),
                 contentPadding = PaddingValues(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -389,12 +529,7 @@ private fun BrowseGrid(
                 }
                 if (isLoadingMore) {
                     item(span = { GridItemSpan(1) }) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(16.dp),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Red, strokeWidth = 2.dp)
-                        }
+                        SectionLoadingIndicator(Modifier.fillMaxWidth().padding(16.dp))
                     }
                 }
             }
@@ -417,58 +552,91 @@ private fun VideoCard(
     onLike: (RedditPost) -> Unit,
     onClick: () -> Unit
 ) {
-    Column(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .background(Color(0xFF0F0F0F), shape = RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = SurfaceRaised,
+        border = BorderStroke(1.dp, GlassBorder)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(16f / 9f)
-                .background(Color.Black)
-        ) {
-            ThumbnailImage(url = post.thumbnailUrl, contentDescription = post.title, modifier = Modifier.fillMaxSize())
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(40.dp))
-            }
-        }
-        Column(modifier = Modifier.padding(8.dp)) {
-            Text(
-                post.title,
-                color = Color.White,
-                fontSize = 13.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                fontWeight = FontWeight.Medium,
-                lineHeight = 16.sp
-            )
-            Spacer(Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                    .background(Color.Black)
             ) {
-                Text(
-                    "r/${post.subreddit}",
-                    color = Color.LightGray,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onLike(post) }
+                ThumbnailImage(url = post.thumbnailUrl, contentDescription = post.title, modifier = Modifier.fillMaxSize())
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .align(Alignment.Center)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f)),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        if (isLiked) Icons.Default.ThumbUp else Icons.Default.ThumbUp,
-                        contentDescription = "Like",
-                        tint = if (isLiked) Color.Red else Color.LightGray,
-                        modifier = Modifier.size(16.dp)
+                        Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp)
                     )
-                    Spacer(Modifier.width(4.dp))
-                    Text(formatScore(if (isLiked) post.score + 1 else post.score), color = if (isLiked) Color.Red else Color.LightGray, fontSize = 12.sp)
+                }
+            }
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    post.title,
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.SemiBold,
+                    lineHeight = 18.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(SurfaceGlass)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            "r/${post.subreddit}",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { onLike(post) }
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Icon(
+                            if (isLiked) Icons.Default.ThumbUp else Icons.Default.ThumbUpOffAlt,
+                            contentDescription = "Like",
+                            tint = if (isLiked) BrandRed else TextSecondary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            formatScore(if (isLiked) post.score + 1 else post.score),
+                            color = if (isLiked) BrandRed else TextSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -507,18 +675,7 @@ private fun PostGridContent(
 }
 
 
-private fun likedPostsToJson(list: List<RedditPost>) =
-    JSONArray().apply { list.forEach { put(it.toJson()) } }.toString()
 
-private fun loadLikedPosts(prefs: SharedPreferences): List<RedditPost> {
-    val str = prefs.getString("liked_posts", null) ?: return emptyList()
-    return try {
-        val arr = JSONArray(str)
-        (0 until arr.length()).map { arr.getJSONObject(it).toRedditPost() }
-    } catch (_: Exception) {
-        emptyList()
-    }
-}
 
 @Composable
 private fun ErrorPage(
@@ -538,7 +695,7 @@ private fun ErrorPage(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (isNoSubscriptions) {
-            Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.Red, modifier = Modifier.size(64.dp))
+            Icon(Icons.Default.Add, contentDescription = "Add", tint = BrandRed, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text("No Subscriptions", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
@@ -554,7 +711,7 @@ private fun ErrorPage(
             Spacer(modifier = Modifier.height(8.dp))
             Text(message, color = Color.LightGray, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onRefresh, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
+            Button(onClick = onRefresh, colors = ButtonDefaults.buttonColors(containerColor = BrandRed)) {
                 Text("Try Again", color = Color.White)
             }
         }

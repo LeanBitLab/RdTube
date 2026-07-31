@@ -1,15 +1,15 @@
-package com.example.reddittube.ui.main
+package com.lean.reddittube.ui.main
 
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.reddittube.data.DataRepository
-import com.example.reddittube.data.RedditError
-import com.example.reddittube.data.RedditPost
-import com.example.reddittube.utils.toJson
-import com.example.reddittube.utils.toRedditPost
+import com.lean.reddittube.data.DataRepository
+import com.lean.reddittube.data.RedditError
+import com.lean.reddittube.data.RedditPost
+import com.lean.reddittube.utils.toJson
+import com.lean.reddittube.utils.toRedditPost
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,15 +54,19 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     var playerStartIndex = 0
         private set
 
-    fun openPlayer(list: List<RedditPost>, index: Int) {
+    var playerFeed = "explore"
+        private set
+
+    fun openPlayer(list: List<RedditPost>, index: Int, feed: String = "explore") {
         _playerList.value = list
         playerStartIndex = index
+        playerFeed = feed
     }
 
     // ponytail: persist watched IDs to SharedPreferences so they survive app restart
     // ponytail: cap at 1000 entries, trim oldest via watched_order list
-    companion object { private const val WATCHED_CAP = 1000 }
-    private val prefs = dataRepository.getContext().getSharedPreferences("reddittube_prefs", android.content.Context.MODE_PRIVATE)
+    companion object { private const val WATCHED_CAP = 1000; private const val LIKED_CAP = 1000 }
+    private val prefs = dataRepository.getContext().getSharedPreferences("rdtube_prefs", android.content.Context.MODE_PRIVATE)
     private val _subscribedSubreddits = MutableStateFlow(
         prefs.getStringSet("subscriptions", setOf("shorts", "TikTokCringe", "funny", "videos"))!!
             .map { it.lowercase() }.toSet()
@@ -109,6 +113,66 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         Log.i("WatchedVM", "loaded ${watchedIds.size} watched IDs")
     }
 
+    // ponytail: liked posts — same persistence pattern as watched; drives swipe-right + Liked panel
+    private val likedIdsSet = prefs.getStringSet("liked_ids", emptySet())?.toMutableSet() ?: mutableSetOf()
+    private val likedOrder: MutableList<String> = try {
+        org.json.JSONArray(prefs.getString("liked_order", "[]") ?: "[]").let { arr ->
+            (0 until arr.length()).map { arr.getString(it) }.toMutableList()
+        }
+    } catch (_: Exception) { mutableListOf() }
+    private val likedPostsMap: MutableMap<String, RedditPost> = try {
+        val json = prefs.getString("liked_posts", null)
+        if (json != null) org.json.JSONArray(json).let { arr ->
+            (0 until arr.length()).mapNotNull { i -> runCatching { arr.getJSONObject(i).toRedditPost() }.getOrNull() }
+                .associateBy { it.id }.toMutableMap()
+        } else mutableMapOf()
+    } catch (_: Exception) { mutableMapOf() }
+    private val _likedIdsFlow = MutableStateFlow<Set<String>>(likedIdsSet.toSet())
+    val likedIdsFlow: StateFlow<Set<String>> = _likedIdsFlow.asStateFlow()
+
+    init {
+        if (likedOrder.size > LIKED_CAP) {
+            val trim = likedOrder.size - LIKED_CAP
+            val removeIds = likedOrder.take(trim)
+            repeat(trim) { likedOrder.removeAt(0) }
+            removeIds.forEach { likedIdsSet.remove(it); likedPostsMap.remove(it) }
+            saveLiked()
+        }
+        Log.i("LikedVM", "loaded ${likedIdsSet.size} liked IDs")
+    }
+
+    private fun isHidden(id: String) = id in watchedIds || id in likedIdsSet
+
+    fun toggleLike(post: RedditPost) {
+        val id = post.id
+        if (id in likedIdsSet) {
+            likedIdsSet.remove(id)
+            likedOrder.remove(id)
+            likedPostsMap.remove(id)
+        } else {
+            likedIdsSet.add(id)
+            likedOrder.add(id)
+            likedPostsMap[id] = post
+            while (likedOrder.size > LIKED_CAP) {
+                val oldest = likedOrder.removeAt(0)
+                likedIdsSet.remove(oldest)
+                likedPostsMap.remove(oldest)
+            }
+        }
+        _likedIdsFlow.value = likedIdsSet.toSet()
+        saveLiked()
+    }
+
+    fun getLikedPosts(): List<RedditPost> = likedOrder.mapNotNull { likedPostsMap[it] }
+
+    private fun saveLiked() {
+        prefs.edit()
+            .putStringSet("liked_ids", likedIdsSet.toSet())
+            .putString("liked_order", org.json.JSONArray(likedOrder).toString())
+            .putString("liked_posts", org.json.JSONArray().apply { likedPostsMap.values.forEach { put(it.toJson()) } }.toString())
+            .commit()
+    }
+
     private fun showError(e: Throwable) {
         val msg = e.message ?: "Unknown error"
         // ponytail: show toast for rate limit so user knows to wait
@@ -139,17 +203,29 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     fun refreshExplore(query: String = exploreQuery) {
         exploreQuery = query
         viewModelScope.launch {
-            _exploreState.value = MainScreenUiState.Loading
+            // ponytail: show cached feed instantly on cold start, then refresh in background
+            val cached = loadExploreCache().filter { !isHidden(it.id) }
+            if (cached.isNotEmpty()) {
+                _exploreState.value = MainScreenUiState.Success(cached)
+            } else {
+                _exploreState.value = MainScreenUiState.Loading
+            }
             try {
                 dataRepository.fetchRedditVideos(query, currentSort.value).collect { posts ->
-                    _exploreState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
+                    val filtered = posts.filter { !isHidden(it.id) }
+                    _exploreState.value = MainScreenUiState.Success(filtered)
+                    saveExploreCache(posts)
                 }
             } catch (e: RedditError) {
                 showError(e)
-                _exploreState.value = MainScreenUiState.Error(e)
+                if (_exploreState.value !is MainScreenUiState.Success) {
+                    _exploreState.value = MainScreenUiState.Error(e)
+                }
             } catch (e: Exception) {
                 showError(e)
-                _exploreState.value = MainScreenUiState.Error(RedditError.Unknown(e.message ?: "Unknown error", e))
+                if (_exploreState.value !is MainScreenUiState.Success) {
+                    _exploreState.value = MainScreenUiState.Error(RedditError.Unknown(e.message ?: "Unknown error", e))
+                }
             }
         }
     }
@@ -161,17 +237,29 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 _subscribedState.value = MainScreenUiState.Error(RedditError.Unknown("No subscribed subreddits. Use the search icon to add subreddits."))
                 return@launch
             }
-            _subscribedState.value = MainScreenUiState.Loading
+            // ponytail: show cached subscribed feed instantly, then refresh in background
+            val cached = loadSubscribedCache().filter { !isHidden(it.id) }
+            if (cached.isNotEmpty()) {
+                _subscribedState.value = MainScreenUiState.Success(cached)
+            } else {
+                _subscribedState.value = MainScreenUiState.Loading
+            }
             try {
                 dataRepository.fetchRedditVideos(query, currentSort.value, "subscribed").collect { posts ->
-                    _subscribedState.value = MainScreenUiState.Success(posts.filter { it.id !in watchedIds })
+                    val filtered = posts.filter { !isHidden(it.id) }
+                    _subscribedState.value = MainScreenUiState.Success(filtered)
+                    saveSubscribedCache(posts)
                 }
             } catch (e: RedditError) {
                 showError(e)
-                _subscribedState.value = MainScreenUiState.Error(e)
+                if (_subscribedState.value !is MainScreenUiState.Success) {
+                    _subscribedState.value = MainScreenUiState.Error(e)
+                }
             } catch (e: Exception) {
                 showError(e)
-                _subscribedState.value = MainScreenUiState.Error(RedditError.Unknown(e.message ?: "Unknown error", e))
+                if (_subscribedState.value !is MainScreenUiState.Success) {
+                    _subscribedState.value = MainScreenUiState.Error(RedditError.Unknown(e.message ?: "Unknown error", e))
+                }
             }
         }
     }
@@ -195,7 +283,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             try {
                 dataRepository.fetchMoreVideos(query, afterMap, currentSort.value, feed).collect { result ->
                     dataRepository.saveAfterMap(result.afterMap, feed)
-                    val updated = current.data + result.posts.filter { it.id !in watchedIds }
+                    val updated = current.data + result.posts.filter { !isHidden(it.id) }
                     if (isExplore) {
                         _exploreState.value = MainScreenUiState.Success(updated, isLoadingMore = false)
                     } else {
@@ -244,6 +332,38 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     fun getWatchedPosts(): List<RedditPost> {
         return watchedOrder.mapNotNull { id ->
             watchedPosts[id] ?: watchedTitles[id]?.let { RedditPost(id, it, "", "", 0, "", "", "", "", "") }
+        }
+    }
+
+    // ponytail: persist last explore feed so cold start shows videos instantly
+    private fun saveExploreCache(posts: List<RedditPost>) {
+        val arr = org.json.JSONArray().apply { posts.take(60).forEach { put(it.toJson()) } }
+        prefs.edit().putString("explore_feed_cache", arr.toString()).apply()
+    }
+
+    private fun loadExploreCache(): List<RedditPost> {
+        val str = prefs.getString("explore_feed_cache", null) ?: return emptyList()
+        return try {
+            val arr = org.json.JSONArray(str)
+            (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    // ponytail: persist last subscribed feed so returning subscribers see content instantly
+    private fun saveSubscribedCache(posts: List<RedditPost>) {
+        val arr = org.json.JSONArray().apply { posts.take(60).forEach { put(it.toJson()) } }
+        prefs.edit().putString("subscribed_feed_cache", arr.toString()).apply()
+    }
+
+    private fun loadSubscribedCache(): List<RedditPost> {
+        val str = prefs.getString("subscribed_feed_cache", null) ?: return emptyList()
+        return try {
+            val arr = org.json.JSONArray(str)
+            (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 

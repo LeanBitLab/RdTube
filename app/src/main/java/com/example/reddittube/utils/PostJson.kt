@@ -1,6 +1,6 @@
-package com.example.reddittube.utils
+package com.lean.reddittube.utils
 
-import com.example.reddittube.data.RedditPost
+import com.lean.reddittube.data.RedditPost
 import org.json.JSONObject
 
 // ponytail: single source of truth for RedditPost <-> JSONObject (was duplicated in VM + HomeScreen)

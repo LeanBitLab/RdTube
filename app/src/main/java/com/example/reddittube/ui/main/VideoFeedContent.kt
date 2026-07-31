@@ -1,9 +1,9 @@
-package com.example.reddittube.ui.main
+package com.lean.reddittube.ui.main
+import com.lean.reddittube.theme.*
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -14,8 +14,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
+import com.lean.reddittube.ui.main.components.SectionLoadingIndicator
 import androidx.media3.exoplayer.ExoPlayer
-import com.example.reddittube.data.RedditPost
+import com.lean.reddittube.data.RedditPost
 import kotlinx.coroutines.launch
 
 // ponytail: Vertical pager for video feed with player recycling and pull-to-refresh
@@ -27,6 +28,7 @@ fun VideoFeedContent(
     subscribedSet: Set<String> = emptySet(),
     onSubscribeToggle: (String) -> Unit = {},
     onRemoveVideo: (RedditPost) -> Unit = {},
+    onLike: (RedditPost) -> Unit = {},
     onLoadMore: () -> Unit = {},
     onRefresh: () -> Unit = {},
     isLoadingMore: Boolean = false,
@@ -49,7 +51,7 @@ fun VideoFeedContent(
     // ponytail: trigger loadMore when reaching the last page, but not during initial load
     val currentPage by remember { derivedStateOf { pagerState.currentPage } }
     LaunchedEffect(currentPage) {
-        if (currentPage >= data.size - 2 && data.size > 1 && !isLoadingMore) {
+        if (currentPage >= data.size - 3 && data.size > 1 && !isLoadingMore) {
             onLoadMore()
         }
     }
@@ -79,6 +81,8 @@ fun VideoFeedContent(
                             subscribedSet = subscribedSet,
                             onSubscribeToggle = onSubscribeToggle,
                             onRemoveVideo = onRemoveVideo,
+                            onLike = onLike,
+                            onSwipeAdvance = onNext,
                             onNext = onNext
                         )
                     } else {
@@ -103,15 +107,7 @@ fun VideoFeedContent(
                                 .padding(bottom = 24.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    color = Color.Red,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Finding more\u2026", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-                            }
+                            SectionLoadingIndicator(label = "Finding more…")
                         }
                     }
                 }

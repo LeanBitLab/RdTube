@@ -1,10 +1,10 @@
-package com.example.reddittube
+package com.lean.reddittube
 
 import android.app.Application
-import com.example.reddittube.di.AppContainer
+import com.lean.reddittube.di.AppContainer
 
 // ponytail: Application subclass for manual DI container initialization
-class RedditTubeApp : Application() {
+class RdTubeApp : Application() {
     lateinit var container: AppContainer
         private set
 

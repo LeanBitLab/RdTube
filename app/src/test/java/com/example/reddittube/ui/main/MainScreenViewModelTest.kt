@@ -1,11 +1,11 @@
-package com.example.reddittube.ui.main
+package com.lean.reddittube.ui.main
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.example.reddittube.data.DataRepository
-import com.example.reddittube.data.FetchMoreResult
-import com.example.reddittube.data.RedditError
-import com.example.reddittube.data.RedditPost
+import com.lean.reddittube.data.DataRepository
+import com.lean.reddittube.data.FetchMoreResult
+import com.lean.reddittube.data.RedditError
+import com.lean.reddittube.data.RedditPost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

@@ -1,4 +1,4 @@
-package com.example.reddittube.utils
+package com.lean.reddittube.utils
 
 // ponytail: shared score formatter (was duplicated in HomeScreen + VideoPage)
 fun formatScore(score: Int): String {

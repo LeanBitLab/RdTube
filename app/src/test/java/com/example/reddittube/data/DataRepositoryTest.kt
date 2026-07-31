@@ -1,4 +1,4 @@
-package com.example.reddittube.data
+package com.lean.reddittube.data
 
 import org.junit.Test
 

@@ -1,4 +1,4 @@
-package com.example.reddittube.utils
+package com.lean.reddittube.utils
 
 import android.content.Context
 import android.util.Base64
@@ -10,7 +10,7 @@ import java.net.URL
 import java.util.UUID
 
 object RedditOAuthHelper {
-    private const val PREFS_NAME = "reddittube_prefs"
+    private const val PREFS_NAME = "rdtube_prefs"
 
     private const val KEY_ACCESS_TOKEN = "reddit_access_token"
     private const val KEY_TOKEN_EXPIRES_AT = "reddit_token_expires_at"

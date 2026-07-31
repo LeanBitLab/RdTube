@@ -4,7 +4,7 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- White play glyph on transparent bg; red background from adaptive-icon layer -->
+    <!-- Single-color silhouette for Material You themed icons -->
     <path
         android:fillColor="#FFFFFFFF"
         android:pathData="M40,36 L40,72 L76,54 Z" />

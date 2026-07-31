@@ -1,4 +1,5 @@
-package com.example.reddittube.ui.main.components
+package com.lean.reddittube.ui.main.components
+import com.lean.reddittube.theme.*
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -18,22 +19,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import com.example.reddittube.utils.RedditOAuthHelper
+import com.lean.reddittube.utils.RedditOAuthHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 
-// ponytail: process-lifetime LRU cache — avoids re-downloading thumbnails every time Home remounts
-private val thumbCache = object : LinkedHashMap<String, Bitmap>(64, 0.75f, true) {
+// LRU cache capped at 64 entries to prevent memory growth
+private val thumbCache = object : LinkedHashMap<String, Bitmap>(128, 0.75f, true) {
     override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>): Boolean = size > 64
 }
 
-// ponytail: minimal native thumbnail loader (no image lib) — decode over HttpURLConnection, cached
 @Composable
 fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier = Modifier) {
     var bitmap by remember(url) { mutableStateOf<Bitmap?>(thumbCache[url]) }
@@ -50,7 +51,6 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
                     conn.readTimeout = 15000
                     conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
                     if (conn.responseCode == 200) {
-                        // ponytail: downsample to ~480px to cap memory; cache keeps repeat opens instant
                         val bytes = conn.inputStream.readBytes()
                         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
@@ -68,22 +68,49 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
         }.onFailure { failed = true }
     }
 
-    if (bitmap != null) {
-        Image(
-            bitmap = bitmap!!.asImageBitmap(),
-            contentDescription = contentDescription,
-            modifier = modifier,
-            contentScale = ContentScale.Crop
-        )
-    } else {
-        Box(
-            modifier = modifier.background(Color(0xFF1A1A1A)),
-            contentAlignment = Alignment.Center
-        ) {
-            if (!failed) {
-                CircularProgressIndicator(color = Color.Red, modifier = Modifier.fillMaxSize(0.18f), strokeWidth = 2.dp)
-            } else {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.fillMaxSize(0.4f))
+    Box(modifier = modifier) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap!!.asImageBitmap(),
+                contentDescription = contentDescription,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            // Subtle dark bottom vignette for high-contrast badge text readability
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.45f)
+                            ),
+                            startY = 100f
+                        )
+                    )
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(SurfaceRaised),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!failed) {
+                    CircularProgressIndicator(
+                        color = BrandRed,
+                        modifier = Modifier.fillMaxSize(0.18f),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxSize(0.35f)
+                    )
+                }
             }
         }
     }

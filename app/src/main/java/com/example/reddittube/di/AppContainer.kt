@@ -1,8 +1,8 @@
-package com.example.reddittube.di
+package com.lean.reddittube.di
 
 import android.content.Context
-import com.example.reddittube.data.DataRepository
-import com.example.reddittube.data.DefaultDataRepository
+import com.lean.reddittube.data.DataRepository
+import com.lean.reddittube.data.DefaultDataRepository
 
 // ponytail: lightweight manual DI — no framework dependencies
 class AppContainer(context: Context) {

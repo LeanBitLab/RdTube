@@ -1,4 +1,4 @@
-package com.example.reddittube.utils
+package com.lean.reddittube.utils
 
 import android.content.ContentValues
 import android.content.Context

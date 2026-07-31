@@ -1,4 +1,4 @@
-package com.example.reddittube
+package com.lean.reddittube
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -9,10 +9,10 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import com.example.reddittube.RedditTubeApp
-import com.example.reddittube.ui.main.HomeScreen
-import com.example.reddittube.ui.main.MainScreenViewModel
-import com.example.reddittube.ui.main.PlayerScreen
+import com.lean.reddittube.RdTubeApp
+import com.lean.reddittube.ui.main.HomeScreen
+import com.lean.reddittube.ui.main.MainScreenViewModel
+import com.lean.reddittube.ui.main.PlayerScreen
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -24,7 +24,7 @@ private data object Player : NavKey
 @Composable
 fun MainNavigation() {
     val backStack = rememberNavBackStack(Home)
-    val app = LocalContext.current.applicationContext as RedditTubeApp
+    val app = LocalContext.current.applicationContext as RdTubeApp
     val viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(app.container.repository) }
 
     NavDisplay(
