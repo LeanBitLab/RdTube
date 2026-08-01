@@ -45,10 +45,10 @@
 
 <table>
   <tr>
-    <td><img src="docs/images/1.png" height="500" alt="Explore Feed"/></td>
-    <td><img src="docs/images/2.png" height="500" alt="Video Player"/></td>
-    <td><img src="docs/images/3.png" height="500" alt="Search & Subscriptions"/></td>
-    <td><img src="docs/images/4.png" height="500" alt="About & Settings"/></td>
+    <td><img src="docs/images/R1.png" height="500" alt="Explore Feed"/></td>
+    <td><img src="docs/images/R2.png" height="500" alt="Video Player"/></td>
+    <td><img src="docs/images/R3.png" height="500" alt="Search & Subscriptions"/></td>
+    <td><img src="docs/images/R4.png" height="500" alt="About & Settings"/></td>
   </tr>
 </table>
 
