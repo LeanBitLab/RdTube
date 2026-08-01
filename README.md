@@ -10,6 +10,18 @@
 
 **RdTube** is a sleek, privacy-conscious video browsing client for Reddit. Designed with Jetpack Compose and Media3 ExoPlayer, it provides a fast, hassle-free YouTube Shorts-style video experience out of the box — **no API keys required, and no user account needed.**
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="docs/images/R1.png" height="500" alt="Explore Feed"/></td>
+    <td><img src="docs/images/R2.png" height="500" alt="Video Player"/></td>
+    <td><img src="docs/images/R3.png" height="500" alt="Search & Subscriptions"/></td>
+    <td><img src="docs/images/R4.png" height="500" alt="About & Settings"/></td>
+    <td><img src="docs/images/R5.png" height="500" alt="Features & Menu"/></td>
+  </tr>
+</table>
+
 ## Why RdTube?
 
 - **🔑 No API Key Required** - Works instantly right after installation with zero setup or API client registration.
@@ -38,17 +50,6 @@
         <img alt="Get it on Obtainium" src="https://raw.githubusercontent.com/LeanBitLab/RdTube/main/docs/images/get-it-on-obtainium.png" height="60">
       </a>
     </td>
-  </tr>
-</table>
-
-## Screenshots
-
-<table>
-  <tr>
-    <td><img src="docs/images/R1.png" height="500" alt="Explore Feed"/></td>
-    <td><img src="docs/images/R2.png" height="500" alt="Video Player"/></td>
-    <td><img src="docs/images/R3.png" height="500" alt="Search & Subscriptions"/></td>
-    <td><img src="docs/images/R4.png" height="500" alt="About & Settings"/></td>
   </tr>
 </table>
 
