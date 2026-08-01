@@ -47,10 +47,13 @@ jobs:
           name: RdTube-Release-APK
           path: app/build/outputs/apk/**/*.apk
 
+      - name: Generate Release Notes
+        run: python3 docs/scripts/generate_release_notes.py
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/beta-')
         with:
-          generate_release_notes: true
+          body_path: docs/releasenote/release_notes_temp.md
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
           files: app/build/outputs/apk/release/*.apk

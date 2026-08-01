@@ -8,6 +8,7 @@ local.properties
 .externalNativeBuild
 .cxx
 /Pdocs
+docs/releasenote/release_notes_temp.md
 
 # Agent / AI files (local only)
 .agents/
