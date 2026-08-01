@@ -61,7 +61,7 @@ fun VideoFeedContent(
     // ponytail: trigger loadMore when user approaches end of feed (within last 2 items, minimum 10 items)
     val currentPage by remember { derivedStateOf { pagerState.currentPage } }
     LaunchedEffect(currentPage, data.size, isLoadingMore) {
-        if (data.isNotEmpty() && !isLoadingMore && currentPage >= (data.size - 3).coerceAtLeast(0)) {
+        if (data.isNotEmpty() && !isLoadingMore && currentPage >= (data.size - 5).coerceAtLeast(0)) {
             onLoadMore()
         }
     }
@@ -114,7 +114,7 @@ fun VideoFeedContent(
 
             // Sleek glassmorphic minimal loading badge overlay when fetching next video batch
             AnimatedVisibility(
-                visible = isLoadingMore && currentPage >= (data.size - 4).coerceAtLeast(0),
+                visible = isLoadingMore && currentPage >= (data.size - 5).coerceAtLeast(0),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 72.dp),

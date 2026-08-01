@@ -560,7 +560,7 @@ private fun BrowseGrid(
             val gridState = rememberLazyGridState()
             LaunchedEffect(gridState.firstVisibleItemIndex, data.size, isLoadingMore) {
                 val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: gridState.firstVisibleItemIndex
-                if (data.isNotEmpty() && !isLoadingMore && lastVisible >= (data.size - 3).coerceAtLeast(0)) {
+                if (data.isNotEmpty() && !isLoadingMore && lastVisible >= (data.size - 5).coerceAtLeast(0)) {
                     onLoadMore()
                 }
             }
