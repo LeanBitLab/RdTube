@@ -8,7 +8,7 @@
 
 [![Download](docs/badges/download.svg)](https://github.com/LeanBitLab/RdTube/releases/latest) [![Downloads](docs/badges/downloads.svg)](https://github.com/LeanBitLab/RdTube/releases) [![Stars](docs/badges/stars.svg)](https://github.com/LeanBitLab/RdTube/stargazers)
 
-**RdTube** is a sleek, privacy-conscious video browsing client for Reddit. Designed with Jetpack Compose and Media3 ExoPlayer, it provides a fast, hassle-free YouTube Shorts-style video experience out of the box — **no API keys required, and no user account needed.**
+**RdTube** is a sleek, privacy-conscious video browsing client for Reddit. Designed with Jetpack Compose and Media3 ExoPlayer, it provides a fast, hassle-free YouTube Shorts-style video experience out of the box **no API keys required, and no user account needed.**
 
 ## Screenshots
 
@@ -22,7 +22,7 @@
   </tr>
 </table>
 
-## Why RdTube?
+## Features
 
 - **🔑 No API Key Required** - Works instantly right after installation with zero setup or API client registration.
 - **👤 No Account Required** - 100% anonymous browsing out of the box with zero sign-in or Reddit credentials required.
