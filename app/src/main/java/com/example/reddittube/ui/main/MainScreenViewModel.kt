@@ -40,7 +40,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _subscribedState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
     val subscribedState: StateFlow<MainScreenUiState> = _subscribedState.asStateFlow()
 
-    var exploreQuery = "videos+shorts+TikTokCringe+nextfuckinglevel+interestingasfuck+BeAmazed"
+    var exploreQuery = "popular"
         private set
     var subscribedQuery = ""
         private set

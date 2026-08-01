@@ -103,7 +103,7 @@ fun HomeScreen(
         }
     }
 
-    val defaultExploreQuery = "videos+shorts+TikTokCringe+nextfuckinglevel+interestingasfuck+BeAmazed"
+    val defaultExploreQuery = "popular"
     val defaultSubscribedQuery = remember(subscribedSubreddits) { subscribedSubreddits.sorted().joinToString("+") }
     val isCustomExplore = viewModel.exploreQuery != defaultExploreQuery
     val isCustomSubscribed = viewModel.subscribedQuery.isNotEmpty() && viewModel.subscribedQuery != defaultSubscribedQuery
