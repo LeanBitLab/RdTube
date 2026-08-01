@@ -40,7 +40,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _subscribedState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
     val subscribedState: StateFlow<MainScreenUiState> = _subscribedState.asStateFlow()
 
-    var exploreQuery = "shorts+TikTokCringe+funny+videos"
+    var exploreQuery = "videos+shorts+TikTokCringe+nextfuckinglevel+interestingasfuck+BeAmazed"
         private set
     var subscribedQuery = ""
         private set
@@ -71,7 +71,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     companion object { private const val WATCHED_CAP = 1000; private const val LIKED_CAP = 1000 }
     private val prefs = dataRepository.getContext().getSharedPreferences("rdtube_prefs", android.content.Context.MODE_PRIVATE)
     private val _subscribedSubreddits = MutableStateFlow(
-        prefs.getStringSet("subscriptions", setOf("shorts", "TikTokCringe", "funny", "videos"))!!
+        prefs.getStringSet("subscriptions", setOf("funny", "videos"))!!
             .map { it.lowercase() }.toSet()
     )
     val subscribedSubreddits: StateFlow<Set<String>> = _subscribedSubreddits.asStateFlow()

@@ -98,12 +98,12 @@ fun HomeScreen(
     fun refreshCurrentFeed() {
         if (horizontalPagerState.currentPage == 0) {
             viewModel.refreshExplore()
-        } else if (horizontalPagerState.currentPage == 2) {
+        } else if (horizontalPagerState.currentPage == 1) {
             viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+"))
         }
     }
 
-    val defaultExploreQuery = "shorts+TikTokCringe+funny+videos"
+    val defaultExploreQuery = "videos+shorts+TikTokCringe+nextfuckinglevel+interestingasfuck+BeAmazed"
     val defaultSubscribedQuery = remember(subscribedSubreddits) { subscribedSubreddits.sorted().joinToString("+") }
     val isCustomExplore = viewModel.exploreQuery != defaultExploreQuery
     val isCustomSubscribed = viewModel.subscribedQuery.isNotEmpty() && viewModel.subscribedQuery != defaultSubscribedQuery
