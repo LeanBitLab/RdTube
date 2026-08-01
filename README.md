@@ -30,12 +30,12 @@
   <tr>
     <td align="center" valign="middle">
       <a href="https://github.com/LeanBitLab/RdTube/releases/latest">
-        <img alt="Get it on GitHub" src="https://raw.githubusercontent.com/LeanBitLab/HeliboardL/main/docs/images/get-it-on-github.png" height="90">
+        <img alt="Get it on GitHub" src="https://raw.githubusercontent.com/LeanBitLab/RdTube/main/docs/images/get-it-on-github.png" height="90">
       </a>
     </td>
     <td align="center" valign="middle">
       <a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/LeanBitLab/RdTube">
-        <img alt="Get it on Obtainium" src="https://raw.githubusercontent.com/LeanBitLab/HeliboardL/main/docs/images/get-it-on-obtainium.png" height="60">
+        <img alt="Get it on Obtainium" src="https://raw.githubusercontent.com/LeanBitLab/RdTube/main/docs/images/get-it-on-obtainium.png" height="60">
       </a>
     </td>
   </tr>
