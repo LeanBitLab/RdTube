@@ -3,7 +3,7 @@ name: Test build
 on:
   pull_request:
     paths:
-      - 'app/src/main/java**'
+      - 'app/src/main/java/**'
   workflow_dispatch:
 
 jobs:
