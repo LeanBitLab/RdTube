@@ -5,20 +5,20 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Dark obsidian base -->
+    <!-- Dark Red-Grey Material base -->
     <path
-        android:fillColor="#0D0E15"
+        android:fillColor="#221518"
         android:pathData="M0,0h108v108h-108z" />
 
     <!-- Subtle inner disc -->
     <path
-        android:fillColor="#121420"
+        android:fillColor="#2E1E22"
         android:pathData="M54,20 A34,34 0 1,1 53.99,20 Z" />
 
     <!-- Subtle ring outline -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#1E2233"
+        android:strokeColor="#4A2C32"
         android:strokeWidth="1"
         android:pathData="M54,20 A34,34 0 1,1 53.99,20 Z" />
 

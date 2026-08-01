@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -31,6 +32,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.BiasAlignment
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -41,27 +44,45 @@ fun PlayerSlider(
     player: Player,
     modifier: Modifier = Modifier
 ) {
-    var currentPosition by remember { mutableFloatStateOf(0f) }
-    var duration by remember { mutableFloatStateOf(0f) }
+    var currentPosition by remember(player) { mutableFloatStateOf(player.currentPosition.coerceAtLeast(0L).toFloat()) }
+    var duration by remember(player) { mutableFloatStateOf(player.duration.coerceAtLeast(0L).toFloat()) }
     var dragFraction by remember { mutableFloatStateOf(-1f) }
 
-    LaunchedEffect(player, player.isPlaying) {
-        if (!player.isPlaying) {
-            val dur = player.duration
-            if (dur > 0 && dragFraction < 0f) {
-                duration = dur.toFloat()
-                currentPosition = player.currentPosition.toFloat()
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (dragFraction < 0f) {
+                    currentPosition = player.currentPosition.coerceAtLeast(0L).toFloat()
+                    val dur = player.duration
+                    if (dur > 0 && dur != C.TIME_UNSET) {
+                        duration = dur.toFloat()
+                    }
+                }
             }
-            return@LaunchedEffect
         }
-
-        while (isActive) {
-            val dur = player.duration
-            if (dur > 0 && dragFraction < 0f) {
-                duration = dur.toFloat()
-                currentPosition = player.currentPosition.toFloat()
+        player.addListener(listener)
+        if (dragFraction < 0f) {
+            currentPosition = player.currentPosition.coerceAtLeast(0L).toFloat()
+            val initialDur = player.duration
+            if (initialDur > 0 && initialDur != C.TIME_UNSET) {
+                duration = initialDur.toFloat()
             }
-            delay(250)
+        }
+        onDispose {
+            player.removeListener(listener)
+        }
+    }
+
+    LaunchedEffect(player) {
+        while (isActive) {
+            if (dragFraction < 0f) {
+                currentPosition = player.currentPosition.coerceAtLeast(0L).toFloat()
+                val dur = player.duration
+                if (dur > 0 && dur != C.TIME_UNSET) {
+                    duration = dur.toFloat()
+                }
+            }
+            delay(100)
         }
     }
 
@@ -72,6 +93,12 @@ fun PlayerSlider(
     }
     val clampedProgress = progress.coerceIn(0f, 1f)
 
+    val displayPosition = if (dragFraction >= 0f) {
+        (dragFraction * duration).toLong()
+    } else {
+        currentPosition.toLong()
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -79,7 +106,7 @@ fun PlayerSlider(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = formatTime((clampedProgress * duration).toLong()),
+            text = formatTime(displayPosition),
             color = Color.White,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
@@ -126,16 +153,13 @@ fun PlayerSlider(
                     .clip(RoundedCornerShape(2.dp))
                     .background(Color.White.copy(alpha = 0.2f))
             )
-            // Filled track + glowing thumb
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(clampedProgress)
-                    .height(4.dp)
-                    .align(Alignment.CenterStart)
-            ) {
+            // Filled track
+            if (clampedProgress > 0f) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth(clampedProgress)
+                        .height(4.dp)
+                        .align(Alignment.CenterStart)
                         .clip(RoundedCornerShape(2.dp))
                         .background(
                             Brush.horizontalGradient(
@@ -143,14 +167,15 @@ fun PlayerSlider(
                             )
                         )
                 )
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .align(Alignment.CenterEnd)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                )
             }
+            // Glowing thumb knob
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .align(BiasAlignment(horizontalBias = clampedProgress * 2f - 1f, verticalBias = 0f))
+                    .clip(CircleShape)
+                    .background(Color.White)
+            )
         }
 
         Spacer(modifier = Modifier.width(10.dp))

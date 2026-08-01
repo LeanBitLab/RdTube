@@ -15,6 +15,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -27,6 +28,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -170,6 +174,29 @@ fun VideoPage(
             pendingAutoPlay = true
         } else {
             exoPlayer.pause()
+        }
+    }
+
+    // Pause player when app enters background or user moves away
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, isActive) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE,
+                Lifecycle.Event.ON_STOP -> {
+                    exoPlayer.pause()
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    if (isActive) {
+                        exoPlayer.play()
+                    }
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -341,31 +368,51 @@ Box(
             )
         }
 
-        // Left edge: brightness. ponytail: long-press drag only, so a scroll swipe never adjusts it.
+        // Left edge: brightness edge drag gesture
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(0.2f)
                 .align(Alignment.CenterStart)
                 .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress(
+                    detectVerticalDragGestures(
                         onDragStart = {
                             showBrightnessHud = true
                             showVolumeHud = false
                             if (originalBrightness == null) {
                                 originalBrightness = activity?.window?.attributes?.screenBrightness
                             }
-                        },
-                        onDrag = { change, dragAmount ->
-                            if (activity != null) {
+                            if (brightnessPercentage < 0f && activity != null) {
                                 val lp = activity.window.attributes
                                 val currentBright = if (lp.screenBrightness < 0f) {
                                     Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
                                 } else {
                                     lp.screenBrightness
                                 }
+                                brightnessPercentage = currentBright
+                            }
+                        },
+                        onDragEnd = {
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(800)
+                                showBrightnessHud = false
+                            }
+                        },
+                        onDragCancel = {
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(800)
+                                showBrightnessHud = false
+                            }
+                        },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            if (activity != null) {
                                 val sensitivity = 0.003f
-                                val nextBright = (currentBright - dragAmount.y * sensitivity).coerceIn(0.01f, 1f)
+                                val currentBright = if (brightnessPercentage < 0f) 0.5f else brightnessPercentage
+                                val nextBright = (currentBright - dragAmount * sensitivity).coerceIn(0.01f, 1f)
+                                val lp = activity.window.attributes
                                 lp.screenBrightness = nextBright
                                 activity.window.attributes = lp
                                 brightnessPercentage = nextBright
@@ -375,46 +422,51 @@ Box(
                                 delay(1000)
                                 showBrightnessHud = false
                             }
-                        },
-                        onDragEnd = {
-                            hudJob?.cancel()
-                            hudJob = coroutineScope.launch {
-                                delay(800)
-                                showBrightnessHud = false
-                            }
                         }
                     )
                 }
         )
 
-        // Right edge: volume. ponytail: long-press drag only, so a scroll swipe never adjusts it.
+        // Right edge: volume. Swipe gesture opens volume bar showing current volume level, then drag up/down adjusts.
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(0.2f)
                 .align(Alignment.CenterEnd)
-                .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress(
+                .pointerInput(isMuted) {
+                    detectVerticalDragGestures(
                         onDragStart = {
                             showVolumeHud = true
                             showBrightnessHud = false
+                            if (volumePercentage < 0f) {
+                                volumePercentage = if (isMuted) 0f else (if (exoPlayer.volume < 1f && exoPlayer.volume > 0f) exoPlayer.volume else 0.5f)
+                            }
                         },
-                        onDrag = { change, dragAmount ->
+                        onDragEnd = {
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(800)
+                                showVolumeHud = false
+                            }
+                        },
+                        onDragCancel = {
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(800)
+                                showVolumeHud = false
+                            }
+                        },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
                             val sensitivity = 0.003f
-                            val nextPercent = (exoPlayer.volume - dragAmount.y * sensitivity).coerceIn(0f, 1f)
+                            val currentVol = if (volumePercentage < 0f) (if (isMuted) 0f else 0.5f) else volumePercentage
+                            val nextPercent = (currentVol - dragAmount * sensitivity).coerceIn(0f, 1f)
                             onMuteChange(nextPercent == 0f)
                             exoPlayer.volume = nextPercent
                             volumePercentage = nextPercent
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
                                 delay(1000)
-                                showVolumeHud = false
-                            }
-                        },
-                        onDragEnd = {
-                            hudJob?.cancel()
-                            hudJob = coroutineScope.launch {
-                                delay(800)
                                 showVolumeHud = false
                             }
                         }

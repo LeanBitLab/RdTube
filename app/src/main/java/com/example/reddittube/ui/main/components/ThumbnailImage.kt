@@ -3,10 +3,17 @@ import com.lean.reddittube.theme.*
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
@@ -100,24 +107,41 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
                     )
             )
         } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(SurfaceRaised),
-                contentAlignment = Alignment.Center
-            ) {
-                if (!failed) {
+            if (!failed) {
+                val transition = rememberInfiniteTransition(label = "thumb-pulse")
+                val pulseAlpha by transition.animateFloat(
+                    initialValue = 0.35f,
+                    targetValue = 0.65f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 800, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "pulseAlpha"
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(SurfaceRaised.copy(alpha = pulseAlpha)),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator(
-                        color = BrandRed,
-                        modifier = Modifier.fillMaxSize(0.18f),
-                        strokeWidth = 2.dp
+                        color = Color.White.copy(alpha = 0.3f),
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 1.5.dp
                     )
-                } else {
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(SurfaceRaised),
+                    contentAlignment = Alignment.Center
+                ) {
                     Icon(
                         Icons.Filled.PlayArrow,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxSize(0.35f)
+                        tint = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }

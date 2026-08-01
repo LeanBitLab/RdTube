@@ -15,8 +15,11 @@
 - **🔑 No API Key Required** - Works instantly right after installation with zero setup or API client registration.
 - **👤 No Account Required** - 100% anonymous browsing out of the box with zero sign-in or Reddit credentials required.
 - **📱 Single-Column & Vertical Pager Feeds** - Smooth vertical video scrolling with instant background prefetching.
+- **🎬 Media3 ExoPlayer Engine** - Integrated video player supporting dynamic playback speed, quality selector, and automatic lifecycle pause.
+- **🔁 Auto-Play & Auto-Rotate** - Toggle continuous auto-next video playback and sensor orientation lock.
+- **⬇️ Video Downloads** - Save Reddit videos directly to your device storage with audio-video merging.
+- **🎛️ Volume & Brightness Gestures** - Intuitive edge drag gesture controls for volume and brightness.
 - **⚡ Parallel Coroutine Fetching** - High-throughput multi-subreddit API requests (3x–5x faster feed load times).
-- **🎬 Media3 ExoPlayer Engine** - Integrated video player supporting dynamic playback speed, quality selector, and long-press volume/brightness edge gestures.
 - **🔍 Subreddit Search & Subscriptions** - Search subreddits instantly and manage custom subscriptions stored 100% locally.
 - **📜 Local Persistence & History** - Watch history, liked videos, and preferences stay on your device.
 - **🎨 Obsidian Dark Theme** - Glassmorphism UI, vibrant crimson accents (`#FF2A4B`), and rounded edge styling.

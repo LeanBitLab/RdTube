@@ -33,4 +33,14 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onStart() {
+        super.onStart()
+        com.lean.reddittube.util.PerfTelemetryController.getInstance(this).isPaused = false
+    }
+
+    override fun onStop() {
+        super.onStop()
+        com.lean.reddittube.util.PerfTelemetryController.getInstance(this).isPaused = true
+    }
 }

@@ -5,7 +5,23 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Crisp White Outer Border -->
+    <!-- Crisp White Outer Border for Left Vertical Bar -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M35,36 L35,72" />
+
+    <!-- Solid Red Left Vertical Bar Face -->
+    <path
+        android:fillColor="#FF2A4B"
+        android:strokeColor="#FF2A4B"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M35,36 L35,72" />
+
+    <!-- Crisp White Outer Border for Play Button (Unchanged Triangle Position) -->
     <path
         android:fillColor="#FFFFFFFF"
         android:strokeColor="#FFFFFFFF"
@@ -14,7 +30,7 @@
         android:strokeLineCap="round"
         android:pathData="M44,36 L76,54 L44,72 Z" />
 
-    <!-- Solid Red Play Button Face -->
+    <!-- Solid Red Play Button Face (Unchanged Triangle Position) -->
     <path
         android:fillColor="#FF2A4B"
         android:strokeColor="#FF2A4B"

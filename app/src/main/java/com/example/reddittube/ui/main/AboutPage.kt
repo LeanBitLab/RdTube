@@ -143,6 +143,9 @@ fun AboutPage(
                     "🔑 No API Key or Account required",
                     "📺 YouTube-style video browse & feeds",
                     "🎬 Integrated player with quality & speed controls",
+                    "🔁 Auto-Next & Auto-Rotate lock toggles",
+                    "⬇️ Direct video download to storage",
+                    "🎛️ Volume & Brightness edge gesture controls",
                     "⭐ Subreddit subscriptions & instant search",
                     "📜 Local watch history & liked videos persistence",
                     "⚡ High-speed video pre-fetching & cache"

@@ -5,7 +5,15 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Solid Silhouette for Material You Theme -->
+    <!-- Solid Silhouette for Left Vertical Bar -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M35,36 L35,72" />
+
+    <!-- Solid Silhouette for Play Button Triangle (Unchanged Position) -->
     <path
         android:fillColor="#FFFFFFFF"
         android:strokeColor="#FFFFFFFF"
