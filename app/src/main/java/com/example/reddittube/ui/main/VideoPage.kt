@@ -986,14 +986,14 @@ MinimalButton(
             }
         }
 
-        // Brightness HUD (Top section of video)
+        // Brightness HUD (Top Center of video)
         AnimatedVisibility(
             visible = showBrightnessHud,
             modifier = Modifier
-                .align(Alignment.TopStart)
+                .align(Alignment.TopCenter)
                 .statusBarsPadding()
                 .displayCutoutPadding()
-                .padding(start = 16.dp, top = 56.dp),
+                .padding(top = 56.dp),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150))
         ) {
@@ -1009,14 +1009,14 @@ MinimalButton(
             )
         }
 
-        // Volume HUD (Top section of video)
+        // Volume HUD (Top Center of video)
         AnimatedVisibility(
             visible = showVolumeHud,
             modifier = Modifier
-                .align(Alignment.TopEnd)
+                .align(Alignment.TopCenter)
                 .statusBarsPadding()
                 .displayCutoutPadding()
-                .padding(end = 16.dp, top = 56.dp),
+                .padding(top = 56.dp),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150))
         ) {
