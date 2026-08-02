@@ -4,6 +4,8 @@ import com.lean.reddittube.theme.*
 import android.content.Context
 import android.content.SharedPreferences
 import android.widget.Toast
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -54,6 +56,9 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.fadeIn
@@ -835,98 +840,150 @@ private fun VideoCard(
     onRemoveVideo: (RedditPost) -> Unit = {}
 ) {
     val hapticFeedback = LocalHapticFeedback.current
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .pointerInput(post.id) {
-                detectTapGestures(
-                    onLongPress = {
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onRemoveVideo(post)
-                    },
-                    onTap = { onClick() }
-                )
-            },
-        shape = RoundedCornerShape(14.dp),
-        color = Color.Black,
-        border = BorderStroke(1.dp, GlassBorder)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
-                    .background(Color.Black)
-            ) {
-                ThumbnailImage(url = post.thumbnailUrl, contentDescription = post.title, modifier = Modifier.fillMaxSize())
+    val coroutineScope = rememberCoroutineScope()
+    var isHiding by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(post.id) {
+                    detectTapGestures(
+                        onLongPress = {
+                            if (!isHiding) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                isHiding = true
+                                coroutineScope.launch {
+                                    delay(350)
+                                    onRemoveVideo(post)
+                                }
+                            }
+                        },
+                        onTap = { if (!isHiding) onClick() }
+                    )
+                },
+            shape = RoundedCornerShape(14.dp),
+            color = Color.Black,
+            border = BorderStroke(1.dp, GlassBorder)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
-                        .align(Alignment.Center)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.55f)),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                        .background(Color.Black)
                 ) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = "Play video",
-                        tint = Color.White,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-            }
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    post.title,
-                    color = TextPrimary,
-                    fontSize = 14.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 18.sp
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                    ThumbnailImage(url = post.thumbnailUrl, contentDescription = post.title, modifier = Modifier.fillMaxSize())
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(SurfaceGlass)
-                            .clickable { onSubredditClick(post.subreddit) }
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            "r/${post.subreddit}",
-                            color = BrandRed,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable { onLike(post) }
-                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                            .size(44.dp)
+                            .align(Alignment.Center)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.55f)),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            if (isLiked) Icons.Default.ThumbUp else Icons.Default.ThumbUpOffAlt,
-                            contentDescription = "Like",
-                            tint = if (isLiked) BrandRed else TextSecondary,
-                            modifier = Modifier.size(15.dp)
+                            Icons.Default.PlayArrow,
+                            contentDescription = "Play video",
+                            tint = Color.White,
+                            modifier = Modifier.size(26.dp)
                         )
-                        Spacer(Modifier.width(4.dp))
+                    }
+                }
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        post.title,
+                        color = TextPrimary,
+                        fontSize = 14.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 18.sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(SurfaceGlass)
+                                .clickable { onSubredditClick(post.subreddit) }
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                "r/${post.subreddit}",
+                                color = BrandRed,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { onLike(post) }
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                        ) {
+                            Icon(
+                                if (isLiked) Icons.Default.ThumbUp else Icons.Default.ThumbUpOffAlt,
+                                contentDescription = "Like",
+                                tint = if (isLiked) BrandRed else TextSecondary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                formatScore(if (isLiked) post.score + 1 else post.score),
+                                color = if (isLiked) BrandRed else TextSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Hiding overlay indicator
+        AnimatedVisibility(
+            visible = isHiding,
+            enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.88f),
+            exit = fadeOut(tween(150)),
+            modifier = Modifier.matchParentSize()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.Black.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = SurfaceBase.copy(alpha = 0.95f),
+                    border = BorderStroke(1.dp, BrandRed)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.VisibilityOff,
+                            contentDescription = "Hidden",
+                            tint = BrandRed,
+                            modifier = Modifier.size(18.dp)
+                        )
                         Text(
-                            formatScore(if (isLiked) post.score + 1 else post.score),
-                            color = if (isLiked) BrandRed else TextSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
+                            text = "Card Hidden",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
