@@ -31,6 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
@@ -184,6 +187,7 @@ fun HomeScreen(
                     },
                     onLoadMore = { viewModel.loadMore(true) },
                     onRefresh = { viewModel.refreshExplore() },
+                    onRemoveVideo = viewModel::hidePost,
                     onScrollDirection = { bottomBarVisible = !it },
                     isLoadingMore = (exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
@@ -197,6 +201,7 @@ fun HomeScreen(
                     },
                     onLoadMore = { viewModel.loadMore(false) },
                     onRefresh = { viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+")) },
+                    onRemoveVideo = viewModel::hidePost,
                     onScrollDirection = { bottomBarVisible = !it },
                     isLoadingMore = (subscribedState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
@@ -660,6 +665,7 @@ private fun BrowseGrid(
     onSubredditClick: (String) -> Unit = {},
     onLoadMore: () -> Unit,
     onRefresh: () -> Unit,
+    onRemoveVideo: (RedditPost) -> Unit = {},
     isLoadingMore: Boolean,
     onScrollDirection: (Boolean) -> Unit = {}
 ) {
@@ -788,7 +794,8 @@ private fun BrowseGrid(
                         isLiked = likedIds.contains(post.id),
                         onLike = onLike,
                         onClick = { onItemClick(data, index) },
-                        onSubredditClick = onSubredditClick
+                        onSubredditClick = onSubredditClick,
+                        onRemoveVideo = onRemoveVideo
                     )
                 }
                 if (isLoadingMore) {
@@ -824,12 +831,22 @@ private fun VideoCard(
     isLiked: Boolean,
     onLike: (RedditPost) -> Unit,
     onClick: () -> Unit,
-    onSubredditClick: (String) -> Unit = {}
+    onSubredditClick: (String) -> Unit = {},
+    onRemoveVideo: (RedditPost) -> Unit = {}
 ) {
+    val hapticFeedback = LocalHapticFeedback.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .pointerInput(post.id) {
+                detectTapGestures(
+                    onLongPress = {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onRemoveVideo(post)
+                    },
+                    onTap = { onClick() }
+                )
+            },
         shape = RoundedCornerShape(14.dp),
         color = Color.Black,
         border = BorderStroke(1.dp, GlassBorder)

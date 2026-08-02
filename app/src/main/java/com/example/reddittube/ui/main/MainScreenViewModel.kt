@@ -353,6 +353,20 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         // ponytail: don't remove from current list — only filter on next refresh to avoid auto-advance
     }
 
+    fun hidePost(post: RedditPost) {
+        markAsWatched(post)
+        val exploreCurrent = _exploreState.value
+        if (exploreCurrent is MainScreenUiState.Success) {
+            val updated = exploreCurrent.data.filterNot { it.id == post.id }
+            _exploreState.value = exploreCurrent.copy(data = updated)
+        }
+        val subCurrent = _subscribedState.value
+        if (subCurrent is MainScreenUiState.Success) {
+            val updated = subCurrent.data.filterNot { it.id == post.id }
+            _subscribedState.value = subCurrent.copy(data = updated)
+        }
+    }
+
     private fun saveWatched() {
         prefs.edit()
             .putStringSet("watched_ids", watchedIds.toSet())
