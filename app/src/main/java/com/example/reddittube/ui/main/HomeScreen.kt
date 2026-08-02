@@ -501,8 +501,9 @@ private fun PanelMenu(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(14.dp))
                 .clickable { onRefresh() },
+            shape = RoundedCornerShape(14.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder)
         ) {
@@ -520,7 +521,8 @@ private fun PanelMenu(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp)),
+                .clip(RoundedCornerShape(14.dp)),
+            shape = RoundedCornerShape(14.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, if (sortExpanded) BrandRed.copy(alpha = 0.5f) else GlassBorder)
         ) {
@@ -574,8 +576,9 @@ private fun PanelMenu(
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(10.dp))
                                     .clickable { onSort(sort) },
+                                shape = RoundedCornerShape(10.dp),
                                 color = if (isSelected) BrandRed.copy(alpha = 0.15f) else Color.Transparent
                             ) {
                                 Row(
@@ -609,8 +612,9 @@ private fun PanelMenu(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(14.dp))
                 .clickable { onHistory() },
+            shape = RoundedCornerShape(14.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder)
         ) {
@@ -628,8 +632,9 @@ private fun PanelMenu(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(14.dp))
                 .clickable { onLiked() },
+            shape = RoundedCornerShape(14.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder)
         ) {
@@ -670,8 +675,8 @@ private fun BrowseGrid(
                 repeat(4) {
                     val transition = rememberInfiniteTransition(label = "shimmer")
                     val pulseAlpha by transition.animateFloat(
-                        initialValue = 0.25f,
-                        targetValue = 0.65f,
+                        initialValue = 0.15f,
+                        targetValue = 0.40f,
                         animationSpec = infiniteRepeatable(
                             animation = tween(800, easing = LinearEasing),
                             repeatMode = RepeatMode.Reverse

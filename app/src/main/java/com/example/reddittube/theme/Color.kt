@@ -4,11 +4,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 // Modern Obsidian & Crimson Design Palette
-val RichObsidian = Color(0xFF090A0F)
-val SurfaceBase = Color(0xFF10121A)
-val SurfaceRaised = Color(0xFF181A24)
-val SurfaceBar = Color(0xFF222432)
-val SurfaceGlass = Color(0x33282B3A)
+val RichObsidian = Color(0xFF07080A)
+val SurfaceBase = Color(0xFF0B0C10)
+val SurfaceRaised = Color(0xFF101218)
+val SurfaceBar = Color(0xFF141620)
+val SurfaceGlass = Color(0x1F141620)
 
 val BrandRed = Color(0xFFFF2A4B)
 val BrandRedLight = Color(0xFFFF5E62)
