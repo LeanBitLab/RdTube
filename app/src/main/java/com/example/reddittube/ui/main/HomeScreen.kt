@@ -46,10 +46,11 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
@@ -477,59 +478,166 @@ private fun PanelMenu(
     onHistory: () -> Unit,
     onLiked: () -> Unit
 ) {
-    val drawerColors = NavigationDrawerItemDefaults.colors(
-        unselectedContainerColor = Color.Black,
-        selectedContainerColor = BrandRed.copy(alpha = 0.16f),
-        unselectedTextColor = TextPrimary,
-        selectedTextColor = BrandRed,
-        unselectedIconColor = TextSecondary,
-        selectedIconColor = BrandRed
-    )
-    Column(Modifier.fillMaxSize().padding(8.dp).navigationBarsPadding()) {
-        NavigationDrawerItem(
-            label = { Text("Refresh") },
-            selected = false,
-            onClick = onRefresh,
-            icon = { Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White) },
-            colors = drawerColors
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .navigationBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "Menu & Options",
+            color = TextSecondary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
         )
-        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
-        NavigationDrawerItem(
-            label = { Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Sort"); Spacer(Modifier.width(4.dp))
-                Icon(if (sortExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-            } },
-            selected = false,
-            onClick = onToggleSort,
-            icon = { Icon(Icons.Default.Sort, contentDescription = null, tint = Color.White) },
-            colors = drawerColors
-        )
-        if (sortExpanded) {
-            SortOption.entries.forEach { sort ->
-                NavigationDrawerItem(
-                    label = { Text(sort.label, modifier = Modifier.padding(start = 16.dp), color = if (currentSort == sort) BrandRed else Color.White) },
-                    selected = currentSort == sort,
-                    onClick = { onSort(sort) },
-                    icon = { Icon(if (currentSort == sort) Icons.Default.Check else Icons.Default.RadioButtonUnchecked, contentDescription = null, tint = if (currentSort == sort) BrandRed else Color.LightGray, modifier = Modifier.size(18.dp)) },
-                    colors = drawerColors
-                )
+
+        // Refresh card
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onRefresh() },
+            color = SurfaceRaised,
+            border = BorderStroke(1.dp, GlassBorder)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White, modifier = Modifier.size(18.dp))
+                Text("Refresh Feed", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
         }
-        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
-        NavigationDrawerItem(
-            label = { Text("History") },
-            selected = false,
-            onClick = onHistory,
-            icon = { Icon(Icons.Default.DateRange, contentDescription = null, tint = Color.White) },
-            colors = drawerColors
-        )
-        NavigationDrawerItem(
-            label = { Text("Liked") },
-            selected = false,
-            onClick = onLiked,
-            icon = { Icon(Icons.Default.Favorite, contentDescription = null, tint = BrandRed) },
-            colors = drawerColors
-        )
+
+        // Minimal Expandable Sort Card
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp)),
+            color = SurfaceRaised,
+            border = BorderStroke(1.dp, if (sortExpanded) BrandRed.copy(alpha = 0.5f) else GlassBorder)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onToggleSort() }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = "Sort",
+                            tint = BrandRed,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Column {
+                            Text("Sort Posts", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text("Current: ${currentSort.label}", color = TextSecondary, fontSize = 11.sp)
+                        }
+                    }
+                    Icon(
+                        imageVector = if (sortExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Expandable Sort Options
+                AnimatedVisibility(
+                    visible = sortExpanded,
+                    enter = expandVertically(tween(200)) + fadeIn(tween(200)),
+                    exit = shrinkVertically(tween(180)) + fadeOut(tween(180))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        HorizontalDivider(color = GlassBorder, modifier = Modifier.padding(bottom = 6.dp))
+                        SortOption.entries.forEach { sort ->
+                            val isSelected = currentSort == sort
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onSort(sort) },
+                                color = if (isSelected) BrandRed.copy(alpha = 0.15f) else Color.Transparent
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = sort.label,
+                                        color = if (isSelected) BrandRed else TextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = BrandRed,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // History card
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onHistory() },
+            color = SurfaceRaised,
+            border = BorderStroke(1.dp, GlassBorder)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(Icons.Default.DateRange, contentDescription = "History", tint = Color.White, modifier = Modifier.size(18.dp))
+                Text("Watch History", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+
+        // Liked card
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onLiked() },
+            color = SurfaceRaised,
+            border = BorderStroke(1.dp, GlassBorder)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(Icons.Default.Favorite, contentDescription = "Liked", tint = BrandRed, modifier = Modifier.size(18.dp))
+                Text("Liked Videos", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
+        }
     }
 }
 
