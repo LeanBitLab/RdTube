@@ -4,6 +4,7 @@ import com.lean.reddittube.theme.*
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.provider.Settings
@@ -233,10 +234,26 @@ fun VideoPage(
         exoPlayer.volume = if (isMuted) 0f else 1f
     }
 
-    // Auto-next repeat mode (single source of truth, reacts to live toggles)
+    // Auto-next & Loop Video repeat mode (single source of truth, reacts live to settings toggles)
     var autoNextEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("auto_next", false)) }
-    LaunchedEffect(autoNextEnabled) {
-        exoPlayer.repeatMode = if (autoNextEnabled) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+    var isLoopEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("loop_video", true)) }
+
+    DisposableEffect(sharedPreferences) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+            if (key == "loop_video") {
+                isLoopEnabled = prefs.getBoolean("loop_video", true)
+            } else if (key == "auto_next") {
+                autoNextEnabled = prefs.getBoolean("auto_next", false)
+            }
+        }
+        sharedPreferences.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            sharedPreferences.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    LaunchedEffect(isLoopEnabled, autoNextEnabled) {
+        exoPlayer.repeatMode = if (isLoopEnabled && !autoNextEnabled) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     }
 
     // Swipe-to-like / swipe-to-history live indicator
