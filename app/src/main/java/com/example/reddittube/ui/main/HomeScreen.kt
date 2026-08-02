@@ -507,6 +507,73 @@ private fun PanelMenu(
             modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
         )
 
+        // Loop Video Toggle Card
+        val context = LocalContext.current
+        val hapticFeedback = LocalHapticFeedback.current
+        val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
+        var isLoopEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("loop_video", true)) }
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp)),
+            shape = RoundedCornerShape(14.dp),
+            color = SurfaceRaised,
+            border = BorderStroke(1.dp, GlassBorder)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isLoopEnabled = !isLoopEnabled
+                        sharedPreferences.edit().putBoolean("loop_video", isLoopEnabled).apply()
+                    }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Repeat,
+                        contentDescription = "Loop Video",
+                        tint = if (isLoopEnabled) BrandRed else TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Loop Video",
+                            color = TextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = if (isLoopEnabled) "Repeats video endlessly" else "Stops when video ends",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+                Switch(
+                    checked = isLoopEnabled,
+                    onCheckedChange = { checked ->
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isLoopEnabled = checked
+                        sharedPreferences.edit().putBoolean("loop_video", checked).apply()
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = BrandRed,
+                        uncheckedThumbColor = TextMuted,
+                        uncheckedTrackColor = SurfaceBase
+                    )
+                )
+            }
+        }
+
         // Refresh card
         Surface(
             modifier = Modifier

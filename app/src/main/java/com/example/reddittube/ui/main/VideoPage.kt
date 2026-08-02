@@ -136,7 +136,7 @@ fun VideoPage(
             .setLoadControl(loadControl)
             .build()
         player.apply {
-            repeatMode = if (sharedPreferences.getBoolean("auto_next", false)) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+            repeatMode = if (sharedPreferences.getBoolean("loop_video", true)) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
             setAudioAttributes(androidx.media3.common.AudioAttributes.Builder()
                 .setUsage(androidx.media3.common.C.USAGE_MEDIA)
                 .setContentType(androidx.media3.common.C.CONTENT_TYPE_MOVIE)
@@ -163,8 +163,10 @@ fun VideoPage(
             }
             override fun onPlaybackStateChanged(state: Int) {
                 isBuffering = state == Player.STATE_BUFFERING
-                if (state == Player.STATE_ENDED && sharedPreferences.getBoolean("auto_next", false)) {
-                    onNext()
+                if (state == Player.STATE_ENDED && !sharedPreferences.getBoolean("loop_video", true)) {
+                    if (sharedPreferences.getBoolean("auto_next", false)) {
+                        onNext()
+                    }
                 }
             }
             override fun onIsPlayingChanged(playing: Boolean) {
