@@ -415,15 +415,17 @@ Box(
             )
         }
 
-        // Left edge: brightness edge drag gesture
+        // Left edge: brightness edge drag gesture (narrow 48.dp strip to prevent conflict with vertical paging)
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .fillMaxWidth(0.2f)
+                .width(48.dp)
                 .align(Alignment.CenterStart)
                 .pointerInput(Unit) {
+                    var totalDragY = 0f
                     detectVerticalDragGestures(
                         onDragStart = {
+                            totalDragY = 0f
                             showBrightnessHud = true
                             showVolumeHud = false
                             if (originalBrightness == null) {
@@ -440,6 +442,7 @@ Box(
                             }
                         },
                         onDragEnd = {
+                            totalDragY = 0f
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
                                 delay(800)
@@ -447,6 +450,7 @@ Box(
                             }
                         },
                         onDragCancel = {
+                            totalDragY = 0f
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
                                 delay(800)
@@ -454,7 +458,10 @@ Box(
                             }
                         },
                         onVerticalDrag = { change, dragAmount ->
-                            change.consume()
+                            totalDragY += dragAmount
+                            if (kotlin.math.abs(totalDragY) > 16f) {
+                                change.consume()
+                            }
                             if (activity != null) {
                                 val sensitivity = 0.003f
                                 val currentBright = if (brightnessPercentage < 0f) 0.5f else brightnessPercentage
@@ -474,15 +481,17 @@ Box(
                 }
         )
 
-        // Right edge: volume. Swipe gesture opens volume bar showing current volume level, then drag up/down adjusts.
+        // Right edge: volume edge drag gesture (narrow 48.dp strip to prevent conflict with vertical paging)
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .fillMaxWidth(0.2f)
+                .width(48.dp)
                 .align(Alignment.CenterEnd)
                 .pointerInput(isMuted) {
+                    var totalDragY = 0f
                     detectVerticalDragGestures(
                         onDragStart = {
+                            totalDragY = 0f
                             showVolumeHud = true
                             showBrightnessHud = false
                             if (volumePercentage < 0f) {
@@ -490,6 +499,7 @@ Box(
                             }
                         },
                         onDragEnd = {
+                            totalDragY = 0f
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
                                 delay(800)
@@ -497,6 +507,7 @@ Box(
                             }
                         },
                         onDragCancel = {
+                            totalDragY = 0f
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
                                 delay(800)
@@ -504,7 +515,10 @@ Box(
                             }
                         },
                         onVerticalDrag = { change, dragAmount ->
-                            change.consume()
+                            totalDragY += dragAmount
+                            if (kotlin.math.abs(totalDragY) > 16f) {
+                                change.consume()
+                            }
                             val sensitivity = 0.003f
                             val currentVol = if (volumePercentage < 0f) (if (isMuted) 0f else 0.5f) else volumePercentage
                             val nextPercent = (currentVol - dragAmount * sensitivity).coerceIn(0f, 1f)
