@@ -100,17 +100,20 @@ fun VideoPage(
     onSubredditClick: (String) -> Unit = {},
     isMuted: Boolean = false,
     onMuteChange: (Boolean) -> Unit = {},
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    onRefresh: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
 
-    // Onboarding & Seek Feedback state
+    // Onboarding, Seek Feedback & Refresh state
     var showOnboarding by remember { mutableStateOf(!sharedPreferences.getBoolean("has_seen_onboarding", false)) }
     var seekFeedback by remember { mutableStateOf<String?>(null) }
     var seekFeedbackJob by remember { mutableStateOf<Job?>(null) }
+    var showRefreshingIndicator by remember { mutableStateOf(false) }
+    var refreshingJob by remember { mutableStateOf<Job?>(null) }
 
     // Player state
     var currentQuality by remember { mutableStateOf(sharedPreferences.getString("saved_quality", "Auto") ?: "Auto") }
@@ -365,6 +368,46 @@ Box(
                             }
                         }
                     )
+                }
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.changes.size >= 2) {
+                                var totalY = 0f
+                                var active = true
+                                while (active) {
+                                    val dragEvent = awaitPointerEvent()
+                                    if (dragEvent.changes.size < 2) {
+                                        active = false
+                                        break
+                                    }
+                                    val firstChange = dragEvent.changes.firstOrNull() ?: break
+                                    if (firstChange.pressed) {
+                                        val deltaY = firstChange.position.y - firstChange.previousPosition.y
+                                        totalY += deltaY
+                                        if (totalY > 160f) {
+                                            dragEvent.changes.forEach { it.consume() }
+                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onRefresh()
+                                            showRefreshingIndicator = true
+                                            refreshingJob?.cancel()
+                                            refreshingJob = coroutineScope.launch {
+                                                delay(1200)
+                                                showRefreshingIndicator = false
+                                            }
+                                            totalY = 0f
+                                            active = false
+                                            break
+                                        }
+                                    } else {
+                                        active = false
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 .pointerInput(Unit) {
                     // ponytail: swipe left -> history (mark watched), swipe right -> like. Horizontal only,
@@ -916,10 +959,41 @@ MinimalButton(
             }
         }
 
-        // Brightness HUD (refined vertical slider)
+        // Two-finger refresh transient indicator
+        AnimatedVisibility(
+            visible = showRefreshingIndicator,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .displayCutoutPadding()
+                .padding(top = 16.dp),
+            enter = fadeIn(tween(150)) + slideInVertically(tween(150), initialOffsetY = { -it }),
+            exit = fadeOut(tween(150)) + slideOutVertically(tween(150), targetOffsetY = { -it })
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = SurfaceBase.copy(alpha = 0.92f),
+                border = BorderStroke(1.dp, BrandRed)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = BrandRed, modifier = Modifier.size(16.dp))
+                    Text("Refreshing feed…", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // Brightness HUD (Top section of video)
         AnimatedVisibility(
             visible = showBrightnessHud,
-            modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .displayCutoutPadding()
+                .padding(start = 16.dp, top = 56.dp),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150))
         ) {
@@ -929,28 +1003,32 @@ MinimalButton(
                     Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
                 } else lp.screenBrightness
             } else brightnessPercentage
-            VerticalHud(
+            TopHud(
                 progress = displayBright.coerceIn(0f, 1f),
-                icon = { Icon(Icons.Default.BrightnessHigh, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                icon = { Icon(Icons.Default.BrightnessHigh, contentDescription = "Brightness", tint = Color.White, modifier = Modifier.size(16.dp)) }
             )
         }
 
-        // Volume HUD (refined vertical slider)
+        // Volume HUD (Top section of video)
         AnimatedVisibility(
             visible = showVolumeHud,
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .displayCutoutPadding()
+                .padding(end = 16.dp, top = 56.dp),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150))
         ) {
             val displayVol = if (volumePercentage < 0f) exoPlayer.volume else volumePercentage
-            VerticalHud(
+            TopHud(
                 progress = displayVol.coerceIn(0f, 1f),
                 icon = {
                     Icon(
                         if (displayVol <= 0f) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = null,
+                        contentDescription = "Volume",
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             )
@@ -998,38 +1076,44 @@ MinimalButton(
 
 
 @Composable
-private fun VerticalHud(
+private fun TopHud(
     progress: Float,
     icon: @Composable () -> Unit
 ) {
-    Column(
-        modifier = Modifier.width(56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Color.Black.copy(alpha = 0.82f),
+        border = BorderStroke(1.dp, GlassBorder)
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(Color.Black.copy(alpha = 0.5f), shape = CircleShape),
-            contentAlignment = Alignment.Center
-        ) { icon() }
-        Spacer(Modifier.height(14.dp))
-        Box(
-            modifier = Modifier
-                .height(160.dp)
-                .width(6.dp)
-                .background(Color.White.copy(alpha = 0.22f), shape = RoundedCornerShape(3.dp)),
-            contentAlignment = Alignment.BottomCenter
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            icon()
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(progress.coerceIn(0f, 1f))
-                    .background(Color.White, shape = RoundedCornerShape(3.dp))
+                    .width(80.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.25f)),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(BrandRed)
+                )
+            }
+            Text(
+                text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%",
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
             )
         }
-        Spacer(Modifier.height(10.dp))
-        Text("${(progress.coerceIn(0f, 1f) * 100).toInt()}%", color = Color.White, fontSize = 12.sp)
     }
 }
 

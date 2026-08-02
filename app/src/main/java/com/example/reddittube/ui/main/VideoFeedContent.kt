@@ -109,7 +109,8 @@ fun VideoFeedContent(
                             onSwipeAdvance = onNext,
                             onNext = onNext,
                             onSubredditClick = onSubredditClick,
-                            onBack = onBack
+                            onBack = onBack,
+                            onRefresh = onRefresh
                         )
                     } else {
                         // Placeholder to maintain pager structure without heavy player
