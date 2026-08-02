@@ -372,46 +372,6 @@ Box(
                     )
                 }
                 .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            if (event.changes.size >= 2) {
-                                var totalY = 0f
-                                var active = true
-                                while (active) {
-                                    val dragEvent = awaitPointerEvent()
-                                    if (dragEvent.changes.size < 2) {
-                                        active = false
-                                        break
-                                    }
-                                    val firstChange = dragEvent.changes.firstOrNull() ?: break
-                                    if (firstChange.pressed) {
-                                        val deltaY = firstChange.position.y - firstChange.previousPosition.y
-                                        totalY += deltaY
-                                        if (totalY > 160f) {
-                                            dragEvent.changes.forEach { it.consume() }
-                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            onRefresh()
-                                            showRefreshingIndicator = true
-                                            refreshingJob?.cancel()
-                                            refreshingJob = coroutineScope.launch {
-                                                delay(1200)
-                                                showRefreshingIndicator = false
-                                            }
-                                            totalY = 0f
-                                            active = false
-                                            break
-                                        }
-                                    } else {
-                                        active = false
-                                        break
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                .pointerInput(Unit) {
                     // ponytail: swipe left -> history (mark watched), swipe right -> like. Horizontal only,
                     // so it never conflicts with vertical pager nav or edge volume/brightness.
                     var totalX = 0f
