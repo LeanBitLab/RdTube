@@ -40,7 +40,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -274,7 +278,7 @@ fun HomeScreen(
                             if (viewModel.exploreQuery != defaultExploreQuery) {
                                 viewModel.refreshExplore(defaultExploreQuery)
                             }
-                            coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
+                            coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
                         }
                     )
                     BottomNavItem(
@@ -288,7 +292,7 @@ fun HomeScreen(
                                 if (viewModel.subscribedQuery != defaultSubscribedQuery) {
                                     viewModel.refreshSubscribed(defaultSubscribedQuery)
                                 }
-                                coroutineScope.launch { horizontalPagerState.scrollToPage(1) }
+                                coroutineScope.launch { horizontalPagerState.animateScrollToPage(1) }
                             }
                         }
                     )
@@ -296,13 +300,13 @@ fun HomeScreen(
                         icon = Icons.Default.Search,
                         label = "Search",
                         selected = horizontalPagerState.currentPage == 2,
-                        onClick = { coroutineScope.launch { horizontalPagerState.scrollToPage(2) } }
+                        onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(2) } }
                     )
                     BottomNavItem(
                         icon = Icons.Default.Info,
                         label = "About",
                         selected = horizontalPagerState.currentPage == 3,
-                        onClick = { coroutineScope.launch { horizontalPagerState.scrollToPage(3) } }
+                        onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(3) } }
                     )
                 }
             }
@@ -346,7 +350,8 @@ fun HomeScreen(
                         .align(Alignment.CenterEnd)
                         .fillMaxHeight()
                         .statusBarsPadding()
-                        .width(320.dp)
+                        .widthIn(max = 400.dp)
+                        .fillMaxWidth(0.85f)
                         .clickable { }
                         .pointerInput(Unit) {
                             var totalX = 0f
@@ -543,8 +548,33 @@ private fun BrowseGrid(
 ) {
     when (uiState) {
         MainScreenUiState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = BrandRed)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(top = TopBarHeight + 8.dp, start = 12.dp, end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                repeat(4) {
+                    val transition = rememberInfiniteTransition(label = "shimmer")
+                    val pulseAlpha by transition.animateFloat(
+                        initialValue = 0.25f,
+                        targetValue = 0.65f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(800, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "pulseAlpha"
+                    )
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        color = SurfaceRaised.copy(alpha = pulseAlpha),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {}
+                }
             }
         }
         is MainScreenUiState.Error -> {
@@ -557,36 +587,80 @@ private fun BrowseGrid(
         }
         is MainScreenUiState.Success -> {
             val data = uiState.data
-            val gridState = rememberLazyGridState()
-            LaunchedEffect(gridState.firstVisibleItemIndex, data.size, isLoadingMore) {
-                val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: gridState.firstVisibleItemIndex
-                if (data.isNotEmpty() && !isLoadingMore && lastVisible >= (data.size - 5).coerceAtLeast(0)) {
-                    onLoadMore()
-                }
-            }
-            var prevIndex by remember { mutableIntStateOf(0) }
-            var prevOffset by remember { mutableIntStateOf(0) }
-            LaunchedEffect(Unit) {
-                snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
-                    .collect { (index, offset) ->
-                        val atTop = index == 0 && offset == 0
-                        val scrollingDown = index > prevIndex || (index == prevIndex && offset > prevOffset)
-                        prevIndex = index
-                        prevOffset = offset
-                        onScrollDirection(!atTop && scrollingDown)
+            if (data.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .padding(top = TopBarHeight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.VideoLibrary,
+                            contentDescription = null,
+                            tint = TextMuted,
+                            modifier = Modifier.size(56.dp)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "No videos available",
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Try searching subreddits or refresh",
+                            color = TextSecondary,
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = onRefresh,
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandRed),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Refresh", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
                     }
-            }
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(1),
-                state = gridState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(top = TopBarHeight, bottom = 8.dp),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+                }
+            } else {
+                val gridState = rememberLazyGridState()
+                LaunchedEffect(gridState.firstVisibleItemIndex, data.size, isLoadingMore) {
+                    val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: gridState.firstVisibleItemIndex
+                    if (data.isNotEmpty() && !isLoadingMore && lastVisible >= (data.size - 5).coerceAtLeast(0)) {
+                        onLoadMore()
+                    }
+                }
+                var prevIndex by remember { mutableIntStateOf(0) }
+                var prevOffset by remember { mutableIntStateOf(0) }
+                LaunchedEffect(Unit) {
+                    snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
+                        .collect { (index, offset) ->
+                            val atTop = index == 0 && offset == 0
+                            val scrollingDown = index > prevIndex || (index == prevIndex && offset > prevOffset)
+                            prevIndex = index
+                            prevOffset = offset
+                            onScrollDirection(!atTop && scrollingDown)
+                        }
+                }
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(1),
+                    state = gridState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .padding(top = TopBarHeight, bottom = 8.dp),
+                    contentPadding = PaddingValues(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                 items(
                     items = data,
                     key = { post -> post.id }
@@ -625,6 +699,7 @@ private fun BrowseGrid(
         }
     }
 }
+}
 
 @Composable
 private fun VideoCard(
@@ -661,7 +736,7 @@ private fun VideoCard(
                 ) {
                     Icon(
                         Icons.Default.PlayArrow,
-                        contentDescription = null,
+                        contentDescription = "Play video",
                         tint = Color.White,
                         modifier = Modifier.size(26.dp)
                     )

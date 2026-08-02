@@ -33,6 +33,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,7 +58,28 @@ fun SearchPage(
     searchResults: List<String>,
     onSearchQuery: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
     var searchQuery by remember { mutableStateOf("") }
+
+    var recentSearches by remember {
+        mutableStateOf(
+            sharedPreferences.getStringSet("search_history", emptySet())?.toList() ?: emptyList()
+        )
+    }
+
+    val saveSearchHistory: (String) -> Unit = { query ->
+        if (query.isNotBlank()) {
+            val updated = (listOf(query.lowercase()) + recentSearches.filterNot { it.equals(query, ignoreCase = true) }).take(8)
+            recentSearches = updated
+            sharedPreferences.edit().putStringSet("search_history", updated.toSet()).apply()
+        }
+    }
+
+    val handleSelectSubreddit: (String) -> Unit = { sub ->
+        saveSearchHistory(sub)
+        onSubredditSelect(sub)
+    }
 
     Column(
         modifier = Modifier
@@ -78,7 +102,7 @@ fun SearchPage(
             leadingIcon = {
                 Icon(
                     Icons.Default.Search,
-                    contentDescription = null,
+                    contentDescription = "Search icon",
                     tint = BrandRed,
                     modifier = Modifier.size(20.dp)
                 )
@@ -89,13 +113,13 @@ fun SearchPage(
                         onClick = {
                             val query = searchQuery.trim().replace(" ", "")
                             if (query.isNotEmpty()) {
-                                onSubredditSelect(query)
+                                handleSelectSubreddit(query)
                             }
                         }
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Go",
+                            contentDescription = "Submit search",
                             tint = BrandRed,
                             modifier = Modifier.size(20.dp)
                         )
@@ -122,7 +146,10 @@ fun SearchPage(
 
         val trimmedQuery = searchQuery.trim().lowercase()
         if (trimmedQuery.isNotEmpty()) {
-            LaunchedEffect(trimmedQuery) { onSearchQuery(trimmedQuery) }
+            LaunchedEffect(trimmedQuery) {
+                delay(300) // 300ms debounce
+                onSearchQuery(trimmedQuery)
+            }
             if (searchResults.isNotEmpty()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     searchResults.forEach { sub ->
@@ -131,7 +158,7 @@ fun SearchPage(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
-                                .clickable { onSubredditSelect(sub) },
+                                .clickable { handleSelectSubreddit(sub) },
                             shape = RoundedCornerShape(12.dp),
                             color = SurfaceRaised,
                             border = BorderStroke(1.dp, GlassBorder)
@@ -175,6 +202,49 @@ fun SearchPage(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
+        } else if (recentSearches.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Recent Searches",
+                    color = TextPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(
+                    onClick = {
+                        recentSearches = emptyList()
+                        sharedPreferences.edit().remove("search_history").apply()
+                    }
+                ) {
+                    Text("Clear", color = BrandRed, fontSize = 12.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                recentSearches.forEach { sub ->
+                    Surface(
+                        modifier = Modifier.clickable { handleSelectSubreddit(sub) },
+                        shape = RoundedCornerShape(16.dp),
+                        color = SurfaceRaised,
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Text(
+                            text = "r/$sub",
+                            color = TextSecondary,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
         }
 
         Row(

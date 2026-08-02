@@ -1,7 +1,7 @@
-package com.example.reddittube
+package com.lean.reddittube
 
 import com.lean.reddittube.util.AdaptiveCacheEngine
-import com.example.reddittube.util.MediaCacheManager
+import com.lean.reddittube.util.MediaCacheManager
 import org.junit.Assert.*
 import org.junit.Test
 

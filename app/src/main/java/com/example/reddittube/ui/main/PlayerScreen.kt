@@ -59,21 +59,9 @@ fun PlayerScreen(
                 onSubredditClick = { sub -> viewModel.refreshExplore(sub); onBack() },
                 onLoadMore = { if (feed != "other") viewModel.loadMore(feed != "subscribed") },
                 onRefresh = { viewModel.refreshExplore() },
-                isRefreshing = exploreState is MainScreenUiState.Loading
+                isRefreshing = exploreState is MainScreenUiState.Loading,
+                onBack = onBack
             )
-        }
-
-        Box(
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(start = HPad, top = 8.dp)
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.5f))
-                .clickable(onClick = onBack),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(22.dp))
         }
     }
 }

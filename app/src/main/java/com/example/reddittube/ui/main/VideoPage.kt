@@ -3,6 +3,7 @@ import com.lean.reddittube.theme.*
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.provider.Settings
@@ -56,7 +57,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -93,11 +99,18 @@ fun VideoPage(
     onNext: () -> Unit = {},
     onSubredditClick: (String) -> Unit = {},
     isMuted: Boolean = false,
-    onMuteChange: (Boolean) -> Unit = {}
+    onMuteChange: (Boolean) -> Unit = {},
+    onBack: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
+
+    // Onboarding & Seek Feedback state
+    var showOnboarding by remember { mutableStateOf(!sharedPreferences.getBoolean("has_seen_onboarding", false)) }
+    var seekFeedback by remember { mutableStateOf<String?>(null) }
+    var seekFeedbackJob by remember { mutableStateOf<Job?>(null) }
 
     // Player state
     var currentQuality by remember { mutableStateOf(sharedPreferences.getString("saved_quality", "Auto") ?: "Auto") }
@@ -109,8 +122,8 @@ fun VideoPage(
 
     val exoPlayer = remember(post.id) {
         val url = post.dashUrl.ifEmpty { post.hlsUrl }.ifEmpty { post.videoUrl }
-        val cacheDataSourceFactory = com.example.reddittube.util.MediaCacheManager.getCacheDataSourceFactory(context)
-        val loadControl = com.example.reddittube.util.MediaCacheManager.getAdaptiveLoadControl(
+        val cacheDataSourceFactory = com.lean.reddittube.util.MediaCacheManager.getCacheDataSourceFactory(context)
+        val loadControl = com.lean.reddittube.util.MediaCacheManager.getAdaptiveLoadControl(
             bufferPlayMs = perfParams.bufferPlayMs,
             bufferRebufferMs = perfParams.bufferRebufferMs,
             bufferMaxMs = perfParams.bufferMaxMs
@@ -288,6 +301,33 @@ Box(
                 .fillMaxSize()
                 .pointerInput(Unit) {
                     detectTapGestures(
+                        onDoubleTap = { offset ->
+                            val width = size.width
+                            val isLeftThird = offset.x < width / 3f
+                            val isRightThird = offset.x > (width * 2f / 3f)
+                            if (isLeftThird) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val newPos = (exoPlayer.currentPosition - 10000).coerceAtLeast(0)
+                                exoPlayer.seekTo(newPos)
+                                seekFeedback = "« 10s"
+                                seekFeedbackJob?.cancel()
+                                seekFeedbackJob = coroutineScope.launch {
+                                    delay(800)
+                                    seekFeedback = null
+                                }
+                            } else if (isRightThird) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val dur = exoPlayer.duration.coerceAtLeast(0)
+                                val newPos = (exoPlayer.currentPosition + 10000).coerceAtMost(dur)
+                                exoPlayer.seekTo(newPos)
+                                seekFeedback = "10s »"
+                                seekFeedbackJob?.cancel()
+                                seekFeedbackJob = coroutineScope.launch {
+                                    delay(800)
+                                    seekFeedback = null
+                                }
+                            }
+                        },
                         onTap = {
                             val wasShown = showOverlay
                             showOverlay = !showOverlay
@@ -342,9 +382,11 @@ Box(
                         onDragEnd = {
                             val threshold = size.width * 0.25f
                             if (totalX <= -threshold) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onRemoveVideo(post)
                                 onSwipeAdvance()
                             } else if (totalX >= threshold) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onLike(post)
                                 onSwipeAdvance()
                             }
@@ -601,6 +643,102 @@ Box(
             }
         }
 
+        // Transient seek feedback visual ("« 10s" / "10s »")
+        AnimatedVisibility(
+            visible = seekFeedback != null,
+            modifier = Modifier.align(Alignment.Center),
+            enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.8f),
+            exit = fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.8f)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.Black.copy(alpha = 0.75f),
+                border = BorderStroke(1.dp, GlassBorder)
+            ) {
+                Text(
+                    text = seekFeedback ?: "",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                )
+            }
+        }
+
+        // Top back button overlay (auto-hides with controls overlay)
+        AnimatedVisibility(
+            visible = showOverlay && onBack != null,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .displayCutoutPadding()
+                .padding(start = HPad, top = 8.dp),
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(180))
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable { onBack?.invoke() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(22.dp))
+            }
+        }
+
+        // First-run gesture onboarding overlay
+        if (showOnboarding && isActive) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .clickable {
+                        showOnboarding = false
+                        sharedPreferences.edit().putBoolean("has_seen_onboarding", true).apply()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxWidth(0.9f),
+                    shape = RoundedCornerShape(16.dp),
+                    color = SurfaceRaised,
+                    border = BorderStroke(1.dp, BrandRed)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Player Gestures",
+                            color = BrandRed,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Text("↔ Swipe Left / Right to dismiss or like video", color = TextPrimary, fontSize = 13.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text("↕ Drag Left / Right edges for Brightness & Volume", color = TextPrimary, fontSize = 13.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text("⏩ Double-Tap sides to Seek 10 seconds", color = TextPrimary, fontSize = 13.sp)
+                        Spacer(Modifier.height(20.dp))
+                        Button(
+                            onClick = {
+                                showOnboarding = false
+                                sharedPreferences.edit().putBoolean("has_seen_onboarding", true).apply()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandRed)
+                        ) {
+                            Text("Got it!", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
         // Bottom metadata, quick actions, and player slider overlay
         AnimatedVisibility(
             visible = showOverlay,
@@ -630,14 +768,17 @@ Box(
                             .size(32.dp)
                             .clip(CircleShape)
                             .background(BrandRed.copy(alpha = if (isSubbed) 0.2f else 0.15f))
-                            .clickable { onSubscribeToggle(post.subreddit.lowercase()) },
+                            .clickable {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onSubscribeToggle(post.subreddit.lowercase())
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = if (isSubbed) "\u2713" else "+",
-                            color = BrandRed,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
+                        Icon(
+                            imageVector = if (isSubbed) Icons.Default.Check else Icons.Default.Add,
+                            contentDescription = if (isSubbed) "Unsubscribe" else "Subscribe",
+                            tint = BrandRed,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -747,10 +888,25 @@ MinimalButton(
                                 }
                             }
                         },
-        label = ""
-    ) {
-        Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White, modifier = Modifier.size(14.dp))
-    }
+                        label = ""
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White, modifier = Modifier.size(14.dp))
+                    }
+
+                    // Share button
+                    MinimalButton(
+                        onClick = {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, "https://reddit.com${post.permalink}")
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Share video link"))
+                        },
+                        label = ""
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "Share video", tint = Color.White, modifier = Modifier.size(14.dp))
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

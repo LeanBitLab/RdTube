@@ -29,13 +29,19 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +57,33 @@ fun AboutPage(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var showClearDialog by remember { mutableStateOf(false) }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text("Clear Thumbnail Cache?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("This will clear the in-memory thumbnail cache to free up memory.", color = TextSecondary) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearDialog = false
+                        Toast.makeText(context, "Thumbnail cache cleared", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text("Clear", color = BrandRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = SurfaceRaised,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary
+        )
+    }
 
     Column(
         modifier = modifier
@@ -89,7 +122,7 @@ fun AboutPage(
             letterSpacing = (-0.3).sp
         )
         Text(
-            "Version 1.0.0 • No API Key • No Account",
+            "Version ${com.lean.reddittube.BuildConfig.VERSION_NAME} • No API Key • No Account",
             color = TextSecondary,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium
@@ -250,9 +283,7 @@ fun AboutPage(
                     )
                 }
                 Button(
-                    onClick = {
-                        Toast.makeText(context, "Thumbnail cache cleared", Toast.LENGTH_SHORT).show()
-                    },
+                    onClick = { showClearDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceGlass),
                     shape = RoundedCornerShape(10.dp)
                 ) {

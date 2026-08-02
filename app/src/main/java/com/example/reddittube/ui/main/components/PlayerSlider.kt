@@ -171,7 +171,7 @@ fun PlayerSlider(
             // Glowing thumb knob
             Box(
                 modifier = Modifier
-                    .size(12.dp)
+                    .size(if (dragFraction >= 0f) 18.dp else 16.dp)
                     .align(BiasAlignment(horizontalBias = clampedProgress * 2f - 1f, verticalBias = 0f))
                     .clip(CircleShape)
                     .background(Color.White)

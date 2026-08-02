@@ -3,6 +3,7 @@ import com.lean.reddittube.theme.*
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -85,28 +86,34 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
     }
 
     Box(modifier = modifier) {
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap!!.asImageBitmap(),
-                contentDescription = contentDescription,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            // Subtle dark bottom vignette for high-contrast badge text readability
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.45f)
-                            ),
-                            startY = 100f
+        AnimatedVisibility(
+            visible = bitmap != null,
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(250))
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Image(
+                    bitmap = bitmap!!.asImageBitmap(),
+                    contentDescription = contentDescription,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                // Subtle dark bottom vignette for high-contrast badge text readability
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.45f)
+                                ),
+                                startY = 100f
+                            )
                         )
-                    )
-            )
-        } else {
+                )
+            }
+        }
+        if (bitmap == null) {
             if (!failed) {
                 val transition = rememberInfiniteTransition(label = "thumb-pulse")
                 val pulseAlpha by transition.animateFloat(

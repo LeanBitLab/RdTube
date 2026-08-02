@@ -16,6 +16,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +44,8 @@ fun VideoFeedContent(
     onRefresh: () -> Unit = {},
     isLoadingMore: Boolean = false,
     isRefreshing: Boolean = false,
-    startIndex: Int = 0
+    startIndex: Int = 0,
+    onBack: (() -> Unit)? = null
 ) {
     val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { data.size })
     val coroutineScope = rememberCoroutineScope()
@@ -61,7 +63,7 @@ fun VideoFeedContent(
     // ponytail: trigger loadMore when user approaches end of feed (within last 2 items, minimum 10 items)
     val currentPage by remember { derivedStateOf { pagerState.currentPage } }
     LaunchedEffect(currentPage, data.size, isLoadingMore) {
-        if (data.isNotEmpty() && !isLoadingMore && currentPage >= (data.size - 5).coerceAtLeast(0)) {
+        if (currentPage >= (data.size - 5).coerceAtLeast(0) && !isLoadingMore && data.isNotEmpty()) {
             onLoadMore()
         }
     }
@@ -69,10 +71,22 @@ fun VideoFeedContent(
     // ponytail: player recycling — release players for pages far from current
     val visibleRange = (currentPage - 2).coerceAtLeast(0)..(currentPage + 2).coerceAtMost(data.size - 1)
 
+    val pullToRefreshState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
+
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
-        modifier = modifier.fillMaxSize()
+        state = pullToRefreshState,
+        modifier = modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                containerColor = SurfaceBase,
+                color = BrandRed,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             VerticalPager(
@@ -94,7 +108,8 @@ fun VideoFeedContent(
                             onLike = onLike,
                             onSwipeAdvance = onNext,
                             onNext = onNext,
-                            onSubredditClick = onSubredditClick
+                            onSubredditClick = onSubredditClick,
+                            onBack = onBack
                         )
                     } else {
                         // Placeholder to maintain pager structure without heavy player

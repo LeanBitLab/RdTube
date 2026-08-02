@@ -10,18 +10,20 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+import androidx.compose.ui.graphics.Color
+
 private val BrandDarkRedContainer = BrandRed.copy(alpha = 0.2f)
 
-private val DarkColorScheme = darkColorScheme(
+fun createDarkColorScheme(amoledMode: Boolean = false) = darkColorScheme(
     primary = BrandRed,
     onPrimary = TextPrimary,
     primaryContainer = BrandDarkRedContainer,
     onPrimaryContainer = TextPrimary,
     secondary = TextSecondary,
     onSecondary = TextPrimary,
-    background = RichObsidian,
+    background = if (amoledMode) Color.Black else RichObsidian,
     onBackground = TextPrimary,
-    surface = SurfaceBase,
+    surface = if (amoledMode) Color.Black else SurfaceBase,
     onSurface = TextPrimary,
     surfaceVariant = SurfaceRaised,
     onSurfaceVariant = TextSecondary,
@@ -33,8 +35,16 @@ private val DarkColorScheme = darkColorScheme(
 fun RdTubeTheme(
     darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
+    amoledMode: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = DarkColorScheme
+    val context = LocalContext.current
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        else -> createDarkColorScheme(amoledMode)
+    }
     MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }
+

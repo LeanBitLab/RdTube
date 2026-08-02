@@ -87,7 +87,6 @@ fun QualityBottomSheet(
                         .clip(RoundedCornerShape(8.dp))
                         .clickable {
                             onQualitySelected(qual)
-                            Toast.makeText(context, "Quality updated to $qual", Toast.LENGTH_SHORT).show()
                             onDismiss()
                         }
                         .padding(vertical = 12.dp, horizontal = 12.dp),
@@ -128,7 +127,7 @@ fun QualityBottomSheet(
                         .clickable {
                             selectedSpeed = speed
                             onSpeedSelected(speed)
-                            Toast.makeText(context, "Speed set to $label", Toast.LENGTH_SHORT).show()
+                            onDismiss()
                         }
                         .padding(vertical = 12.dp, horizontal = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,

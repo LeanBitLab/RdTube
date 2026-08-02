@@ -1,4 +1,4 @@
-package com.example.reddittube.util
+package com.lean.reddittube.util
 
 import android.content.Context
 import androidx.annotation.OptIn
