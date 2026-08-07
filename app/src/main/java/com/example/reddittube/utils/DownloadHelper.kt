@@ -20,8 +20,13 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSpec
+import com.lean.reddittube.util.MediaCacheManager
 
-// ponytail: Simplified media downloader and muxer using entirely native platform APIs.
+// ponytail: Simplified media downloader and muxer using entirely native platform APIs and Media3 CacheDataSource.
+@OptIn(UnstableApi::class)
 object DownloadHelper {
 
     suspend fun downloadRedditVideo(
@@ -36,13 +41,13 @@ object DownloadHelper {
             try {
                 onProgress("Downloading video...")
                 val tempVideoFile = File(context.cacheDir, "temp_video_${System.currentTimeMillis()}.mp4")
-                downloadFile(fallbackUrl, tempVideoFile)
+                downloadFile(context, fallbackUrl, tempVideoFile)
 
                 var tempAudioFile: File? = null
                 if (dashUrl.isNotEmpty()) {
                     onProgress("Checking audio...")
                     try {
-                        val dashXml = fetchText(dashUrl)
+                        val dashXml = fetchText(context, dashUrl)
                         val audioFileMatch = Regex("<BaseURL>([^<]*audio[^<]*\\.mp4)</BaseURL>", RegexOption.IGNORE_CASE).find(dashXml)
                         val audioFilename = audioFileMatch?.groupValues?.get(1)
                         if (audioFilename != null) {
@@ -51,7 +56,7 @@ object DownloadHelper {
                             
                             onProgress("Downloading audio...")
                             val audioFile = File(context.cacheDir, "temp_audio_${System.currentTimeMillis()}.mp4")
-                            downloadFile(audioUrl, audioFile)
+                            downloadFile(context, audioUrl, audioFile)
                             tempAudioFile = audioFile
                         }
                     } catch (e: Exception) {
@@ -133,17 +138,46 @@ object DownloadHelper {
         return connection
     }
 
-    private fun downloadFile(urlString: String, outputFile: File) {
-        val connection = openConnection(urlString)
-        BufferedInputStream(connection.inputStream).use { input ->
+    private fun downloadFile(context: Context, urlString: String, outputFile: File) {
+        val factory = MediaCacheManager.getCacheDataSourceFactory(context)
+        val dataSource = factory.createDataSource()
+        val dataSpec = DataSpec(Uri.parse(urlString))
+        try {
+            dataSource.open(dataSpec)
             FileOutputStream(outputFile).use { output ->
-                input.copyTo(output)
+                val buffer = ByteArray(32 * 1024)
+                while (true) {
+                    val read = dataSource.read(buffer, 0, buffer.size)
+                    if (read <= 0) break
+                    output.write(buffer, 0, read)
+                }
             }
+        } finally {
+            try {
+                dataSource.close()
+            } catch (_: Exception) {}
         }
     }
 
-    private fun fetchText(urlString: String): String {
-        return openConnection(urlString).inputStream.bufferedReader().use { it.readText() }
+    private fun fetchText(context: Context, urlString: String): String {
+        val factory = MediaCacheManager.getCacheDataSourceFactory(context)
+        val dataSource = factory.createDataSource()
+        val dataSpec = DataSpec(Uri.parse(urlString))
+        val output = java.io.ByteArrayOutputStream()
+        try {
+            dataSource.open(dataSpec)
+            val buffer = ByteArray(8 * 1024)
+            while (true) {
+                val read = dataSource.read(buffer, 0, buffer.size)
+                if (read <= 0) break
+                output.write(buffer, 0, read)
+            }
+            return output.toString(Charsets.UTF_8.name())
+        } finally {
+            try {
+                dataSource.close()
+            } catch (_: Exception) {}
+        }
     }
 
     private fun muxVideoAndAudio(videoFile: File, audioFile: File?, outputFile: File) {
