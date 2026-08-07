@@ -6,6 +6,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -41,7 +42,7 @@ fun AboutPage(
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
             title = { Text("Clear Thumbnail Cache?", color = TextPrimary, fontWeight = FontWeight.Bold) },
-            text = { Text("This will clear the in-memory thumbnail cache to free up memory.", color = TextSecondary) },
+            text = { Text("Frees up in-memory image thumbnail cache.", color = TextSecondary) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -68,347 +69,173 @@ fun AboutPage(
             .fillMaxSize()
             .background(RichObsidian)
             .statusBarsPadding()
-            .padding(start = HPad, top = TopBarHeight + 4.dp, end = HPad, bottom = 96.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(start = HPad, top = TopBarHeight + 2.dp, end = HPad, bottom = 84.dp)
+            .verticalScroll(rememberScrollState())
     ) {
-        Spacer(modifier = Modifier.height(12.dp))
-
         // App Header Banner
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(12.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(BrandRed),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
                 }
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Column {
-                    Text(
-                        "RdTube User Guide",
-                        color = TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        "v${com.lean.reddittube.BuildConfig.VERSION_NAME} • Gestures & Controls Reference",
-                        color = TextSecondary,
-                        fontSize = 12.sp
-                    )
+                    Text("RdTube", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("v${com.lean.reddittube.BuildConfig.VERSION_NAME} • Gestures & Quick Guide", color = TextSecondary, fontSize = 11.sp)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Section 1: Edge Drag Controls
-        GuideSectionHeader(title = "Edge Drag Controls", icon = Icons.Default.TouchApp)
         Spacer(modifier = Modifier.height(8.dp))
+
+        // Compact Gestures Card
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(12.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder)
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                GuideRow(
-                    badge = "LEFT EDGE ↕",
-                    title = "Brightness Adjustment",
-                    desc = "Drag vertically on the left 48dp edge to adjust screen brightness."
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = GlassBorder)
-                GuideRow(
-                    badge = "RIGHT EDGE ↕",
-                    title = "Volume Adjustment",
-                    desc = "Drag vertically on the right 48dp edge to adjust media volume."
-                )
+            Column(modifier = Modifier.padding(10.dp)) {
+                Text("Gestures", color = BrandRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                CompactGestureItem("Left Edge ↕", "Adjust Screen Brightness")
+                CompactGestureItem("Right Edge ↕", "Adjust System Volume")
+                CompactGestureItem("Swipe Left ↔", "Dismiss & Mark Watched")
+                CompactGestureItem("Swipe Right ↔", "Like Video & Advance")
+                CompactGestureItem("Double-Tap ⏩", "Seek 10s Rewind/Forward")
+                CompactGestureItem("Single Tap 👆", "Play / Pause / Replay")
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Section 2: Feed & Screen Gestures
-        GuideSectionHeader(title = "Feed & Touch Gestures", icon = Icons.Default.Swipe)
         Spacer(modifier = Modifier.height(8.dp))
+
+        // Compact Toolbar Functions Card
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(12.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder)
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                GuideRow(
-                    badge = "SWIPE LEFT ↔",
-                    title = "Dismiss / Mark Watched",
-                    desc = "Swipe left across the video to mark it watched and load the next clip."
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = GlassBorder)
-                GuideRow(
-                    badge = "SWIPE RIGHT ↔",
-                    title = "Like Video",
-                    desc = "Swipe right to add the video to your Liked list and advance."
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = GlassBorder)
-                GuideRow(
-                    badge = "DOUBLE-TAP ⏩",
-                    title = "Seek 10 Seconds",
-                    desc = "Double-tap left half to rewind 10s or right half to fast-forward 10s."
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = GlassBorder)
-                GuideRow(
-                    badge = "SINGLE TAP 👆",
-                    title = "Toggle Overlay / Replay",
-                    desc = "Tap canvas to show/hide controls. Replays automatically if video ended."
-                )
+            Column(modifier = Modifier.padding(10.dp)) {
+                Text("Toolbar Functions", color = BrandRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                CompactButtonItem(Icons.Default.SkipNext, "Auto-Next", "Auto-play next clip on end")
+                CompactButtonItem(Icons.Default.Download, "Save Video", "0-download export to Downloads")
+                CompactButtonItem(Icons.Default.Lock, "Rotation Lock", "Toggle sensor / portrait orientation")
+                CompactButtonItem(Icons.Default.Settings, "Quality & Speed", "Adjust resolution & playback speed")
+                CompactButtonItem(Icons.AutoMirrored.Filled.VolumeUp, "Mute", "Quick audio mute / unmute")
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Section 3: Player Toolbar Functions
-        GuideSectionHeader(title = "Player Toolbar Functions", icon = Icons.Default.Tune)
         Spacer(modifier = Modifier.height(8.dp))
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = SurfaceRaised,
-            border = BorderStroke(1.dp, GlassBorder)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                ButtonFunctionRow(
-                    icon = Icons.Default.SkipNext,
-                    title = "Auto-Next",
-                    desc = "Automatically advance to the next video when current clip ends."
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = GlassBorder)
-                ButtonFunctionRow(
-                    icon = Icons.Default.Download,
-                    title = "Smart Save / Download",
-                    desc = "Saves video directly to Downloads/RedditTube from local cache (0 re-download)."
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = GlassBorder)
-                ButtonFunctionRow(
-                    icon = Icons.Default.Lock,
-                    title = "Rotation Lock",
-                    desc = "Toggle between sensor auto-rotate and fixed portrait orientation."
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = GlassBorder)
-                ButtonFunctionRow(
-                    icon = Icons.Default.Settings,
-                    title = "Quality & Speed",
-                    desc = "Change video stream resolution (Auto/720p/480p) or playback speed (0.5x–2x)."
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = GlassBorder)
-                ButtonFunctionRow(
-                    icon = Icons.AutoMirrored.Filled.VolumeUp,
-                    title = "Mute Toggle",
-                    desc = "Quickly mute or restore video audio stream."
-                )
-            }
-        }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Section 4: Sponsor & Utilities
-        Surface(
+        // Actions Row (Sponsor & Clear Cache)
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = SurfaceRaised,
-            border = BorderStroke(1.dp, BrandRed.copy(alpha = 0.4f))
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
+            Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Become a Sponsor",
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "Support open-source development",
-                        color = TextSecondary,
-                        fontSize = 11.sp
-                    )
-                }
-                Button(
-                    onClick = {
+                    .weight(1f)
+                    .clickable {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sponsors/LeanBitLab"))
                         context.startActivity(intent)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandRed),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Sponsor", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = SurfaceRaised,
-            border = BorderStroke(1.dp, GlassBorder)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                shape = RoundedCornerShape(10.dp),
+                color = SurfaceRaised,
+                border = BorderStroke(1.dp, BrandRed.copy(alpha = 0.4f))
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Clear Thumbnail Cache",
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Free up image memory",
-                        color = TextSecondary,
-                        fontSize = 11.sp
-                    )
-                }
-                Button(
-                    onClick = { showClearDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceGlass),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = BrandRed, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Clear", color = BrandRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Favorite, contentDescription = null, tint = BrandRed, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Sponsor Project", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(20.dp))
-    }
-}
-
-@Composable
-private fun GuideSectionHeader(title: String, icon: ImageVector) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = BrandRed,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = title,
-            color = TextPrimary,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.2.sp
-        )
-    }
-}
-
-@Composable
-private fun GuideRow(badge: String, title: String, desc: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = BrandRed.copy(alpha = 0.15f),
-                border = BorderStroke(1.dp, BrandRed.copy(alpha = 0.3f))
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { showClearDialog = true },
+                shape = RoundedCornerShape(10.dp),
+                color = SurfaceRaised,
+                border = BorderStroke(1.dp, GlassBorder)
             ) {
-                Text(
-                    text = badge,
-                    color = BrandRed,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Clear Cache", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = title,
-                color = TextPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = desc,
-            color = TextSecondary,
-            fontSize = 12.sp,
-            lineHeight = 16.sp
-        )
+
+        Spacer(modifier = Modifier.height(12.dp))
     }
 }
 
 @Composable
-private fun ButtonFunctionRow(icon: ImageVector, title: String, desc: String) {
+private fun CompactGestureItem(tag: String, label: String) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(SurfaceBase),
-            contentAlignment = Alignment.Center
+        Surface(
+            shape = RoundedCornerShape(4.dp),
+            color = BrandRed.copy(alpha = 0.12f),
+            border = BorderStroke(1.dp, BrandRed.copy(alpha = 0.25f))
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = BrandRed,
-                modifier = Modifier.size(16.dp)
+            Text(
+                text = tag,
+                color = BrandRed,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
             )
         }
-        Spacer(modifier = Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = TextPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = desc,
-                color = TextSecondary,
-                fontSize = 11.sp,
-                lineHeight = 15.sp
-            )
-        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = label, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun CompactButtonItem(icon: ImageVector, title: String, desc: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = BrandRed, modifier = Modifier.size(14.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = title, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text = "• $desc", color = TextSecondary, fontSize = 11.sp, maxLines = 1)
     }
 }
