@@ -16,6 +16,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -445,12 +446,13 @@ Box(
             )
         }
 
-        // Left edge: brightness edge drag gesture (PointerEventPass.Initial prevents vertical pager scroll conflict)
+        // Left edge: brightness edge drag gesture (systemGestureExclusion prevents OS edge back gesture conflict)
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .width(48.dp)
                 .align(Alignment.CenterStart)
+                .systemGestureExclusion()
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
@@ -506,12 +508,13 @@ Box(
                 }
         )
 
-        // Right edge: volume edge drag gesture (System Volume via AudioManager, PointerEventPass.Initial prevents vertical pager scroll conflict)
+        // Right edge: volume edge drag gesture (System Volume via AudioManager, systemGestureExclusion prevents OS gesture conflict)
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .width(48.dp)
                 .align(Alignment.CenterEnd)
+                .systemGestureExclusion()
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
