@@ -169,8 +169,12 @@ fun VideoPage(
             override fun onPlaybackStateChanged(state: Int) {
                 isBuffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED && !sharedPreferences.getBoolean("loop_video", true)) {
-                    if (sharedPreferences.getBoolean("auto_next", false)) {
-                        onNext()
+                    if (sharedPreferences.getBoolean("auto_next", false) && isActive) {
+                        val current = exoPlayer.currentPosition
+                        val duration = exoPlayer.duration
+                        if (duration > 0 && current >= (duration - 1500).coerceAtLeast(1000L)) {
+                            onNext()
+                        }
                     }
                 }
             }
