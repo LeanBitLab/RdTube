@@ -378,9 +378,13 @@ Box(
                                     if (exoPlayer.isPlaying) showOverlay = false
                                 }
                             }
+                            val isEnded = exoPlayer.playbackState == Player.STATE_ENDED
                             if (pendingAutoPlay) {
                                 pendingAutoPlay = false
                                 if (!exoPlayer.isPlaying) {
+                                    if (isEnded) {
+                                        exoPlayer.seekTo(0)
+                                    }
                                     exoPlayer.play()
                                     showPlayPauseTransient = true
                                     transientJob?.cancel()
@@ -388,6 +392,15 @@ Box(
                                         delay(600)
                                         showPlayPauseTransient = null
                                     }
+                                }
+                            } else if (isEnded) {
+                                exoPlayer.seekTo(0)
+                                exoPlayer.play()
+                                showPlayPauseTransient = true
+                                transientJob?.cancel()
+                                transientJob = coroutineScope.launch {
+                                    delay(600)
+                                    showPlayPauseTransient = null
                                 }
                             } else if (wasShown) {
                                 if (exoPlayer.isPlaying) {
@@ -691,6 +704,39 @@ Box(
                 Icon(
                     if (showPlayPauseTransient == true) Icons.Default.PlayArrow else Icons.Default.Pause,
                     contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        }
+
+        // Center Replay / Play action button when video ends or when overlay is open and paused
+        val isEnded = exoPlayer.playbackState == Player.STATE_ENDED
+        AnimatedVisibility(
+            visible = (showOverlay && !isPlaying && showPlayPauseTransient == null) || (isEnded && showPlayPauseTransient == null),
+            modifier = Modifier.align(Alignment.Center),
+            enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.85f),
+            exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.85f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .border(1.dp, GlassBorder, CircleShape)
+                    .clickable {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (exoPlayer.playbackState == Player.STATE_ENDED) {
+                            exoPlayer.seekTo(0)
+                        }
+                        exoPlayer.play()
+                        showOverlay = false
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isEnded) Icons.Default.Replay else Icons.Default.PlayArrow,
+                    contentDescription = if (isEnded) "Replay Video" else "Play Video",
                     tint = Color.White,
                     modifier = Modifier.size(36.dp)
                 )
