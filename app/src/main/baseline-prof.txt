@@ -1,0 +1,13 @@
+# Baseline Profile rules for RdTube
+# AOT-compiles critical user journeys (app launch, feed rendering, ExoPlayer initialization)
+
+HSPLcom/lean/reddittube/MainActivity;-><init>()V
+HSPLcom/lean/reddittube/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/lean/reddittube/MainNavigationKt;->MainNavigation(Landroidx/compose/runtime/Composer;I)V
+HSPLcom/lean/reddittube/ui/main/HomeScreenKt;->HomeScreen(Lcom/lean/reddittube/ui/main/MainScreenViewModel;Lkotlin/jvm/functions/Function0;Landroidx/compose/ui/Modifier;)V
+HSPLcom/lean/reddittube/ui/main/VideoFeedContentKt;->VideoFeedContent(Ljava/util/List;Landroidx/compose/ui/Modifier;)V
+HSPLcom/lean/reddittube/ui/main/VideoPageKt;->VideoPage(Lcom/lean/reddittube/data/RedditPost;Z)V
+HSPLcom/lean/reddittube/util/MediaCacheManager;->getSimpleCache(Landroid/content/Context;)Landroidx/media3/datasource/cache/SimpleCache;
+HSPLcom/lean/reddittube/util/MediaCacheManager;->getCacheDataSourceFactory(Landroid/content/Context;)Landroidx/media3/datasource/DataSource$Factory;
+HSPLandroidx/compose/foundation/pager/VerticalPagerKt;->VerticalPager(Landroidx/compose/foundation/pager/PagerState;)V
+HSPLandroidx/media3/exoplayer/ExoPlayer$Builder;->build()Landroidx/media3/exoplayer/ExoPlayer;
