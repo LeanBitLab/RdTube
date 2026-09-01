@@ -65,10 +65,11 @@ fun SearchBottomSheet(
         onDismiss()
     }
 
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceBase,
         scrimColor = Scrim,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
@@ -77,7 +78,7 @@ fun SearchBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 320.dp, max = (screenHeight.value * 0.85f).dp)
+                .fillMaxHeight(0.85f)
                 .imePadding()
                 .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
@@ -181,7 +182,7 @@ fun SearchBottomSheet(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                items(displayList) { sub ->
+                items(displayList.distinct(), key = { sub -> sub }) { sub ->
                     val isSubbed = currentSubscribed.contains(sub.lowercase())
                     Surface(
                         modifier = Modifier

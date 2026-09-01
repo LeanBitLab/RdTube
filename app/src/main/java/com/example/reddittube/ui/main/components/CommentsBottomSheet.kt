@@ -50,10 +50,11 @@ fun CommentsBottomSheet(
         }
     }
 
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceBase,
         scrimColor = Scrim,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
@@ -62,7 +63,7 @@ fun CommentsBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 280.dp, max = (screenHeight.value * 0.82f).dp)
+                .fillMaxHeight(0.82f)
                 .padding(bottom = 16.dp)
         ) {
             // Header
@@ -155,7 +156,7 @@ fun CommentsBottomSheet(
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        items(list, key = { it.id }) { comment ->
+                        items(list, key = { comment -> "${comment.id}_${comment.createdUtc}" }) { comment ->
                             CommentRow(comment = comment)
                         }
                     }

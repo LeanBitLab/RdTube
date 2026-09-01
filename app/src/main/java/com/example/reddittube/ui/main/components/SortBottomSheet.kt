@@ -25,8 +25,11 @@ fun SortBottomSheet(
     onSortSelected: (SortOption) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceBase,
         scrimColor = Scrim,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
