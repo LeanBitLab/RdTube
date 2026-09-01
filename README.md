@@ -46,18 +46,18 @@
 
 ## ✨ Features
 
-- **Media3 ExoPlayer Engine**: Silky-smooth 60fps streaming with dynamic prefetching and lifecycle-aware memory management.
-- **Continuous Edge Gestures**: Ultra-smooth vertical drag sliders for screen brightness (left) and media volume (right).
-- **Playback Controls**: Single-video loop toggle, auto-next advance, playback speed (0.5x–2.0x), and resolution selection.
-- **Direct Video Export**: Download full MP4 videos directly to device storage with merged high-bitrate audio.
-- **High-Density Video Feeds**: Parallel coroutine fetching across top video subreddits for immediate 25+ card feeds.
-- **Comprehensive Feed Sorting**: 1-tap sheet supporting Hot, New, Rising, and Top (Today, Week, Month, Year, All-Time).
-- **Segmented Search & Pagination**: Search communities or Reddit-wide video clips with live suggestions and infinite scroll.
-- **5-Slot Floating Dock**: Snappy navigation bar with 850f spring physics (Explore, Subs, Search, Library, About).
-- **Double-Back Exit**: Intuitive swipe/press-back-twice safety mechanism to prevent accidental app exits.
-- **Intelligent Cache Freshness**: Instant zero-latency cached feed display with 5-minute freshness management.
-- **Pitch Black OLED Aesthetic**: Pure monochrome black theme optimized for battery saving on AMOLED displays.
-- **100% Strictly Local Storage**: Likes, watch history, and subscriptions are saved locally in private storage—never tracked or uploaded.
+- **Optional Login for Unrestricted Content**: Browse 100% anonymously with zero registration, or connect securely via official read-only Reddit OAuth in your browser to unlock unrestricted and age-restricted video streams without cloud tracking.
+- **100% Strictly Local Library**: Liked videos, watch history, and subscribed subreddits are stored exclusively on your device—never uploaded, synced, or exposed to online Reddit accounts.
+- **Continuous Edge Gestures**: Ultra-smooth vertical edge drag sliders for screen brightness (left edge) and media volume (right edge) with live HUD feedback.
+- **Player Gestures & Seeking**: Double-tap left/right edges for instant 10s seeking, and horizontal swipe gestures to quickly like or mark videos as watched.
+- **Read-Only Comments Sheet**: Clean bottom sheet modal to read Reddit post discussion threads, top comments, and author metadata without needing an account.
+- **Comprehensive Search & Discovery**: Search subreddits or Reddit-wide video clips with live auto-suggestions, trending topics, search history, and endless scroll pagination.
+- **Content & Privacy Customization**: Fine-tune thumbnail quality (High, Balanced, Data Saver), feed prefetch depth (5, 10, 20 items), default audio mute state, haptic feedback toggle, and clearable image cache.
+- **Media3 ExoPlayer Engine**: Silky-smooth 60fps streaming with dynamic prefetching, single-video loop toggle, auto-next advance, variable playback speed (0.5x–2.0x), and resolution selection.
+- **Direct Video Export**: Download full MP4 videos directly to device storage with high-bitrate audio automatically merged.
+- **Multi-Subreddit Feeds & Comprehensive Sorting**: Parallel coroutine aggregation across top video communities with a 1-tap sort sheet (Hot, New, Rising, and Top: Today / Week / Month / Year / All-Time).
+- **5-Slot Floating Dock & Fluid Navigation**: Spring physics dock for seamless switching between Explore, Subs, Search, Library, and About, plus swipe-twice-to-exit protection.
+- **Pitch Black OLED Aesthetic**: Pure high-contrast monochromatic theme built for battery efficiency on AMOLED and OLED panels.
 
 ---
 
