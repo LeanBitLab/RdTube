@@ -65,7 +65,6 @@ fun AboutPage(
     // Expandable Sections State (Independent states)
     var isOtaExpanded by remember { mutableStateOf(false) }
     var isRedditAccountExpanded by remember { mutableStateOf(false) }
-    var isApiKeysExpanded by remember { mutableStateOf(false) }
     var isPreferencesExpanded by remember { mutableStateOf(false) }
     var isGesturesExpanded by remember { mutableStateOf(false) }
     var isToolbarExpanded by remember { mutableStateOf(false) }
@@ -331,20 +330,28 @@ fun AboutPage(
             }
         }
 
-        // Section 2: Reddit Account (Unrestricted Access)
+        // Section 2: Reddit Account & API Keys (Unified)
         var isLoggedIn by remember { mutableStateOf(RedditOAuthHelper.isLoggedIn(context)) }
         var username by remember { mutableStateOf(RedditOAuthHelper.getUsername(context)) }
 
+        val accountBadge = when {
+            isLoggedIn -> "u/${username ?: "User"}"
+            isOverridesEnabled -> "Custom Keys"
+            else -> null
+        }
+
         FoldableSectionCard(
-            title = "Reddit Account (Unrestricted Access)",
+            title = "Reddit Account & API Keys",
             icon = Icons.Default.AccountCircle,
+            badge = accountBadge,
             isExpanded = isRedditAccountExpanded,
             onToggle = { isRedditAccountExpanded = !isRedditAccountExpanded }
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // 1. Reddit Account Session
                 if (isLoggedIn) {
                     Text(
                         text = "Connected as u/${username ?: "Reddit User"}",
@@ -406,22 +413,69 @@ fun AboutPage(
                         Text("Connect Reddit Account (1-Tap)", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-            }
-        }
 
-        // Section: API Keys (Custom Overrides)
-        FoldableSectionCard(
-            title = "API Keys",
-            icon = Icons.Default.Key,
-            badge = if (isOverridesEnabled) "Custom" else "Default",
-            isExpanded = isApiKeysExpanded,
-            onToggle = { isApiKeysExpanded = !isApiKeysExpanded }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Enable Overrides Row
+                HorizontalDivider(color = BorderSubtle)
+
+                // 2. Advisory & Recommendation Callout
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.Black.copy(alpha = 0.6f),
+                    border = BorderStroke(1.dp, GlassBorder)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Shield,
+                                contentDescription = null,
+                                tint = Color(0xFFFF4500),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Important: Use Your Own Client ID",
+                                color = TextPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            text = "Please use your own Reddit Client ID if possible. Sharing the default RedReader Client ID across many users risks getting it rate-limited or revoked by Reddit. Creating a personal installed app Client ID is 100% free and takes under 2 minutes.",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/prefs/apps"))
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(36.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SurfaceBar,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, GlassBorder)
+                        ) {
+                            Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Create App on reddit.com/prefs/apps", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = BorderSubtle)
+
+                // 3. API Key & Client ID Overrides Settings
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1163,25 +1217,53 @@ private fun ApiKeySettingRow(
     isCustom: Boolean,
     onClick: () -> Unit
 ) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(
-            text = title,
-            color = TextPrimary,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = value,
-            color = if (isCustom) TextPrimary else TextMuted,
-            fontSize = 11.sp,
-            lineHeight = 15.sp,
-            maxLines = 2
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (isCustom) {
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color.White.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
+                    ) {
+                        Text(
+                            text = "CUSTOM",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = value,
+                color = if (isCustom) Color(0xFFE0E0E0) else TextMuted,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                maxLines = 2
+            )
+        }
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = TextSecondary,
+            modifier = Modifier.size(18.dp)
         )
     }
 }

@@ -156,6 +156,12 @@ If RdTube improves your daily video browsing, please consider supporting our ind
 
 ---
 
+## 🙏 Acknowledgements & Credits
+
+- **[Continuum](https://github.com/alien-m/continuum)**: Huge credit and appreciation to the open-source Continuum Reddit client for inspiring the customizable API Keys, custom Client ID, and User Agent override architecture.
+
+---
+
 ## ⚖️ License
 
 RdTube is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.  
