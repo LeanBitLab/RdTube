@@ -166,7 +166,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         if (token == null) { emit(emptyList()); return@flow }
         val comments = mutableListOf<RedditComment>()
         try {
-            val url = "https://oauth.reddit.com/r/$subreddit/comments/$postId.json?limit=30&raw_json=1"
+            val url = "https://oauth.reddit.com/r/$subreddit/comments/$postId.json?limit=100&sort=top&raw_json=1"
             val raw = performRawRequest(url, token, timeout = 12000)
             if (raw != null) {
                 val jsonArray = org.json.JSONArray(raw)
@@ -197,6 +197,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     }
                 }
             }
+            comments.sortByDescending { it.score }
         } catch (e: Exception) {
             Log.e("RedditRepository", "fetchPostComments error: ${e.message}")
         }
