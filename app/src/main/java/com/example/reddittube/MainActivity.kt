@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
                 val success = RedditOAuthHelper.handleOAuthCallback(this@MainActivity, uri)
                 if (success) {
                     val user = RedditOAuthHelper.getUsername(this@MainActivity) ?: "Reddit User"
-                    Toast.makeText(this@MainActivity, "Connected as $user! 18+ content unlocked.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, "Connected as $user! Unrestricted access enabled.", Toast.LENGTH_LONG).show()
                 } else {
                     Toast.makeText(this@MainActivity, "Reddit authentication failed.", Toast.LENGTH_SHORT).show()
                 }

@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
 
 private val CURRENT_VERSION_CHANGELOG = """
 • Pure OLED Pitch Black & Crisp Monochrome aesthetic
-• Unrestricted Power-User Feed with sleek 18+ glass micro-badges
+• Unrestricted Power-User Feed with sleek glass micro-badges
 • High-Speed Floating Pill Navigation Dock (850f snappy spring physics)
 • Seamless Single-Video Loop toggle directly in the playback bar
 • Ultra-smooth continuous volume & brightness vertical edge sliders
@@ -60,11 +60,13 @@ fun AboutPage(
     var availableRelease by remember { mutableStateOf<GitHubRelease?>(null) }
     var downloadProgress by remember { mutableStateOf<Float?>(null) }
 
-    // Expandable Sections State
-    var isOtaExpanded by remember { mutableStateOf(true) }
-    var isPreferencesExpanded by remember { mutableStateOf(true) }
+    // Expandable Sections State (Collapsed by default, independent states)
+    var isOtaExpanded by remember { mutableStateOf(false) }
+    var isRedditAccountExpanded by remember { mutableStateOf(false) }
+    var isPreferencesExpanded by remember { mutableStateOf(false) }
     var isGesturesExpanded by remember { mutableStateOf(false) }
     var isToolbarExpanded by remember { mutableStateOf(false) }
+    var isFaqExpanded by remember { mutableStateOf(false) }
     var isCommunityExpanded by remember { mutableStateOf(false) }
 
     // Preferences state
@@ -238,16 +240,16 @@ fun AboutPage(
             }
         }
 
-        // Section 2: Reddit Account (18+ Authentication)
+        // Section 2: Reddit Account (Unrestricted Access)
         var isLoggedIn by remember { mutableStateOf(RedditOAuthHelper.isLoggedIn(context)) }
         var username by remember { mutableStateOf(RedditOAuthHelper.getUsername(context)) }
 
         FoldableSectionCard(
-            title = "Reddit Account (18+ Access)",
+            title = "Reddit Account (Unrestricted Access)",
             icon = Icons.Default.AccountCircle,
             badge = if (isLoggedIn) "u/${username ?: "User"}" else "Unlinked",
-            isExpanded = isPreferencesExpanded,
-            onToggle = { isPreferencesExpanded = !isPreferencesExpanded }
+            isExpanded = isRedditAccountExpanded,
+            onToggle = { isRedditAccountExpanded = !isRedditAccountExpanded }
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -261,31 +263,11 @@ fun AboutPage(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "✓ 18+ subreddits and media streams are unlocked via your official Reddit authorization.",
+                        text = "✓ Unrestricted subreddits and media streams are unlocked via your Reddit authorization.",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
-
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color.White.copy(alpha = 0.06f),
-                        border = BorderStroke(1.dp, GlassBorder)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = "100% Safe & Read-Only • Official OAuth 2.0 • Zero risk to your Reddit account.",
-                                color = TextSecondary,
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp
-                            )
-                        }
-                    }
 
                     Button(
                         onClick = {
@@ -310,31 +292,11 @@ fun AboutPage(
                     }
                 } else {
                     Text(
-                        text = "Reddit API requires account authorization to access 18+ / mature subreddits and media. Tap below to connect securely via Reddit OAuth.",
+                        text = "Reddit API requires account authorization for unrestricted subreddits and media access. Tap below to connect securely via Reddit OAuth.",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
-
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color.White.copy(alpha = 0.06f),
-                        border = BorderStroke(1.dp, GlassBorder)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Shield, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = "Zero Ban Risk: Standard read-only OAuth 2.0 flow. RdTube never sees your password.",
-                                color = TextSecondary,
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp
-                            )
-                        }
-                    }
 
                     Button(
                         onClick = {
@@ -357,7 +319,7 @@ fun AboutPage(
             }
         }
 
-        // Section 3: Content & Preferences (Expandable/Foldable with 18+ Toggle)
+        // Section 3: Content & Preferences (Expandable/Foldable with Unrestricted Toggle)
         FoldableSectionCard(
             title = "Content & Preferences",
             icon = Icons.Default.Tune,
@@ -368,15 +330,15 @@ fun AboutPage(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 18+ Unrestricted Switch
+                // Unrestricted Content Switch
                 PreferenceSwitchRow(
-                    title = "18+ Unrestricted Content",
-                    subtitle = "Allow NSFW media in feeds with subtle glass badges",
+                    title = "Unrestricted Content",
+                    subtitle = "Allow unrestricted media in feeds with subtle glass badges",
                     checked = isNsfwUnrestricted,
                     onCheckedChange = { checked ->
                         isNsfwUnrestricted = checked
                         sharedPreferences.edit().putBoolean("pref_unrestricted_nsfw", checked).apply()
-                        Toast.makeText(context, if (checked) "18+ content enabled" else "18+ content filtered", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, if (checked) "Unrestricted content enabled" else "Unrestricted content filtered", Toast.LENGTH_SHORT).show()
                     }
                 )
 
@@ -426,7 +388,7 @@ fun AboutPage(
             }
         }
 
-        // Section 3: Gesture Reference Guide (Expandable/Foldable)
+        // Section 4: Gesture Reference Guide (Expandable/Foldable)
         FoldableSectionCard(
             title = "Gesture Controls Guide",
             icon = Icons.Default.TouchApp,
@@ -444,7 +406,7 @@ fun AboutPage(
             }
         }
 
-        // Section 4: Toolbar Functions Guide (Expandable/Foldable)
+        // Section 5: Toolbar Functions Guide (Expandable/Foldable)
         FoldableSectionCard(
             title = "Player Toolbar Functions",
             icon = Icons.Default.Widgets,
@@ -461,8 +423,7 @@ fun AboutPage(
             }
         }
 
-        // Section 5: Security & Reddit FAQ (Expandable/Foldable)
-        var isFaqExpanded by remember { mutableStateOf(false) }
+        // Section 6: Security & Reddit FAQ (Expandable/Foldable)
         FoldableSectionCard(
             title = "Account Safety & FAQ",
             icon = Icons.Default.HelpOutline,
@@ -474,26 +435,13 @@ fun AboutPage(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Does logging in risk a Reddit ban?",
+                    text = "Why is login required for unrestricted subreddits?",
                     color = TextPrimary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "No, zero ban risk. RdTube uses Reddit's official OAuth 2.0 authorization with read-only scopes. Reddit explicitly permits third-party client apps, and your password is never exposed.",
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp
-                )
-                HorizontalDivider(color = BorderSubtle)
-                Text(
-                    text = "Why is login required for 18+ subreddits?",
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Reddit's API blocks mature media for unauthenticated/guest users. Logging in authenticates your age verification preference directly with Reddit's servers.",
+                    text = "Reddit's API requires user authorization for unmoderated/unrestricted media. Logging in authenticates your preferences directly with Reddit's servers.",
                     color = TextSecondary,
                     fontSize = 11.sp,
                     lineHeight = 15.sp

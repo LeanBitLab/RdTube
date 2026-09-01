@@ -48,15 +48,17 @@ import com.lean.reddittube.utils.formatScore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private enum class RdTab(
+private enum class NavTabItem(
     val title: String,
     val unselectedIcon: ImageVector,
-    val selectedIcon: ImageVector
+    val selectedIcon: ImageVector,
+    val pageIndex: Int? // null for Search action
 ) {
-    EXPLORE("Explore", Icons.Outlined.Explore, Icons.Filled.Explore),
-    SUBSCRIBED("Subs", Icons.Outlined.Subscriptions, Icons.Filled.Subscriptions),
-    LIBRARY("Library", Icons.Outlined.VideoLibrary, Icons.Filled.VideoLibrary),
-    ABOUT("About", Icons.Outlined.Info, Icons.Filled.Info)
+    EXPLORE("Explore", Icons.Outlined.Explore, Icons.Filled.Explore, 0),
+    SUBSCRIBED("Subs", Icons.Outlined.Subscriptions, Icons.Filled.Subscriptions, 1),
+    SEARCH("Search", Icons.Outlined.Search, Icons.Filled.Search, null),
+    LIBRARY("Library", Icons.Outlined.VideoLibrary, Icons.Filled.VideoLibrary, 2),
+    ABOUT("About", Icons.Outlined.Info, Icons.Filled.Info, 3)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -183,7 +185,7 @@ fun HomeScreen(
             }
         }
 
-        // Minimal Clean Top Header: Monochrome Brand mark only
+        // Minimal Clean Top Header: Monochrome Brand mark on left, Sort button on right
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -195,8 +197,10 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = HPad),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                // Brand Logo
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -222,6 +226,44 @@ fun HomeScreen(
                     }
                     Text("Tube", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                 }
+
+                // Sort Trigger Pill on Top Right (visible when on Explore or Subscribed feed)
+                AnimatedVisibility(
+                    visible = horizontalPagerState.currentPage == 0 || horizontalPagerState.currentPage == 1,
+                    enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.9f),
+                    exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.9f)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(17.dp))
+                            .clickable { showSortSheet = true },
+                        shape = RoundedCornerShape(17.dp),
+                        color = SurfaceRaised.copy(alpha = 0.85f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Sort,
+                                contentDescription = "Sort",
+                                tint = Color.White,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = viewModel.currentSort.label,
+                                color = TextPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -234,64 +276,6 @@ fun HomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // One-Handed Quick Actions Ribbon (Explore / Subscribed feeds)
-            AnimatedVisibility(
-                visible = bottomBarVisible && (horizontalPagerState.currentPage == 0 || horizontalPagerState.currentPage == 1),
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(tween(160)),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(tween(160))
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Quick Search Bar Pill
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .clip(RoundedCornerShape(19.dp))
-                            .clickable { showSearchSheet = true },
-                        shape = RoundedCornerShape(19.dp),
-                        color = SurfaceRaised.copy(alpha = 0.95f),
-                        border = BorderStroke(1.dp, GlassBorder)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Search subreddits...", color = TextMuted, fontSize = 12.sp)
-                        }
-                    }
-
-                    // Sort Bottom Sheet Trigger Pill
-                    Surface(
-                        modifier = Modifier
-                            .height(38.dp)
-                            .clip(RoundedCornerShape(19.dp))
-                            .clickable { showSortSheet = true },
-                        shape = RoundedCornerShape(19.dp),
-                        color = SurfaceRaised.copy(alpha = 0.95f),
-                        border = BorderStroke(1.dp, GlassBorder)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .padding(horizontal = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort", tint = Color.White, modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(viewModel.currentSort.label, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
             // Ultra-Smooth, Minimalist Monochrome Floating Pill Navigation Dock
             AnimatedVisibility(
                 visible = bottomBarVisible || horizontalPagerState.currentPage == 2 || horizontalPagerState.currentPage == 3,
@@ -299,20 +283,21 @@ fun HomeScreen(
                 exit = slideOutVertically(targetOffsetY = { it * 2 }) + fadeOut(tween(180))
             ) {
                 FloatingPillNavBar(
-                    selectedTab = RdTab.entries[horizontalPagerState.currentPage],
-                    onTabSelected = { tab ->
-                        if (tab.ordinal == 1 && subscribedSubreddits.isEmpty()) {
+                    currentPage = horizontalPagerState.currentPage,
+                    onSearchClick = { showSearchSheet = true },
+                    onPageSelected = { pageIndex ->
+                        if (pageIndex == 1 && subscribedSubreddits.isEmpty()) {
                             Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
                         } else {
-                            if (tab.ordinal == 0 && viewModel.exploreQuery != defaultExploreQuery) {
+                            if (pageIndex == 0 && viewModel.exploreQuery != defaultExploreQuery) {
                                 viewModel.refreshExplore(defaultExploreQuery)
                             }
-                            if (tab.ordinal == 1 && viewModel.subscribedQuery != defaultSubscribedQuery) {
+                            if (pageIndex == 1 && viewModel.subscribedQuery != defaultSubscribedQuery) {
                                 viewModel.refreshSubscribed(defaultSubscribedQuery)
                             }
                             coroutineScope.launch {
                                 horizontalPagerState.animateScrollToPage(
-                                    page = tab.ordinal,
+                                    page = pageIndex,
                                     animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
                                 )
                             }
@@ -359,11 +344,12 @@ fun HomeScreen(
 
 @Composable
 private fun FloatingPillNavBar(
-    selectedTab: RdTab,
-    onTabSelected: (RdTab) -> Unit,
+    currentPage: Int,
+    onPageSelected: (Int) -> Unit,
+    onSearchClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val tabs = RdTab.entries
+    val items = NavTabItem.entries
     val haptic = LocalHapticFeedback.current
 
     val springSpec = spring<androidx.compose.ui.unit.Dp>(
@@ -382,10 +368,19 @@ private fun FloatingPillNavBar(
         tonalElevation = 0.dp
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val tabWidth = maxWidth / tabs.size
+            val tabWidth = maxWidth / items.size
+
+            // Map currentPage (0, 1, 2, 3) to visual tab index (0, 1, 3, 4)
+            val activeTabSlotIndex = when (currentPage) {
+                0 -> 0 // Explore
+                1 -> 1 // Subs
+                2 -> 3 // Library
+                3 -> 4 // About
+                else -> 0
+            }
 
             val indicatorOffset by animateDpAsState(
-                targetValue = tabWidth * selectedTab.ordinal,
+                targetValue = tabWidth * activeTabSlotIndex,
                 animationSpec = springSpec,
                 label = "PillIndicator"
             )
@@ -402,8 +397,8 @@ private fun FloatingPillNavBar(
             )
 
             Row(modifier = Modifier.fillMaxSize()) {
-                tabs.forEach { tab ->
-                    val isSelected = tab == selectedTab
+                items.forEach { item ->
+                    val isSelected = item.pageIndex == currentPage
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -413,7 +408,11 @@ private fun FloatingPillNavBar(
                                 indication = null,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onTabSelected(tab)
+                                    if (item.pageIndex != null) {
+                                        onPageSelected(item.pageIndex)
+                                    } else {
+                                        onSearchClick()
+                                    }
                                 }
                             ),
                         contentAlignment = Alignment.Center
@@ -423,14 +422,14 @@ private fun FloatingPillNavBar(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
-                                contentDescription = tab.title,
+                                imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                contentDescription = item.title,
                                 tint = if (isSelected) Color.Black else TextSecondary,
                                 modifier = Modifier.size(19.dp)
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                text = tab.title,
+                                text = item.title,
                                 color = if (isSelected) Color.Black else TextMuted,
                                 fontSize = 10.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
