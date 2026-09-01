@@ -189,8 +189,12 @@ fun HomeScreen(
                     },
                     searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
                     onSearchQuery = { viewModel.searchSubreddits(it) },
+                    onLoadMoreSubreddits = { viewModel.loadMoreSubreddits() },
+                    isSubredditSearchingMore = viewModel.isSubredditSearchingMore.collectAsStateWithLifecycle().value,
                     videoSearchResults = viewModel.videoSearchResults.collectAsStateWithLifecycle().value,
                     isVideoSearching = viewModel.isVideoSearching.collectAsStateWithLifecycle().value,
+                    onLoadMoreVideos = { viewModel.loadMoreVideos() },
+                    isVideoSearchingMore = viewModel.isVideoSearchingMore.collectAsStateWithLifecycle().value,
                     onVideoSearchQuery = { viewModel.searchVideos(it) },
                     onVideoClick = { list, index ->
                         viewModel.openPlayer(list, index, "search")

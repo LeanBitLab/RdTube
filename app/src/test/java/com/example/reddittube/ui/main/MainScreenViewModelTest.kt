@@ -45,7 +45,9 @@ class FakeRepository(
     override fun getContext(): Context = mockContext
     override fun fetchRedditVideos(subreddits: String, sort: String, feed: String) = fetchResult()
     override fun searchSubreddits(query: String) = searchResult()
+    override fun searchSubredditsPaged(query: String, after: String?): Flow<com.lean.reddittube.data.SearchSubredditsResult> = flowOf(com.lean.reddittube.data.SearchSubredditsResult(emptyList(), null))
     override fun searchRedditVideos(query: String, sort: String) = flowOf(emptyList<RedditPost>())
+    override fun searchRedditVideosPaged(query: String, sort: String, after: String?): Flow<com.lean.reddittube.data.SearchVideosResult> = flowOf(com.lean.reddittube.data.SearchVideosResult(emptyList(), null))
     override fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String, feed: String) = fetchMoreResult()
     override fun fetchPostComments(subreddit: String, postId: String): Flow<List<com.lean.reddittube.data.RedditComment>> = flowOf(emptyList())
     override fun getAfterMap(feed: String): Map<String, String?> = afterMap()

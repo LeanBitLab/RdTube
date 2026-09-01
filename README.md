@@ -18,7 +18,7 @@
 **A private, fast, and sleek open-source video client for Reddit.**  
 *Pure OLED pitch black, high-speed feed prefetching, and zero tracking.*
 
-[Screenshots](#-screenshots) • [Download](#-download) • [Features](#-features) • [Authentication & Security](#-authentication--security) • [Setup Guide](#-setup--building) • [LeanBitLab Projects](https://github.com/LeanBitLab#-android-projects)
+[Screenshots](#-screenshots) • [Download](#-download) • [Features](#-features) • [Setup & Building](#-setup--building) • [Notes & Privacy](#-notes--privacy) • [LeanBitLab Projects](https://github.com/LeanBitLab#-android-projects)
 
 </div>
 
@@ -27,8 +27,6 @@
 ## 🚀 Overview
 
 **RdTube** is a modern, privacy-respecting video client for Reddit crafted in 100% Kotlin & Jetpack Compose. Engineered with a hardware-accelerated Media3 ExoPlayer engine, RdTube turns Reddit video browsing into a high-speed, clutter-free YouTube Shorts-style experience.
-
-Browse anonymously without creating accounts or registering API keys, or connect securely via official Reddit OAuth to unlock unrestricted access across your favorite subreddits.
 
 ---
 
@@ -48,33 +46,18 @@ Browse anonymously without creating accounts or registering API keys, or connect
 
 ## ✨ Features
 
-### 🎬 Media3 Video Playback Engine
-- **Hardware-Accelerated ExoPlayer**: Silky-smooth 60fps streaming with dynamic buffer prefetching and lifecycle-aware memory reclamation.
-- **Continuous Edge Gestures**: Ultra-smooth vertical edge drag sliders for brightness (left) and media volume (right).
-- **Playback Flexibility**: Seamless single-video loop toggle, auto-next clip advance, dynamic speed control (0.5x–2.0x), and quality resolution selection.
-- **Direct Video Export**: Download full MP4 videos directly to your device storage with merged high-bitrate audio.
-
-### ⚡ Feed Performance & Architecture
-- **Instant Parallel Coroutines**: High-throughput multi-subreddit API requests loading video streams 3x–5x faster than standard web clients.
-- **Dynamic Sort Controls**: 1-tap sort trigger at the top right supporting Hot, New, Top (Day/Week/Month/Year/All-time), and Rising.
-- **5-Slot Floating Navigation Dock**: High-speed bottom pill dock with 850f spring physics for instant switching between Explore, Subs, Search, Library, and About.
-- **Dedicated Search Page**: Quick search subreddits with live suggestions, trending lists, and local search history.
-
-### 🔒 Privacy, Security & Local Persistence
-- **100% Anonymous & Zero Tracking**: No account required to browse standard feeds.
-- **100% Strictly Local Storage**: Liked videos, watch history, and subscriptions are stored locally in private device storage (`SharedPreferences`). They are **never** synced, uploaded, or sent to Reddit's online servers or any cloud database.
-- **Pure OLED Pitch Black Aesthetics**: High-contrast monochromatic UI built for battery efficiency on AMOLED and OLED panels.
-
----
-
-## 🔐 Authentication & Security
-
-### Official OAuth 2.0 Authorization (Read-Only)
-Reddit requires user account authorization for unmoderated or age-restricted media streams. RdTube provides a seamless 1-tap authorization flow:
-- **Official Read-Only Scopes**: Uses Reddit's official OAuth 2.0 endpoint with read-only permissions (`identity`, `read`, `mysubreddits`).
-- **Zero Account Syncing**: Logging in is strictly for token authorization to fetch mature/unrestricted media from Reddit API. It never alters, overwrites, or syncs with your online Reddit upvotes, saved items, or history.
-- **Zero Password Exposure**: Authentication happens entirely inside your browser directly on Reddit servers; RdTube never sees or stores your password.
-- **Read-Only & Non-Intrusive Design**: RdTube operates exclusively with read-only scopes (no posting, commenting, or voting). While standard OAuth usage is permitted under Reddit's developer platform, Reddit policies and API rules can change over time. If you prefer extra caution, you can use a secondary Reddit account or browse 100% anonymously without logging in.
+- **Media3 ExoPlayer Engine**: Silky-smooth 60fps streaming with dynamic prefetching and lifecycle-aware memory management.
+- **Continuous Edge Gestures**: Ultra-smooth vertical drag sliders for screen brightness (left) and media volume (right).
+- **Playback Controls**: Single-video loop toggle, auto-next advance, playback speed (0.5x–2.0x), and resolution selection.
+- **Direct Video Export**: Download full MP4 videos directly to device storage with merged high-bitrate audio.
+- **High-Density Video Feeds**: Parallel coroutine fetching across top video subreddits for immediate 25+ card feeds.
+- **Comprehensive Feed Sorting**: 1-tap sheet supporting Hot, New, Rising, and Top (Today, Week, Month, Year, All-Time).
+- **Segmented Search & Pagination**: Search communities or Reddit-wide video clips with live suggestions and infinite scroll.
+- **5-Slot Floating Dock**: Snappy navigation bar with 850f spring physics (Explore, Subs, Search, Library, About).
+- **Double-Back Exit**: Intuitive swipe/press-back-twice safety mechanism to prevent accidental app exits.
+- **Intelligent Cache Freshness**: Instant zero-latency cached feed display with 5-minute freshness management.
+- **Pitch Black OLED Aesthetic**: Pure monochrome black theme optimized for battery saving on AMOLED displays.
+- **100% Strictly Local Storage**: Likes, watch history, and subscriptions are saved locally in private storage—never tracked or uploaded.
 
 ---
 
@@ -95,19 +78,16 @@ Reddit requires user account authorization for unmoderated or age-restricted med
   </tr>
 </table>
 
-> [!TIP]
-> **Automatic Updates**: RdTube features a built-in GitHub Releases OTA updater in the About page to notify you of new versions and download updates with a single tap.
-
 ---
 
 ## 🛠️ Setup & Building
 
 ### Prerequisites
-- **Android Studio**: Ladybug / Meerkat or latest stable
+- **Android Studio**: Ladybug / Meerkat or newer
 - **JDK**: Java 17 or higher
-- **Android SDK**: API 36 (Minimum Supported SDK: 24 / Android 7.0+)
+- **Android SDK**: API 36 (Minimum Supported: API 24 / Android 7.0+)
 
-### Quick Build
+### Building from Source
 ```bash
 # Clone the repository
 git clone https://github.com/LeanBitLab/RdTube.git
@@ -122,6 +102,16 @@ cd RdTube
 
 ---
 
+## 📝 Notes & Privacy
+
+- **100% Community Funded**: RdTube is completely independent, free, and open-source with zero advertisements, sponsors, or analytics.
+- **Official Read-Only OAuth 2.0**: Unrestricted and mature subreddits require Reddit authentication. RdTube uses standard read-only scopes (`identity`, `read`, `mysubreddits`) directly in your browser. Passwords are never seen or stored.
+- **Zero Cloud Syncing**: Connecting an account serves solely to authenticate API media streaming. It never modifies, overwrites, or syncs your Reddit upvotes, saved items, or history.
+- **Account Usage Precaution**: While read-only OAuth is standard under Reddit's developer API, Reddit policies can change. If you prefer extra caution, you can use a secondary Reddit account or browse 100% anonymously without logging in.
+- **In-App OTA Updates**: Built-in GitHub Releases update checker in the About page notifies you of new versions and downloads APKs with a single tap.
+
+---
+
 ## 📱 More Android Projects by LeanBitLab
 
 Discover our complete suite of privacy-first, open-source Android applications:  
@@ -131,21 +121,18 @@ Discover our complete suite of privacy-first, open-source Android applications:
 
 ## 🤝 Community & Contributing
 
-We welcome contributions, bug reports, and suggestions!
 - **Bug Reports & Issues**: [Open an Issue on GitHub](https://github.com/LeanBitLab/RdTube/issues)
 - **Official Telegram Channel**: [@LeanBitLab](https://t.me/LeanBitLab)
 - **Reddit Community**: [r/LeanBitLab_](https://www.reddit.com/r/LeanBitLab_/)
 - **X (Twitter)**: [@LeanBitLab](https://x.com/LeanBitLab)
 - **YouTube**: [@LeanBitLab](https://www.youtube.com/@LeanBitLab)
-- **Official Website**: [leanbitlab.github.io](https://leanbitlab.github.io/LeanBitLab/)
+- **Website**: [leanbitlab.github.io](https://leanbitlab.github.io/LeanBitLab/)
 
 ---
 
 ## 💖 Support the Project
 
-Building and maintaining privacy-focused, high-performance open-source applications requires continuous development, testing across multiple Android devices, and infrastructure.
-
-If RdTube improves your daily video browsing, please consider sponsoring our work!
+If RdTube improves your daily video browsing, please consider supporting our independent development:
 
 <div align="left">
   <a href="https://github.com/sponsors/LeanBitLab">

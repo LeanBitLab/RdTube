@@ -7,8 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -62,8 +64,12 @@ fun SearchPage(
     onSubredditSelect: (String) -> Unit,
     searchResults: List<String>,
     onSearchQuery: (String) -> Unit,
+    onLoadMoreSubreddits: () -> Unit = {},
+    isSubredditSearchingMore: Boolean = false,
     videoSearchResults: List<RedditPost>,
     isVideoSearching: Boolean,
+    onLoadMoreVideos: () -> Unit = {},
+    isVideoSearchingMore: Boolean = false,
     onVideoSearchQuery: (String) -> Unit,
     onVideoClick: (List<RedditPost>, Int) -> Unit,
     likedIds: Set<String> = emptySet(),
@@ -116,7 +122,7 @@ fun SearchPage(
     val displaySubList = if (cleanQuery.isNotBlank()) {
         (listOf(cleanQuery) + searchResults).filter { it.isNotBlank() }.distinct()
     } else {
-        POPULAR_SUBREDDITS
+        POPULAR_SUBREDDITS.filter { !currentSubscribed.contains(it.lowercase()) }
     }
 
     Box(
@@ -177,7 +183,22 @@ fun SearchPage(
             // Tab Content
             when (selectedTab) {
                 SearchTab.SUBREDDITS -> {
+                    val subListState = rememberLazyListState()
+                    val isNearSubEnd by remember {
+                        derivedStateOf {
+                            val total = subListState.layoutInfo.totalItemsCount
+                            val lastVisible = subListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            total > 0 && lastVisible >= total - 3
+                        }
+                    }
+                    LaunchedEffect(isNearSubEnd) {
+                        if (isNearSubEnd && cleanQuery.isNotBlank() && !isSubredditSearchingMore) {
+                            onLoadMoreSubreddits()
+                        }
+                    }
+
                     LazyColumn(
+                        state = subListState,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
@@ -311,6 +332,19 @@ fun SearchPage(
                                 }
                             }
                         }
+
+                        if (isSubredditSearchingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -425,7 +459,22 @@ fun SearchPage(
                             }
                         }
                     } else {
+                        val videoGridState = rememberLazyGridState()
+                        val isNearVideoEnd by remember {
+                            derivedStateOf {
+                                val total = videoGridState.layoutInfo.totalItemsCount
+                                val lastVisible = videoGridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                total > 0 && lastVisible >= total - 4
+                            }
+                        }
+                        LaunchedEffect(isNearVideoEnd) {
+                            if (isNearVideoEnd && searchQuery.isNotBlank() && !isVideoSearchingMore && !isVideoSearching) {
+                                onLoadMoreVideos()
+                            }
+                        }
+
                         LazyVerticalGrid(
+                            state = videoGridState,
                             columns = GridCells.Fixed(1),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -452,6 +501,19 @@ fun SearchPage(
                                     onSubredditClick = { sub -> onSubredditSelect(sub) },
                                     onCommentClick = onCommentClick
                                 )
+                            }
+
+                            if (isVideoSearchingMore) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                                    }
+                                }
                             }
                         }
                     }

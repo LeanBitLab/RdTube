@@ -71,6 +71,12 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _isVideoSearching = MutableStateFlow(false)
     val isVideoSearching: StateFlow<Boolean> = _isVideoSearching.asStateFlow()
 
+    private val _isSubredditSearchingMore = MutableStateFlow(false)
+    val isSubredditSearchingMore: StateFlow<Boolean> = _isSubredditSearchingMore.asStateFlow()
+
+    private val _isVideoSearchingMore = MutableStateFlow(false)
+    val isVideoSearchingMore: StateFlow<Boolean> = _isVideoSearchingMore.asStateFlow()
+
     // ponytail: list + index opened from the browse/home grid, played by PlayerScreen
     private val _playerList = MutableStateFlow<List<RedditPost>>(emptyList())
     val playerList: StateFlow<List<RedditPost>> = _playerList.asStateFlow()
@@ -206,14 +212,18 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 
     private var searchJob: Job? = null
     private val searchCache = ConcurrentHashMap<String, List<String>>()
+    private var subredditSearchAfter: String? = null
+    private var currentSubredditSearchQuery: String = ""
 
     fun searchSubreddits(query: String) {
         val trimmed = query.trim().lowercase()
         if (trimmed.length < 2) { 
             _searchResults.value = emptyList()
+            subredditSearchAfter = null
             return 
         }
 
+        currentSubredditSearchQuery = trimmed
         val cached = searchCache[trimmed]
         if (cached != null) {
             _searchResults.value = cached
@@ -224,9 +234,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         searchJob = viewModelScope.launch {
             delay(200) // Debounce fast typing
             try {
-                dataRepository.searchSubreddits(trimmed).collect { results ->
-                    searchCache[trimmed] = results
-                    _searchResults.value = results
+                dataRepository.searchSubredditsPaged(trimmed, null).collect { result ->
+                    searchCache[trimmed] = result.subreddits
+                    subredditSearchAfter = result.after
+                    _searchResults.value = result.subreddits
                 }
             } catch (_: Exception) {
                 _searchResults.value = emptyList()
@@ -234,18 +245,47 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         }
     }
 
+    fun loadMoreSubreddits() {
+        val query = currentSubredditSearchQuery
+        val after = subredditSearchAfter
+        if (query.length < 2 || after == null || _isSubredditSearchingMore.value) return
+
+        viewModelScope.launch {
+            _isSubredditSearchingMore.value = true
+            try {
+                dataRepository.searchSubredditsPaged(query, after).collect { result ->
+                    subredditSearchAfter = result.after
+                    val updated = (_searchResults.value + result.subreddits).distinct()
+                    searchCache[query] = updated
+                    _searchResults.value = updated
+                }
+            } catch (_: Exception) {
+                // Ignore failure
+            } finally {
+                _isSubredditSearchingMore.value = false
+            }
+        }
+    }
+
     private var videoSearchJob: Job? = null
     private val videoSearchCache = ConcurrentHashMap<String, List<RedditPost>>()
+    private var videoSearchAfter: String? = null
+    private var currentVideoSearchQuery: String = ""
+    private var currentVideoSearchSort: String = "relevance"
 
     fun searchVideos(query: String, sort: String = "relevance") {
         val trimmed = query.trim()
         if (trimmed.length < 2) {
             _videoSearchResults.value = emptyList()
             _isVideoSearching.value = false
+            videoSearchAfter = null
             return
         }
 
-        val cached = videoSearchCache[trimmed]
+        currentVideoSearchQuery = trimmed
+        currentVideoSearchSort = sort
+
+        val cached = videoSearchCache["$trimmed:$sort"]
         if (cached != null) {
             _videoSearchResults.value = cached
             _isVideoSearching.value = false
@@ -257,14 +297,38 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             _isVideoSearching.value = true
             delay(250) // Debounce typing
             try {
-                dataRepository.searchRedditVideos(trimmed, sort).collect { results ->
-                    videoSearchCache[trimmed] = results
-                    _videoSearchResults.value = results
+                dataRepository.searchRedditVideosPaged(trimmed, sort, null).collect { result ->
+                    videoSearchCache["$trimmed:$sort"] = result.posts
+                    videoSearchAfter = result.after
+                    _videoSearchResults.value = result.posts
                 }
             } catch (_: Exception) {
                 _videoSearchResults.value = emptyList()
             } finally {
                 _isVideoSearching.value = false
+            }
+        }
+    }
+
+    fun loadMoreVideos() {
+        val query = currentVideoSearchQuery
+        val sort = currentVideoSearchSort
+        val after = videoSearchAfter
+        if (query.length < 2 || after == null || _isVideoSearchingMore.value || _isVideoSearching.value) return
+
+        viewModelScope.launch {
+            _isVideoSearchingMore.value = true
+            try {
+                dataRepository.searchRedditVideosPaged(query, sort, after).collect { result ->
+                    videoSearchAfter = result.after
+                    val updated = (_videoSearchResults.value + result.posts).distinctBy { it.id }
+                    videoSearchCache["$query:$sort"] = updated
+                    _videoSearchResults.value = updated
+                }
+            } catch (_: Exception) {
+                // Ignore failure
+            } finally {
+                _isVideoSearchingMore.value = false
             }
         }
     }
