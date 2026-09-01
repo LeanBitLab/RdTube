@@ -61,13 +61,22 @@ private enum class NavTabItem(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+private fun android.content.Context.findActivity(): android.app.Activity? {
+    var ctx = this
+    while (ctx is android.content.ContextWrapper) {
+        if (ctx is android.app.Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
 @Composable
 fun HomeScreen(
     viewModel: MainScreenViewModel,
     onItemClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current.applicationContext
+    val context = LocalContext.current
     val exploreState by viewModel.exploreState.collectAsStateWithLifecycle()
     val subscribedState by viewModel.subscribedState.collectAsStateWithLifecycle()
     val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
@@ -78,6 +87,7 @@ fun HomeScreen(
     var bottomBarVisible by remember { mutableStateOf(true) }
     var activeCommentPost by remember { mutableStateOf<RedditPost?>(null) }
     var showSortSheet by remember { mutableStateOf(false) }
+    var lastBackPressTime by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(Unit) {
         if (exploreState is MainScreenUiState.Loading) viewModel.refreshExplore()
@@ -91,22 +101,18 @@ fun HomeScreen(
 
     fun refreshCurrentFeed() {
         if (horizontalPagerState.currentPage == 0) {
-            viewModel.refreshExplore()
+            viewModel.refreshExplore(forceRefresh = true)
         } else if (horizontalPagerState.currentPage == 1) {
-            viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+"))
+            viewModel.refreshSubscribed(subscribedSubreddits.sorted().joinToString("+"), forceRefresh = true)
         }
     }
 
-    val defaultExploreQuery = "popular"
+    val defaultExploreQuery = "videos"
     val defaultSubscribedQuery = remember(subscribedSubreddits) { subscribedSubreddits.sorted().joinToString("+") }
     val isCustomExplore = viewModel.exploreQuery != defaultExploreQuery
     val isCustomSubscribed = viewModel.subscribedQuery.isNotEmpty() && viewModel.subscribedQuery != defaultSubscribedQuery
 
-    val canGoBack = (horizontalPagerState.currentPage == 0 && isCustomExplore) ||
-            (horizontalPagerState.currentPage == 1 && isCustomSubscribed) ||
-            horizontalPagerState.currentPage != 0
-
-    BackHandler(enabled = canGoBack) {
+    BackHandler(enabled = true) {
         when {
             horizontalPagerState.currentPage == 0 && isCustomExplore -> {
                 viewModel.refreshExplore(defaultExploreQuery)
@@ -116,6 +122,15 @@ fun HomeScreen(
             }
             horizontalPagerState.currentPage != 0 -> {
                 coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
+            }
+            else -> {
+                val now = System.currentTimeMillis()
+                if (now - lastBackPressTime < 2000L) {
+                    context.findActivity()?.finish()
+                } else {
+                    lastBackPressTime = now
+                    Toast.makeText(context, "Swipe back again to exit", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

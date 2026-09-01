@@ -47,7 +47,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _subscribedState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
     val subscribedState: StateFlow<MainScreenUiState> = _subscribedState.asStateFlow()
 
-    var exploreQuery = "videos+tiktokcringe+unexpected+youtubehaiku+damnthatsinteresting+nextfuckinglevel+gaming+contagiouslaughter+oddlysatisfying"
+    var exploreQuery = "videos"
         private set
     var subscribedQuery = ""
         private set
@@ -81,7 +81,13 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 
     // ponytail: persist watched IDs to SharedPreferences so they survive app restart
     // ponytail: cap at 1000 entries, trim oldest via watched_order list
-    companion object { private const val WATCHED_CAP = 1000; private const val LIKED_CAP = 1000 }
+    companion object {
+        private const val WATCHED_CAP = 1000
+        private const val LIKED_CAP = 1000
+        private const val CACHE_STALE_DURATION_MS = 5 * 60 * 1000L // 5 minutes
+    }
+    private val lastExploreRefreshTime = ConcurrentHashMap<String, Long>()
+    private val lastSubscribedRefreshTime = ConcurrentHashMap<String, Long>()
     private val prefs = dataRepository.getContext().getSharedPreferences("rdtube_prefs", android.content.Context.MODE_PRIVATE)
     private val _subscribedSubreddits = MutableStateFlow(
         prefs.getStringSet("subscriptions", setOf("funny", "videos"))!!
@@ -265,7 +271,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 
     fun setSort(sort: SortOption) {
         currentSort = sort
-        refreshExplore()
+        refreshExplore(forceRefresh = true)
     }
 
     private val memoryFeedCache = com.lean.reddittube.util.AdaptiveCacheEngine<String, List<RedditPost>>(
@@ -275,23 +281,34 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         sizeEstimator = { list -> (list.size * 512L).coerceAtLeast(1024L) }
     )
 
-    fun refreshExplore(query: String = exploreQuery) {
+    fun refreshExplore(query: String = exploreQuery, forceRefresh: Boolean = false) {
         exploreQuery = query
         viewModelScope.launch {
             // ponytail: show query-specific cached feed instantly (0ms latency), else show loading
             val cached = (memoryFeedCache[query] ?: loadExploreCache(query).filter { !isHidden(it.id) }).distinctBy { it.id }
+            val lastRefresh = lastExploreRefreshTime[query] ?: 0L
+            val isFresh = (System.currentTimeMillis() - lastRefresh) < CACHE_STALE_DURATION_MS
+
             if (cached.isNotEmpty()) {
                 memoryFeedCache[query] = cached
                 _exploreState.value = MainScreenUiState.Success(cached)
+                if (!forceRefresh && isFresh) {
+                    return@launch
+                }
             } else {
                 _exploreState.value = MainScreenUiState.Loading
             }
             try {
                 dataRepository.fetchRedditVideos(query, currentSort.value).collect { posts ->
                     val filtered = posts.filter { !isHidden(it.id) }.distinctBy { it.id }
-                    memoryFeedCache[query] = filtered
-                    _exploreState.value = MainScreenUiState.Success(filtered)
-                    saveExploreCache(query, filtered)
+                    if (filtered.isNotEmpty()) {
+                        memoryFeedCache[query] = filtered
+                        lastExploreRefreshTime[query] = System.currentTimeMillis()
+                        _exploreState.value = MainScreenUiState.Success(filtered)
+                        saveExploreCache(query, filtered)
+                    } else if (cached.isNotEmpty()) {
+                        _exploreState.value = MainScreenUiState.Success(cached)
+                    }
                 }
             } catch (e: RedditError) {
                 showError(e)
@@ -307,7 +324,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         }
     }
 
-    fun refreshSubscribed(query: String) {
+    fun refreshSubscribed(query: String, forceRefresh: Boolean = false) {
         subscribedQuery = query
         viewModelScope.launch {
             if (query.isEmpty()) {
@@ -316,18 +333,29 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             }
             val cacheKey = "sub_$query"
             val cached = (memoryFeedCache[cacheKey] ?: loadSubscribedCache(query).filter { !isHidden(it.id) }).distinctBy { it.id }
+            val lastRefresh = lastSubscribedRefreshTime[query] ?: 0L
+            val isFresh = (System.currentTimeMillis() - lastRefresh) < CACHE_STALE_DURATION_MS
+
             if (cached.isNotEmpty()) {
                 memoryFeedCache[cacheKey] = cached
                 _subscribedState.value = MainScreenUiState.Success(cached)
+                if (!forceRefresh && isFresh) {
+                    return@launch
+                }
             } else {
                 _subscribedState.value = MainScreenUiState.Loading
             }
             try {
                 dataRepository.fetchRedditVideos(query, currentSort.value, "subscribed").collect { posts ->
                     val filtered = posts.filter { !isHidden(it.id) }.distinctBy { it.id }
-                    memoryFeedCache[cacheKey] = filtered
-                    _subscribedState.value = MainScreenUiState.Success(filtered)
-                    saveSubscribedCache(query, filtered)
+                    if (filtered.isNotEmpty()) {
+                        memoryFeedCache[cacheKey] = filtered
+                        lastSubscribedRefreshTime[query] = System.currentTimeMillis()
+                        _subscribedState.value = MainScreenUiState.Success(filtered)
+                        saveSubscribedCache(query, filtered)
+                    } else if (cached.isNotEmpty()) {
+                        _subscribedState.value = MainScreenUiState.Success(cached)
+                    }
                 }
             } catch (e: RedditError) {
                 showError(e)
