@@ -370,6 +370,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 ?.replace("&amp;", "&") ?: ""
         }
 
+        val isOver18 = childData.optBoolean("over_18", false)
+        val nsfwAllowed = context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE).getBoolean("pref_unrestricted_nsfw", true)
+        if (isOver18 && !nsfwAllowed) return null
+
         val duration = redditVideo.optInt("duration", 0)
 
         return RedditPost(
@@ -386,7 +390,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             thumbnailUrl = thumb,
             numComments = childData.optInt("num_comments"),
             duration = duration,
-            over18 = childData.optBoolean("over_18", false)
+            over18 = isOver18
         )
     }
 

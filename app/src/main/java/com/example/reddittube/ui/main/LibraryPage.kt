@@ -58,7 +58,6 @@ fun LibraryPage(
     val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
 
     var showClearHistoryDialog by remember { mutableStateOf(false) }
-    var showClearCacheDialog by remember { mutableStateOf(false) }
 
     val likedPosts = remember(likedIds) { viewModel.getLikedPosts() }
     val watchedPosts = remember(likedIds) { viewModel.getWatchedPosts() }
@@ -129,13 +128,8 @@ fun LibraryPage(
                 )
             }
             GlassActionChip(
-                icon = Icons.Outlined.CleaningServices,
-                label = "Clear Cache",
-                onClick = { showClearCacheDialog = true }
-            )
-            GlassActionChip(
                 icon = Icons.Outlined.Info,
-                label = "Guide & Info",
+                label = "Guide & Settings",
                 onClick = onShowAbout
             )
         }
@@ -340,31 +334,6 @@ fun LibraryPage(
             },
             dismissButton = {
                 TextButton(onClick = { showClearHistoryDialog = false }) {
-                    Text("Cancel", color = TextSecondary)
-                }
-            },
-            containerColor = SurfaceRaised,
-            shape = RoundedCornerShape(18.dp)
-        )
-    }
-
-    if (showClearCacheDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearCacheDialog = false },
-            title = { Text("Clear Cache?", color = TextPrimary, fontWeight = FontWeight.Bold) },
-            text = { Text("Frees up in-memory thumbnail and feed caches.", color = TextSecondary) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showClearCacheDialog = false
-                        Toast.makeText(context, "Cache cleared", Toast.LENGTH_SHORT).show()
-                    }
-                ) {
-                    Text("Clear", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearCacheDialog = false }) {
                     Text("Cancel", color = TextSecondary)
                 }
             },
