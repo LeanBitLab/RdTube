@@ -197,6 +197,13 @@ fun SearchPage(
                         }
                     }
 
+                    LaunchedEffect(subListState.isScrollInProgress) {
+                        if (subListState.isScrollInProgress) {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                        }
+                    }
+
                     LazyColumn(
                         state = subListState,
                         modifier = Modifier
@@ -333,7 +340,7 @@ fun SearchPage(
                             }
                         }
 
-                        if (cleanQuery.isNotBlank()) {
+                        if (cleanQuery.isNotBlank() && (displaySubList.size >= 8 || isSubredditSearchingMore)) {
                             item {
                                 Column(
                                     modifier = Modifier
@@ -501,6 +508,13 @@ fun SearchPage(
                             }
                         }
 
+                        LaunchedEffect(videoGridState.isScrollInProgress) {
+                            if (videoGridState.isScrollInProgress) {
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            }
+                        }
+
                         LazyVerticalGrid(
                             state = videoGridState,
                             columns = GridCells.Fixed(1),
@@ -531,49 +545,51 @@ fun SearchPage(
                                 )
                             }
 
-                            item {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 10.dp, bottom = 20.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    if (isVideoSearchingMore) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center,
-                                            modifier = Modifier.padding(8.dp)
-                                        ) {
-                                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(10.dp))
-                                            Text("Loading more videos...", color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                                        }
-                                    } else {
-                                        Surface(
-                                            onClick = { onLoadMoreVideos() },
-                                            shape = RoundedCornerShape(16.dp),
-                                            color = SurfaceRaised,
-                                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                                            modifier = Modifier.fillMaxWidth(0.85f)
-                                        ) {
+                            if (cleanQuery.isNotBlank() && (videoSearchResults.size >= 8 || isVideoSearchingMore)) {
+                                item {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 10.dp, bottom = 20.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        if (isVideoSearchingMore) {
                                             Row(
-                                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.Center,
-                                                verticalAlignment = Alignment.CenterVertically
+                                                modifier = Modifier.padding(8.dp)
                                             ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.ExpandMore,
-                                                    contentDescription = "Load More Videos",
-                                                    tint = Color.White,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Spacer(Modifier.width(8.dp))
-                                                Text(
-                                                    text = "Load More Videos (+20)",
-                                                    color = Color.White,
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
+                                                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                                                Spacer(Modifier.width(10.dp))
+                                                Text("Loading more videos...", color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                            }
+                                        } else {
+                                            Surface(
+                                                onClick = { onLoadMoreVideos() },
+                                                shape = RoundedCornerShape(16.dp),
+                                                color = SurfaceRaised,
+                                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                                                modifier = Modifier.fillMaxWidth(0.85f)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ExpandMore,
+                                                        contentDescription = "Load More Videos",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Text(
+                                                        text = "Load More Videos (+20)",
+                                                        color = Color.White,
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -590,6 +606,7 @@ fun SearchPage(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
+                .imePadding()
                 .padding(bottom = 76.dp, start = 16.dp, end = 16.dp)
                 .fillMaxWidth()
         ) {
