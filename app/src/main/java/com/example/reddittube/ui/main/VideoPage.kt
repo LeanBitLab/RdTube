@@ -976,7 +976,24 @@ Box(
                         Icon(
                             Icons.Default.SkipNext,
                             contentDescription = "Auto-next",
-                            tint = if (autoNextEnabled) BrandRed else Color.White,
+                            tint = if (autoNextEnabled) Color.White else TextMuted,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+
+                    // Loop Video
+                    MinimalButton(
+                        onClick = {
+                            isLoopEnabled = !isLoopEnabled
+                            sharedPreferences.edit().putBoolean("loop_video", isLoopEnabled).apply()
+                            Toast.makeText(context, if (isLoopEnabled) "Loop on" else "Loop off", Toast.LENGTH_SHORT).show()
+                        },
+                        label = ""
+                    ) {
+                        Icon(
+                            Icons.Default.Repeat,
+                            contentDescription = "Loop video",
+                            tint = if (isLoopEnabled) Color.White else TextMuted,
                             modifier = Modifier.size(14.dp)
                         )
                     }

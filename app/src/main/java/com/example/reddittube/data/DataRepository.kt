@@ -375,7 +375,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             id = childData.optString("id"),
             title = childData.optString("title"),
             subreddit = childData.optString("subreddit"),
-            author = childData.optString("author"),
+            author = "",
             score = childData.optInt("score"),
             permalink = childData.optString("permalink"),
             videoUrl = videoUrl,

@@ -284,27 +284,12 @@ fun HomeScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .padding(horizontal = 12.dp),
+                                .padding(horizontal = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort", tint = Color.White, modifier = Modifier.size(15.dp))
                             Spacer(Modifier.width(6.dp))
                             Text(viewModel.currentSort.label, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    // Refresh Button Pill
-                    Surface(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .clickable { refreshCurrentFeed() },
-                        shape = CircleShape,
-                        color = SurfaceRaised.copy(alpha = 0.95f),
-                        border = BorderStroke(1.dp, GlassBorder)
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
@@ -899,38 +884,19 @@ fun VideoCard(
                             }
                         }
 
-                        // Subreddit & Author row
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            if (post.subreddit.isNotEmpty()) {
-                                Text(
-                                    text = "r/${post.subreddit}",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .clickable { onSubredditClick(post.subreddit) },
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "•",
-                                    color = TextMuted,
-                                    fontSize = 11.sp
-                                )
-                            }
-                            if (post.author.isNotEmpty()) {
-                                Text(
-                                    text = "u/${post.author}",
-                                    color = TextMuted,
-                                    fontSize = 11.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                        // Subreddit tag
+                        if (post.subreddit.isNotEmpty()) {
+                            Text(
+                                text = "r/${post.subreddit}",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable { onSubredditClick(post.subreddit) },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
