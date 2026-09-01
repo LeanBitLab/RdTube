@@ -47,14 +47,18 @@ fun VideoFeedContent(
     startIndex: Int = 0,
     onBack: (() -> Unit)? = null
 ) {
-    val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { data.size })
+    val distinctData = remember(data) { data.distinctBy { it.id } }
+    val pagerState = rememberPagerState(
+        initialPage = startIndex.coerceIn(0, (distinctData.size - 1).coerceAtLeast(0)),
+        pageCount = { distinctData.size }
+    )
     val coroutineScope = rememberCoroutineScope()
     var isMuted by remember { mutableStateOf(false) }
 
     val onNext: () -> Unit = {
         coroutineScope.launch {
             val next = pagerState.currentPage + 1
-            if (next < data.size) {
+            if (next < distinctData.size) {
                 pagerState.animateScrollToPage(next)
             }
         }
@@ -62,14 +66,14 @@ fun VideoFeedContent(
 
     // ponytail: trigger loadMore when user approaches end of feed (within last 2 items, minimum 10 items)
     val currentPage by remember { derivedStateOf { pagerState.currentPage } }
-    LaunchedEffect(currentPage, data.size, isLoadingMore) {
-        if (currentPage >= (data.size - 5).coerceAtLeast(0) && !isLoadingMore && data.isNotEmpty()) {
+    LaunchedEffect(currentPage, distinctData.size, isLoadingMore) {
+        if (currentPage >= (distinctData.size - 5).coerceAtLeast(0) && !isLoadingMore && distinctData.isNotEmpty()) {
             onLoadMore()
         }
     }
 
     // ponytail: player recycling — release players for pages far from current
-    val visibleRange = (currentPage - 2).coerceAtLeast(0)..(currentPage + 2).coerceAtMost(data.size - 1)
+    val visibleRange = (currentPage - 2).coerceAtLeast(0)..(currentPage + 2).coerceAtMost(distinctData.size - 1)
 
     val pullToRefreshState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
 
@@ -92,13 +96,13 @@ fun VideoFeedContent(
             VerticalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
-                key = { index -> data[index].id }
+                key = { index -> if (index in distinctData.indices) distinctData[index].id else index }
             ) { pageIndex ->
                 Box(modifier = Modifier.fillMaxSize()) {
                     // Only keep composable alive if within visible range, else placeholder
-                    if (pageIndex in visibleRange) {
+                    if (pageIndex in visibleRange && pageIndex in distinctData.indices) {
                         VideoPage(
-                            post = data[pageIndex],
+                            post = distinctData[pageIndex],
                             isActive = pagerState.currentPage == pageIndex,
                             isMuted = isMuted,
                             onMuteChange = { isMuted = it },
@@ -112,14 +116,14 @@ fun VideoFeedContent(
                             onBack = onBack,
                             onRefresh = onRefresh
                         )
-                    } else {
+                    } else if (pageIndex in distinctData.indices) {
                         // Placeholder to maintain pager structure without heavy player
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = data[pageIndex].title,
+                                text = distinctData[pageIndex].title,
                                 color = Color.White.copy(alpha = 0.3f),
                                 fontSize = 12.sp
                             )
@@ -130,7 +134,7 @@ fun VideoFeedContent(
 
             // Sleek glassmorphic minimal loading badge overlay when fetching next video batch
             AnimatedVisibility(
-                visible = isLoadingMore && currentPage >= (data.size - 5).coerceAtLeast(0),
+                visible = isLoadingMore && currentPage >= (distinctData.size - 5).coerceAtLeast(0),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 72.dp),

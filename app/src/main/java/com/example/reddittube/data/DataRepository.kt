@@ -187,7 +187,11 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                             val children = data.optJSONArray("children") ?: break
                             for (i in 0 until children.length()) {
                                 val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
-                                parseRedditPost(childData)?.let { subPosts.add(it) }
+                                parseRedditPost(childData)?.let { post ->
+                                    if (subPosts.none { it.id == post.id }) {
+                                        subPosts.add(post)
+                                    }
+                                }
                             }
                         } catch (e: RedditError.RateLimited) {
                             Log.w("RedditRepository", "fetchMore r/$sub rate limited, stopping")
@@ -200,7 +204,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     nextAfterMap[sub] = after
                     subPosts
                 }
-            }.awaitAll().flatten()
+            }.awaitAll().flatten().distinctBy { it.id }
         }
         emit(FetchMoreResult(allPosts, nextAfterMap))
     }.flowOn(Dispatchers.IO)
@@ -231,13 +235,17 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val allLists = deferredLists.awaitAll()
 
         val mergedList = mutableListOf<RedditPost>()
+        val seenIds = mutableSetOf<String>()
         var index = 0
         var addedAny = true
         while (addedAny) {
             addedAny = false
             for (list in allLists) {
                 if (index < list.size) {
-                    mergedList.add(list[index])
+                    val post = list[index]
+                    if (seenIds.add(post.id)) {
+                        mergedList.add(post)
+                    }
                     addedAny = true
                 }
             }
@@ -332,7 +340,11 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
 
                 for (i in 0 until children.length()) {
                     val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
-                    parseRedditPost(childData)?.let { list.add(it) }
+                    parseRedditPost(childData)?.let { post ->
+                        if (list.none { it.id == post.id }) {
+                            list.add(post)
+                        }
+                    }
                 }
             } catch (e: RedditError.RateLimited) {
                 Log.w("RedditRepository", "r/$subreddit rate limited on page $page")

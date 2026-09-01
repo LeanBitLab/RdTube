@@ -153,4 +153,52 @@ class MainScreenViewModelTest {
         viewModel.searchSubreddits("a")
         assert(viewModel.searchResults.value.isEmpty())
     }
+
+    @Test
+    fun `refreshExplore deduplicates duplicate post IDs from repository`() = runTest(testDispatcher) {
+        val posts = listOf(
+            RedditPost("dup_1", "Dup 1", "test", "author", 100, "/r/test/1", "url", "url", "", ""),
+            RedditPost("dup_1", "Dup 1 Copy", "test", "author", 100, "/r/test/1", "url", "url", "", ""),
+            RedditPost("unique_2", "Unique 2", "test", "author2", 50, "/r/test/2", "url", "url", "", "")
+        )
+        val repo = FakeRepository(fetchResult = { flowOf(posts) })
+        val viewModel = MainScreenViewModel(repo)
+        viewModel.refreshExplore()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.exploreState.value
+        assert(state is MainScreenUiState.Success)
+        val data = (state as MainScreenUiState.Success).data
+        assert(data.size == 2)
+        assert(data.map { it.id } == listOf("dup_1", "unique_2"))
+    }
+
+    @Test
+    fun `loadMore deduplicates duplicate post IDs in fetchMore results`() = runTest(testDispatcher) {
+        val initialPosts = listOf(
+            RedditPost("id_1", "Initial 1", "test", "author", 100, "/r/test/1", "url", "url", "", "")
+        )
+        val morePosts = listOf(
+            RedditPost("id_2", "More 2", "test", "author", 80, "/r/test/2", "url", "url", "", ""),
+            RedditPost("id_2", "More 2 Dup", "test", "author", 80, "/r/test/2", "url", "url", "", ""),
+            RedditPost("id_3", "More 3", "test", "author", 60, "/r/test/3", "url", "url", "", "")
+        )
+        val repo = FakeRepository(
+            fetchResult = { flowOf(initialPosts) },
+            fetchMoreResult = { flowOf(FetchMoreResult(morePosts, mapOf("test" to "t3_after"))) },
+            afterMap = { mapOf("test" to "t3_init") }
+        )
+        val viewModel = MainScreenViewModel(repo)
+        viewModel.refreshExplore()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.loadMore(true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.exploreState.value
+        assert(state is MainScreenUiState.Success)
+        val data = (state as MainScreenUiState.Success).data
+        assert(data.size == 3)
+        assert(data.map { it.id } == listOf("id_1", "id_2", "id_3"))
+    }
 }

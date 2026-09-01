@@ -873,10 +873,11 @@ private fun BrowseGrid(
                         }
                     }
                 } else {
+                    val distinctData = remember(data) { data.distinctBy { it.id } }
                     val gridState = rememberLazyGridState()
-                    LaunchedEffect(gridState.firstVisibleItemIndex, data.size, isLoadingMore) {
+                    LaunchedEffect(gridState.firstVisibleItemIndex, distinctData.size, isLoadingMore) {
                         val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: gridState.firstVisibleItemIndex
-                        if (data.isNotEmpty() && !isLoadingMore && lastVisible >= (data.size - 5).coerceAtLeast(0)) {
+                        if (distinctData.isNotEmpty() && !isLoadingMore && lastVisible >= (distinctData.size - 5).coerceAtLeast(0)) {
                             onLoadMore()
                         }
                     }
@@ -904,15 +905,15 @@ private fun BrowseGrid(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                     items(
-                        items = data,
+                        items = distinctData,
                         key = { post -> post.id }
                     ) { post ->
-                        val index = data.indexOf(post).coerceAtLeast(0)
+                        val index = distinctData.indexOf(post).coerceAtLeast(0)
                         VideoCard(
                             post = post,
                             isLiked = likedIds.contains(post.id),
                             onLike = onLike,
-                            onClick = { onItemClick(data, index) },
+                            onClick = { onItemClick(distinctData, index) },
                             onSubredditClick = onSubredditClick,
                             onRemoveVideo = onRemoveVideo
                         )

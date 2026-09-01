@@ -231,7 +231,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         exploreQuery = query
         viewModelScope.launch {
             // ponytail: show query-specific cached feed instantly (0ms latency), else show loading
-            val cached = memoryFeedCache[query] ?: loadExploreCache(query).filter { !isHidden(it.id) }
+            val cached = (memoryFeedCache[query] ?: loadExploreCache(query).filter { !isHidden(it.id) }).distinctBy { it.id }
             if (cached.isNotEmpty()) {
                 memoryFeedCache[query] = cached
                 _exploreState.value = MainScreenUiState.Success(cached)
@@ -240,10 +240,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             }
             try {
                 dataRepository.fetchRedditVideos(query, currentSort.value).collect { posts ->
-                    val filtered = posts.filter { !isHidden(it.id) }
+                    val filtered = posts.filter { !isHidden(it.id) }.distinctBy { it.id }
                     memoryFeedCache[query] = filtered
                     _exploreState.value = MainScreenUiState.Success(filtered)
-                    saveExploreCache(query, posts)
+                    saveExploreCache(query, filtered)
                 }
             } catch (e: RedditError) {
                 showError(e)
@@ -267,7 +267,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 return@launch
             }
             val cacheKey = "sub_$query"
-            val cached = memoryFeedCache[cacheKey] ?: loadSubscribedCache(query).filter { !isHidden(it.id) }
+            val cached = (memoryFeedCache[cacheKey] ?: loadSubscribedCache(query).filter { !isHidden(it.id) }).distinctBy { it.id }
             if (cached.isNotEmpty()) {
                 memoryFeedCache[cacheKey] = cached
                 _subscribedState.value = MainScreenUiState.Success(cached)
@@ -276,10 +276,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             }
             try {
                 dataRepository.fetchRedditVideos(query, currentSort.value, "subscribed").collect { posts ->
-                    val filtered = posts.filter { !isHidden(it.id) }
+                    val filtered = posts.filter { !isHidden(it.id) }.distinctBy { it.id }
                     memoryFeedCache[cacheKey] = filtered
                     _subscribedState.value = MainScreenUiState.Success(filtered)
-                    saveSubscribedCache(query, posts)
+                    saveSubscribedCache(query, filtered)
                 }
             } catch (e: RedditError) {
                 showError(e)
@@ -315,8 +315,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 dataRepository.fetchMoreVideos(query, afterMap, currentSort.value, feed).collect { result ->
                     dataRepository.saveAfterMap(result.afterMap, feed)
                     val existingIds = current.data.mapTo(HashSet()) { it.id }
-                    val newPosts = result.posts.filter { it.id !in existingIds && !isHidden(it.id) }
-                    val updated = current.data + newPosts
+                    val newPosts = result.posts
+                        .filter { it.id !in existingIds && !isHidden(it.id) }
+                        .distinctBy { it.id }
+                    val updated = (current.data + newPosts).distinctBy { it.id }
                     if (isExplore) {
                         _exploreState.value = MainScreenUiState.Success(updated, isLoadingMore = false)
                     } else {
@@ -391,7 +393,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         val str = prefs.getString("explore_cache_$query", null) ?: return emptyList()
         return try {
             val arr = org.json.JSONArray(str)
-            (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }
+            (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }.distinctBy { it.id }
         } catch (_: Exception) {
             emptyList()
         }
@@ -406,7 +408,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         val str = prefs.getString("subscribed_cache_$query", null) ?: return emptyList()
         return try {
             val arr = org.json.JSONArray(str)
-            (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }
+            (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }.distinctBy { it.id }
         } catch (_: Exception) {
             emptyList()
         }
