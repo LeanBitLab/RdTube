@@ -5,38 +5,24 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Crisp White Outer Border for Left Vertical Bar -->
+    <!-- Rounded play triangle: fill + round-join stroke trick -->
     <path
-        android:fillColor="#FFFFFFFF"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="6"
-        android:strokeLineCap="round"
-        android:pathData="M35,36 L35,72" />
-
-    <!-- Solid Red Left Vertical Bar Face -->
-    <path
-        android:fillColor="#FF2A4B"
-        android:strokeColor="#FF2A4B"
-        android:strokeWidth="2"
-        android:strokeLineCap="round"
-        android:pathData="M35,36 L35,72" />
-
-    <!-- Crisp White Outer Border for Play Button (Unchanged Triangle Position) -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="6"
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="11"
         android:strokeLineJoin="round"
-        android:strokeLineCap="round"
-        android:pathData="M44,36 L76,54 L44,72 Z" />
+        android:pathData="M42,43 L74,59 L42,75 Z" />
 
-    <!-- Solid Red Play Button Face (Unchanged Triangle Position) -->
+    <!-- Snoo antenna swoosh -->
     <path
-        android:fillColor="#FF2A4B"
-        android:strokeColor="#FF2A4B"
-        android:strokeWidth="2"
-        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5.5"
         android:strokeLineCap="round"
-        android:pathData="M44,36 L76,54 L44,72 Z" />
+        android:pathData="M56,49.5 Q52.5,32 65,29" />
 
+    <!-- Antenna ball -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M65,29 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
 </vector>
