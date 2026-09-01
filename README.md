@@ -18,7 +18,7 @@
 **A private, fast, and sleek open-source video client for Reddit.**  
 *Pure OLED pitch black, high-speed feed prefetching, and zero tracking.*
 
-[Screenshots](#-screenshots) • [Download](#-download) • [Features](#-features) • [Setup & Building](#-setup--building) • [Notes & Privacy](#-notes--privacy) • [LeanBitLab Projects](https://github.com/LeanBitLab#-android-projects)
+[Screenshots](#-screenshots) • [Download](#-download) • [Features](#-features) • [Notes & Privacy](#-notes--privacy) • [Setup & Building](#-setup--building) • [LeanBitLab Projects](https://github.com/LeanBitLab#-android-projects)
 
 </div>
 
@@ -80,6 +80,16 @@
 
 ---
 
+## 📝 Notes & Privacy
+
+- **100% Community Funded**: RdTube is completely independent, free, and open-source with zero advertisements, sponsors, or analytics.
+- **Official Read-Only OAuth 2.0**: Unrestricted and mature subreddits require Reddit authentication. RdTube uses standard read-only scopes (`identity`, `read`, `mysubreddits`) directly in your browser. Passwords are never seen or stored.
+- **Zero Cloud Syncing**: Connecting an account serves solely to authenticate API media streaming. It never modifies, overwrites, or syncs your Reddit upvotes, saved items, or history.
+- **Account Usage Precaution**: While read-only OAuth is standard under Reddit's developer API, Reddit policies can change over time. If you prefer extra caution, you can use a secondary Reddit account or browse 100% anonymously without logging in.
+- **In-App OTA Updates**: Built-in GitHub Releases update checker in the About page notifies you of new versions and downloads APKs with a single tap.
+
+---
+
 ## 🛠️ Setup & Building
 
 ### Prerequisites
@@ -99,16 +109,6 @@ cd RdTube
 # Run Unit Tests
 ./gradlew test
 ```
-
----
-
-## 📝 Notes & Privacy
-
-- **100% Community Funded**: RdTube is completely independent, free, and open-source with zero advertisements, sponsors, or analytics.
-- **Official Read-Only OAuth 2.0**: Unrestricted and mature subreddits require Reddit authentication. RdTube uses standard read-only scopes (`identity`, `read`, `mysubreddits`) directly in your browser. Passwords are never seen or stored.
-- **Zero Cloud Syncing**: Connecting an account serves solely to authenticate API media streaming. It never modifies, overwrites, or syncs your Reddit upvotes, saved items, or history.
-- **Account Usage Precaution**: While read-only OAuth is standard under Reddit's developer API, Reddit policies can change. If you prefer extra caution, you can use a secondary Reddit account or browse 100% anonymously without logging in.
-- **In-App OTA Updates**: Built-in GitHub Releases update checker in the About page notifies you of new versions and downloads APKs with a single tap.
 
 ---
 
