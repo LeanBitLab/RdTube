@@ -472,9 +472,9 @@ fun SearchPage(
                     .fillMaxWidth()
                     .height(54.dp),
                 shape = RoundedCornerShape(27.dp),
-                color = Color(0xFF16161C),
-                border = BorderStroke(1.5.dp, Color(0xFF383848)),
-                shadowElevation = 10.dp
+                color = Color.Black,
+                border = BorderStroke(2.dp, Color.White),
+                shadowElevation = 8.dp
             ) {
                 TextField(
                     value = searchQuery,

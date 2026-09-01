@@ -458,8 +458,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         var after: String? = null
         val sortPath = if (sort.contains("?")) sort.substringBefore("?") else sort
         val sortExtra = if (sort.contains("?")) "&" + sort.substringAfter("?") else ""
-        for (page in 0 until 3) {
-            if (list.size >= 20) break
+        for (page in 0 until 5) {
+            if (list.size >= 25) break
             try {
                 val urlStr = "https://oauth.reddit.com/r/$subreddit/$sortPath.json?limit=50&raw_json=1&include_over_18=on$sortExtra" +
                     (if (after != null) "&after=$after" else "")
