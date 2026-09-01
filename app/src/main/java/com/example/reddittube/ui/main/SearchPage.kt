@@ -333,15 +333,43 @@ fun SearchPage(
                             }
                         }
 
-                        if (isSubredditSearchingMore) {
+                        if (cleanQuery.isNotBlank()) {
                             item {
-                                Box(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 12.dp),
-                                    contentAlignment = Alignment.Center
+                                        .padding(vertical = 10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                                    if (isSubredditSearchingMore) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center,
+                                            modifier = Modifier.padding(8.dp)
+                                        ) {
+                                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Text("Loading more subreddits...", color = TextSecondary, fontSize = 12.sp)
+                                        }
+                                    } else {
+                                        Surface(
+                                            onClick = { onLoadMoreSubreddits() },
+                                            shape = RoundedCornerShape(14.dp),
+                                            color = SurfaceRaised,
+                                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                            modifier = Modifier.fillMaxWidth(0.7f)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 14.dp),
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(Icons.Default.ExpandMore, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                                Spacer(Modifier.width(6.dp))
+                                                Text("Load More Subreddits", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -503,15 +531,51 @@ fun SearchPage(
                                 )
                             }
 
-                            if (isVideoSearchingMore) {
-                                item {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 12.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 10.dp, bottom = 20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    if (isVideoSearchingMore) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center,
+                                            modifier = Modifier.padding(8.dp)
+                                        ) {
+                                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(10.dp))
+                                            Text("Loading more videos...", color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                        }
+                                    } else {
+                                        Surface(
+                                            onClick = { onLoadMoreVideos() },
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = SurfaceRaised,
+                                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                                            modifier = Modifier.fillMaxWidth(0.85f)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ExpandMore,
+                                                    contentDescription = "Load More Videos",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    text = "Load More Videos (+20)",
+                                                    color = Color.White,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
