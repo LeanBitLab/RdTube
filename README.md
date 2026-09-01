@@ -74,7 +74,7 @@ Reddit requires user account authorization for unmoderated or age-restricted med
 - **Official Read-Only Scopes**: Uses Reddit's official OAuth 2.0 endpoint with read-only permissions (`identity`, `read`, `mysubreddits`).
 - **Zero Account Syncing**: Logging in is strictly for token authorization to fetch mature/unrestricted media from Reddit API. It never alters, overwrites, or syncs with your online Reddit upvotes, saved items, or history.
 - **Zero Password Exposure**: Authentication happens entirely inside your browser directly on Reddit servers; RdTube never sees or stores your password.
-- **Zero Account Ban Risk**: Third-party client usage is standard and permitted under Reddit's developer API terms.
+- **Read-Only & Non-Intrusive Design**: RdTube operates exclusively with read-only scopes (no posting, commenting, or voting). While standard OAuth usage is permitted under Reddit's developer platform, Reddit policies and API rules can change over time. If you prefer extra caution, you can use a secondary Reddit account or browse 100% anonymously without logging in.
 
 ---
 
