@@ -60,14 +60,14 @@ fun AboutPage(
     var availableRelease by remember { mutableStateOf<GitHubRelease?>(null) }
     var downloadProgress by remember { mutableStateOf<Float?>(null) }
 
-    // Expandable Sections State (Collapsed by default, independent states)
+    // Expandable Sections State (Independent states)
     var isOtaExpanded by remember { mutableStateOf(false) }
     var isRedditAccountExpanded by remember { mutableStateOf(false) }
     var isPreferencesExpanded by remember { mutableStateOf(false) }
     var isGesturesExpanded by remember { mutableStateOf(false) }
     var isToolbarExpanded by remember { mutableStateOf(false) }
     var isFaqExpanded by remember { mutableStateOf(false) }
-    var isCommunityExpanded by remember { mutableStateOf(false) }
+    var isCommunityExpanded by remember { mutableStateOf(true) }
 
     // Preferences state
     var isNsfwUnrestricted by remember { mutableStateOf(sharedPreferences.getBoolean("pref_unrestricted_nsfw", true)) }
@@ -247,7 +247,6 @@ fun AboutPage(
         FoldableSectionCard(
             title = "Reddit Account (Unrestricted Access)",
             icon = Icons.Default.AccountCircle,
-            badge = if (isLoggedIn) "u/${username ?: "User"}" else "Unlinked",
             isExpanded = isRedditAccountExpanded,
             onToggle = { isRedditAccountExpanded = !isRedditAccountExpanded }
         ) {
@@ -449,58 +448,232 @@ fun AboutPage(
             }
         }
 
-        // Section 6: Community & Links (Expandable/Foldable)
+        // Section 6: Community & Project (Expandable/Foldable)
         FoldableSectionCard(
-            title = "Community & Project",
+            title = "Community & Support",
             icon = Icons.Default.Favorite,
             isExpanded = isCommunityExpanded,
             onToggle = { isCommunityExpanded = !isCommunityExpanded }
         ) {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube"))
-                            context.startActivity(intent)
-                        },
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.Black.copy(alpha = 0.5f),
-                    border = BorderStroke(1.dp, GlassBorder)
+                Text(
+                    text = "Support Development",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Sponsorship & Donation buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sponsors/LeanBitLab"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SurfaceBar,
+                        border = BorderStroke(1.dp, GlassBorder)
                     ) {
-                        Icon(Icons.Default.Code, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("GitHub", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFFE91E63), modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("GitHub Sponsors", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://opencollective.com/leanbitlab-org"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SurfaceBar,
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color(0xFF1F6FEB), modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open Collective", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sponsors/LeanBitLab"))
-                            context.startActivity(intent)
-                        },
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.Black.copy(alpha = 0.5f),
-                    border = BorderStroke(1.dp, GlassBorder)
+                HorizontalDivider(color = BorderSubtle)
+
+                Text(
+                    text = "Official Channels & Socials",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Social Grid Row 1: Telegram & Reddit
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/LeanBitLab"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Black.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, GlassBorder)
                     ) {
-                        Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Sponsor", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, tint = Color(0xFF29B6F6), modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Telegram", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/LeanBitLab_/"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Black.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Forum, contentDescription = null, tint = Color(0xFFFF4500), modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("r/LeanBitLab_", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+
+                // Social Grid Row 2: X (Twitter) & YouTube
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://x.com/LeanBitLab"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Black.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("X (Twitter)", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/@LeanBitLab"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Black.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.PlayCircleOutline, contentDescription = null, tint = Color(0xFFFF0000), modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("YouTube", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = BorderSubtle)
+
+                // Project & Code Links
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Black.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Code, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("GitHub Repo", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube/issues"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Black.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.BugReport, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Report Issue", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
                 }
             }

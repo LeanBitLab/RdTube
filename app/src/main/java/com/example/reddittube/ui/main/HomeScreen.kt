@@ -51,14 +51,13 @@ import kotlinx.coroutines.launch
 private enum class NavTabItem(
     val title: String,
     val unselectedIcon: ImageVector,
-    val selectedIcon: ImageVector,
-    val pageIndex: Int? // null for Search action
+    val selectedIcon: ImageVector
 ) {
-    EXPLORE("Explore", Icons.Outlined.Explore, Icons.Filled.Explore, 0),
-    SUBSCRIBED("Subs", Icons.Outlined.Subscriptions, Icons.Filled.Subscriptions, 1),
-    SEARCH("Search", Icons.Outlined.Search, Icons.Filled.Search, null),
-    LIBRARY("Library", Icons.Outlined.VideoLibrary, Icons.Filled.VideoLibrary, 2),
-    ABOUT("About", Icons.Outlined.Info, Icons.Filled.Info, 3)
+    EXPLORE("Explore", Icons.Outlined.Explore, Icons.Filled.Explore),
+    SUBSCRIBED("Subs", Icons.Outlined.Subscriptions, Icons.Filled.Subscriptions),
+    SEARCH("Search", Icons.Outlined.Search, Icons.Filled.Search),
+    LIBRARY("Library", Icons.Outlined.VideoLibrary, Icons.Filled.VideoLibrary),
+    ABOUT("About", Icons.Outlined.Info, Icons.Filled.Info)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,11 +73,10 @@ fun HomeScreen(
     val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
 
     val coroutineScope = rememberCoroutineScope()
-    val horizontalPagerState = rememberPagerState(pageCount = { 4 })
+    val horizontalPagerState = rememberPagerState(pageCount = { 5 })
 
     var bottomBarVisible by remember { mutableStateOf(true) }
     var activeCommentPost by remember { mutableStateOf<RedditPost?>(null) }
-    var showSearchSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -167,7 +165,18 @@ fun HomeScreen(
                     onScrollDirection = { bottomBarVisible = !it },
                     isLoadingMore = (subscribedState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
-                2 -> LibraryPage(
+                2 -> SearchPage(
+                    currentSubscribed = subscribedSubreddits,
+                    onSubscribeToggle = viewModel::toggleSubscription,
+                    onSubredditSelect = { sub ->
+                        viewModel.refreshExplore(sub)
+                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
+                    },
+                    searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
+                    onSearchQuery = { viewModel.searchSubreddits(it) },
+                    modifier = Modifier.fillMaxSize()
+                )
+                3 -> LibraryPage(
                     viewModel = viewModel,
                     onItemClick = { list, index ->
                         viewModel.openPlayer(list, index, "other")
@@ -179,7 +188,7 @@ fun HomeScreen(
                     },
                     onCommentClick = { post -> activeCommentPost = post }
                 )
-                3 -> AboutPage(
+                4 -> AboutPage(
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -278,26 +287,25 @@ fun HomeScreen(
         ) {
             // Ultra-Smooth, Minimalist Monochrome Floating Pill Navigation Dock
             AnimatedVisibility(
-                visible = bottomBarVisible || horizontalPagerState.currentPage == 2 || horizontalPagerState.currentPage == 3,
+                visible = bottomBarVisible || horizontalPagerState.currentPage == 2 || horizontalPagerState.currentPage == 3 || horizontalPagerState.currentPage == 4,
                 enter = slideInVertically(initialOffsetY = { it * 2 }) + fadeIn(tween(180)),
                 exit = slideOutVertically(targetOffsetY = { it * 2 }) + fadeOut(tween(180))
             ) {
                 FloatingPillNavBar(
-                    currentPage = horizontalPagerState.currentPage,
-                    onSearchClick = { showSearchSheet = true },
-                    onPageSelected = { pageIndex ->
-                        if (pageIndex == 1 && subscribedSubreddits.isEmpty()) {
+                    selectedTab = NavTabItem.entries[horizontalPagerState.currentPage],
+                    onTabSelected = { tab ->
+                        if (tab.ordinal == 1 && subscribedSubreddits.isEmpty()) {
                             Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
                         } else {
-                            if (pageIndex == 0 && viewModel.exploreQuery != defaultExploreQuery) {
+                            if (tab.ordinal == 0 && viewModel.exploreQuery != defaultExploreQuery) {
                                 viewModel.refreshExplore(defaultExploreQuery)
                             }
-                            if (pageIndex == 1 && viewModel.subscribedQuery != defaultSubscribedQuery) {
+                            if (tab.ordinal == 1 && viewModel.subscribedQuery != defaultSubscribedQuery) {
                                 viewModel.refreshSubscribed(defaultSubscribedQuery)
                             }
                             coroutineScope.launch {
                                 horizontalPagerState.animateScrollToPage(
-                                    page = pageIndex,
+                                    page = tab.ordinal,
                                     animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
                                 )
                             }
@@ -305,21 +313,6 @@ fun HomeScreen(
                     }
                 )
             }
-        }
-
-        // Bottom Search Sheet
-        if (showSearchSheet) {
-            SearchBottomSheet(
-                currentSubscribed = subscribedSubreddits,
-                onSubscribeToggle = viewModel::toggleSubscription,
-                onSubredditSelect = { sub ->
-                    viewModel.refreshExplore(sub)
-                    coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
-                },
-                searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
-                onSearchQuery = { viewModel.searchSubreddits(it) },
-                onDismiss = { showSearchSheet = false }
-            )
         }
 
         // Bottom Sort Sheet
@@ -344,9 +337,8 @@ fun HomeScreen(
 
 @Composable
 private fun FloatingPillNavBar(
-    currentPage: Int,
-    onPageSelected: (Int) -> Unit,
-    onSearchClick: () -> Unit,
+    selectedTab: NavTabItem,
+    onTabSelected: (NavTabItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val items = NavTabItem.entries
@@ -370,17 +362,8 @@ private fun FloatingPillNavBar(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val tabWidth = maxWidth / items.size
 
-            // Map currentPage (0, 1, 2, 3) to visual tab index (0, 1, 3, 4)
-            val activeTabSlotIndex = when (currentPage) {
-                0 -> 0 // Explore
-                1 -> 1 // Subs
-                2 -> 3 // Library
-                3 -> 4 // About
-                else -> 0
-            }
-
             val indicatorOffset by animateDpAsState(
-                targetValue = tabWidth * activeTabSlotIndex,
+                targetValue = tabWidth * selectedTab.ordinal,
                 animationSpec = springSpec,
                 label = "PillIndicator"
             )
@@ -397,8 +380,8 @@ private fun FloatingPillNavBar(
             )
 
             Row(modifier = Modifier.fillMaxSize()) {
-                items.forEach { item ->
-                    val isSelected = item.pageIndex == currentPage
+                items.forEach { tab ->
+                    val isSelected = tab == selectedTab
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -408,11 +391,7 @@ private fun FloatingPillNavBar(
                                 indication = null,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    if (item.pageIndex != null) {
-                                        onPageSelected(item.pageIndex)
-                                    } else {
-                                        onSearchClick()
-                                    }
+                                    onTabSelected(tab)
                                 }
                             ),
                         contentAlignment = Alignment.Center
@@ -422,14 +401,14 @@ private fun FloatingPillNavBar(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
-                                contentDescription = item.title,
+                                imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
+                                contentDescription = tab.title,
                                 tint = if (isSelected) Color.Black else TextSecondary,
                                 modifier = Modifier.size(19.dp)
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                text = item.title,
+                                text = tab.title,
                                 color = if (isSelected) Color.Black else TextMuted,
                                 fontSize = 10.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
