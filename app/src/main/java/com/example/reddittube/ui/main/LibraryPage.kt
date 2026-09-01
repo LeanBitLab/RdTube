@@ -8,15 +8,19 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Subscriptions
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,8 +38,9 @@ import com.lean.reddittube.data.RedditPost
 import com.lean.reddittube.theme.*
 
 enum class LibrarySegment(val title: String, val icon: ImageVector) {
-    LIKED("Liked Videos", Icons.Outlined.ThumbUp),
-    HISTORY("Watch History", Icons.Outlined.History)
+    LIKED("Liked", Icons.Outlined.ThumbUp),
+    HISTORY("History", Icons.Outlined.History),
+    SUBSCRIPTIONS("Subreddits", Icons.Outlined.Subscriptions)
 }
 
 @Composable
@@ -50,6 +55,7 @@ fun LibraryPage(
     val context = LocalContext.current
     var selectedSegment by remember { mutableStateOf(LibrarySegment.LIKED) }
     val likedIds by viewModel.likedIdsFlow.collectAsStateWithLifecycle()
+    val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
 
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var showClearCacheDialog by remember { mutableStateOf(false) }
@@ -57,7 +63,7 @@ fun LibraryPage(
     val likedPosts = remember(likedIds) { viewModel.getLikedPosts() }
     val watchedPosts = remember(likedIds) { viewModel.getWatchedPosts() }
 
-    val currentList = if (selectedSegment == LibrarySegment.LIKED) likedPosts else watchedPosts
+    val currentVideoList = if (selectedSegment == LibrarySegment.LIKED) likedPosts else watchedPosts
 
     Column(
         modifier = modifier
@@ -70,18 +76,18 @@ fun LibraryPage(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             LibrarySegment.entries.forEach { segment ->
                 val isSelected = segment == selectedSegment
                 Surface(
                     modifier = Modifier
                         .weight(1f)
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(21.dp))
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(20.dp))
                         .clickable { selectedSegment = segment },
-                    shape = RoundedCornerShape(21.dp),
+                    shape = RoundedCornerShape(20.dp),
                     color = if (isSelected) BrandRed else SurfaceRaised,
                     border = BorderStroke(1.dp, if (isSelected) BrandRedLight else GlassBorder)
                 ) {
@@ -94,7 +100,7 @@ fun LibraryPage(
                             segment.icon,
                             contentDescription = segment.title,
                             tint = if (isSelected) Color.White else TextSecondary,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
@@ -112,14 +118,16 @@ fun LibraryPage(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            GlassActionChip(
-                icon = Icons.Outlined.History,
-                label = "Clear History",
-                onClick = { showClearHistoryDialog = true }
-            )
+            if (selectedSegment == LibrarySegment.HISTORY) {
+                GlassActionChip(
+                    icon = Icons.Outlined.History,
+                    label = "Clear History",
+                    onClick = { showClearHistoryDialog = true }
+                )
+            }
             GlassActionChip(
                 icon = Icons.Outlined.CleaningServices,
                 label = "Clear Cache",
@@ -135,55 +143,180 @@ fun LibraryPage(
         Spacer(Modifier.height(8.dp))
 
         // Content Area
-        if (currentList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        if (selectedSegment == LibrarySegment.LIKED) Icons.Outlined.ThumbUp else Icons.Outlined.History,
-                        contentDescription = null,
-                        tint = TextMuted,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = if (selectedSegment == LibrarySegment.LIKED) "No liked videos yet." else "No watch history recorded yet.",
-                        color = TextSecondary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Videos you interact with will appear here.",
-                        color = TextMuted,
-                        fontSize = 12.sp
-                    )
+        when (selectedSegment) {
+            LibrarySegment.SUBSCRIPTIONS -> {
+                val subList = remember(subscribedSubreddits) { subscribedSubreddits.sorted() }
+                if (subList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Outlined.Subscriptions,
+                                contentDescription = null,
+                                tint = TextMuted,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = "No Subscribed Subreddits",
+                                color = TextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Use search to find and subscribe to your favorite video subreddits.",
+                                color = TextMuted,
+                                fontSize = 12.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 90.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            Text(
+                                text = "${subList.size} Subscribed Subreddits",
+                                color = TextSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        items(subList, key = { it }) { sub ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable { onSubredditClick(sub) },
+                                shape = RoundedCornerShape(14.dp),
+                                color = SurfaceRaised,
+                                border = BorderStroke(1.dp, GlassBorder)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(BrandRed.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "r/",
+                                                color = BrandRedLight,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Spacer(Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = "r/$sub",
+                                                color = TextPrimary,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "Tap to open feed",
+                                                color = TextMuted,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.toggleSubscription(sub)
+                                            Toast.makeText(context, "Unsubscribed from r/$sub", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(SurfaceBar)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.DeleteOutline,
+                                            contentDescription = "Unsubscribe",
+                                            tint = BrandRedLight,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(1),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 80.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                itemsIndexed(currentList, key = { index, post -> "${post.id}_$index" }) { index, post ->
-                    VideoCard(
-                        post = post,
-                        isLiked = likedIds.contains(post.id),
-                        onLike = viewModel::toggleLike,
-                        onClick = { onItemClick(currentList, index) },
-                        onSubredditClick = onSubredditClick,
-                        onCommentClick = onCommentClick,
-                        onRemoveVideo = viewModel::hidePost
-                    )
+            LibrarySegment.LIKED, LibrarySegment.HISTORY -> {
+                if (currentVideoList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                if (selectedSegment == LibrarySegment.LIKED) Icons.Outlined.ThumbUp else Icons.Outlined.History,
+                                contentDescription = null,
+                                tint = TextMuted,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = if (selectedSegment == LibrarySegment.LIKED) "No liked videos yet." else "No watch history recorded yet.",
+                                color = TextSecondary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Videos you interact with will appear here.",
+                                color = TextMuted,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(1),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 90.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        itemsIndexed(currentVideoList, key = { index, post -> "${post.id}_$index" }) { index, post ->
+                            VideoCard(
+                                post = post,
+                                isLiked = likedIds.contains(post.id),
+                                onLike = viewModel::toggleLike,
+                                onClick = { onItemClick(currentVideoList, index) },
+                                onSubredditClick = onSubredditClick,
+                                onCommentClick = onCommentClick,
+                                onRemoveVideo = viewModel::hidePost
+                            )
+                        }
+                    }
                 }
             }
         }
