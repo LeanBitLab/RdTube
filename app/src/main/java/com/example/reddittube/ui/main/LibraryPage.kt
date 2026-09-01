@@ -43,6 +43,7 @@ fun LibraryPage(
     viewModel: MainScreenViewModel,
     onItemClick: (List<RedditPost>, Int) -> Unit,
     onSubredditClick: (String) -> Unit = {},
+    onCommentClick: (RedditPost) -> Unit = {},
     onShowAbout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -63,17 +64,8 @@ fun LibraryPage(
             .fillMaxSize()
             .background(RichObsidian)
             .statusBarsPadding()
-            .padding(top = 8.dp)
+            .padding(top = TopBarHeight + 4.dp)
     ) {
-        // Header
-        Text(
-            text = "Your Vault",
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
-        )
-
         // Segmented Control Row
         Row(
             modifier = Modifier
@@ -189,6 +181,7 @@ fun LibraryPage(
                         onLike = viewModel::toggleLike,
                         onClick = { onItemClick(currentList, index) },
                         onSubredditClick = onSubredditClick,
+                        onCommentClick = onCommentClick,
                         onRemoveVideo = viewModel::hidePost
                     )
                 }

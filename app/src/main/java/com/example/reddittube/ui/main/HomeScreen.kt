@@ -28,7 +28,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -40,7 +39,9 @@ import com.lean.reddittube.data.RedditError
 import com.lean.reddittube.data.RedditPost
 import com.lean.reddittube.theme.*
 import com.lean.reddittube.ui.main.components.CommentsBottomSheet
+import com.lean.reddittube.ui.main.components.SearchBottomSheet
 import com.lean.reddittube.ui.main.components.SectionLoadingIndicator
+import com.lean.reddittube.ui.main.components.SortBottomSheet
 import com.lean.reddittube.ui.main.components.ThumbnailImage
 import com.lean.reddittube.utils.formatDuration
 import com.lean.reddittube.utils.formatScore
@@ -54,8 +55,8 @@ private enum class RdTab(
 ) {
     EXPLORE("Explore", Icons.Outlined.Explore, Icons.Filled.Explore),
     SUBSCRIBED("Subs", Icons.Outlined.Subscriptions, Icons.Filled.Subscriptions),
-    SEARCH("Search", Icons.Outlined.Search, Icons.Filled.Search),
-    LIBRARY("Library", Icons.Outlined.VideoLibrary, Icons.Filled.VideoLibrary)
+    LIBRARY("Library", Icons.Outlined.VideoLibrary, Icons.Filled.VideoLibrary),
+    ABOUT("About", Icons.Outlined.Info, Icons.Filled.Info)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,10 +74,10 @@ fun HomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val horizontalPagerState = rememberPagerState(pageCount = { 4 })
 
-    var sortDropdownExpanded by remember { mutableStateOf(false) }
     var bottomBarVisible by remember { mutableStateOf(true) }
     var activeCommentPost by remember { mutableStateOf<RedditPost?>(null) }
-    var showAboutModal by remember { mutableStateOf(false) }
+    var showSearchSheet by remember { mutableStateOf(false) }
+    var showSortSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         if (exploreState is MainScreenUiState.Loading) viewModel.refreshExplore()
@@ -164,17 +165,7 @@ fun HomeScreen(
                     onScrollDirection = { bottomBarVisible = !it },
                     isLoadingMore = (subscribedState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
-                2 -> SearchPage(
-                    currentSubscribed = subscribedSubreddits,
-                    onSubscribeToggle = viewModel::toggleSubscription,
-                    onSubredditSelect = {
-                        viewModel.refreshExplore(it)
-                        coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
-                    },
-                    searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
-                    onSearchQuery = { viewModel.searchSubreddits(it) }
-                )
-                3 -> LibraryPage(
+                2 -> LibraryPage(
                     viewModel = viewModel,
                     onItemClick = { list, index ->
                         viewModel.openPlayer(list, index, "other")
@@ -184,12 +175,18 @@ fun HomeScreen(
                         viewModel.refreshExplore(sub)
                         coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
                     },
-                    onShowAbout = { showAboutModal = true }
+                    onCommentClick = { post -> activeCommentPost = post },
+                    onShowAbout = {
+                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(3) }
+                    }
+                )
+                3 -> AboutPage(
+                    modifier = Modifier.fillMaxSize()
                 )
             }
         }
 
-        // Top Header with brand mark + sort & refresh controls (when on explore/subs)
+        // Minimal Clean Top Header: Brand mark only (everything else accessible at thumb bottom)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -201,10 +198,8 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = HPad),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Brand logo
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -230,115 +225,137 @@ fun HomeScreen(
                     }
                     Text("Tube", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                 }
+            }
+        }
 
-                // Header Action Icons
+        // Bottom Controls & Floating Pill Dock Container
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp, start = 16.dp, end = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // One-Handed Quick Actions Ribbon (Explore / Subscribed feeds)
+            AnimatedVisibility(
+                visible = bottomBarVisible && (horizontalPagerState.currentPage == 0 || horizontalPagerState.currentPage == 1),
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(tween(160)),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(tween(160))
+            ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (horizontalPagerState.currentPage == 0 || horizontalPagerState.currentPage == 1) {
-                        // Sort Dropdown Button
-                        Box {
-                            IconButton(
-                                onClick = { sortDropdownExpanded = true },
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(SurfaceRaised)
-                                    .border(BorderStroke(1.dp, GlassBorder), shape = CircleShape)
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.Sort,
-                                    contentDescription = "Sort",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            DropdownMenu(
-                                expanded = sortDropdownExpanded,
-                                onDismissRequest = { sortDropdownExpanded = false },
-                                modifier = Modifier.background(SurfaceRaised)
-                            ) {
-                                SortOption.entries.forEach { option ->
-                                    val isSelected = viewModel.currentSort == option
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(
-                                                    option.label,
-                                                    color = if (isSelected) BrandRedLight else TextPrimary,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                                )
-                                                if (isSelected) {
-                                                    Icon(
-                                                        Icons.Default.Check,
-                                                        contentDescription = null,
-                                                        tint = BrandRedLight,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        onClick = {
-                                            viewModel.setSort(option)
-                                            sortDropdownExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        // Refresh button
-                        IconButton(
-                            onClick = { refreshCurrentFeed() },
+                    // Quick Search Bar Pill
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(19.dp))
+                            .clickable { showSearchSheet = true },
+                        shape = RoundedCornerShape(19.dp),
+                        color = SurfaceRaised.copy(alpha = 0.92f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(SurfaceRaised)
-                                .border(BorderStroke(1.dp, GlassBorder), shape = CircleShape)
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = "Refresh",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = BrandRedLight, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Search subreddits...", color = TextMuted, fontSize = 12.sp)
+                        }
+                    }
+
+                    // Sort Bottom Sheet Trigger Pill
+                    Surface(
+                        modifier = Modifier
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(19.dp))
+                            .clickable { showSortSheet = true },
+                        shape = RoundedCornerShape(19.dp),
+                        color = SurfaceRaised.copy(alpha = 0.92f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort", tint = BrandRedLight, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(viewModel.currentSort.label, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Refresh Button Pill
+                    Surface(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .clickable { refreshCurrentFeed() },
+                        shape = CircleShape,
+                        color = SurfaceRaised.copy(alpha = 0.92f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
             }
+
+            // Ultra-Smooth, Lightweight Floating Pill Navigation Dock
+            AnimatedVisibility(
+                visible = bottomBarVisible || horizontalPagerState.currentPage == 2 || horizontalPagerState.currentPage == 3,
+                enter = slideInVertically(initialOffsetY = { it * 2 }) + fadeIn(tween(180)),
+                exit = slideOutVertically(targetOffsetY = { it * 2 }) + fadeOut(tween(180))
+            ) {
+                FloatingPillNavBar(
+                    selectedTab = RdTab.entries[horizontalPagerState.currentPage],
+                    onTabSelected = { tab ->
+                        if (tab.ordinal == 1 && subscribedSubreddits.isEmpty()) {
+                            Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            if (tab.ordinal == 0 && viewModel.exploreQuery != defaultExploreQuery) {
+                                viewModel.refreshExplore(defaultExploreQuery)
+                            }
+                            if (tab.ordinal == 1 && viewModel.subscribedQuery != defaultSubscribedQuery) {
+                                viewModel.refreshSubscribed(defaultSubscribedQuery)
+                            }
+                            coroutineScope.launch { horizontalPagerState.animateScrollToPage(tab.ordinal) }
+                        }
+                    }
+                )
+            }
         }
 
-        // Ultra-Smooth, Lightweight Floating Pill Navigation Dock
-        AnimatedVisibility(
-            visible = bottomBarVisible || horizontalPagerState.currentPage == 2 || horizontalPagerState.currentPage == 3,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp, start = 20.dp, end = 20.dp),
-            enter = slideInVertically(initialOffsetY = { it * 2 }) + fadeIn(tween(180)),
-            exit = slideOutVertically(targetOffsetY = { it * 2 }) + fadeOut(tween(180))
-        ) {
-            FloatingPillNavBar(
-                selectedTab = RdTab.entries[horizontalPagerState.currentPage],
-                onTabSelected = { tab ->
-                    if (tab.ordinal == 1 && subscribedSubreddits.isEmpty()) {
-                        Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
-                    } else {
-                        if (tab.ordinal == 0 && viewModel.exploreQuery != defaultExploreQuery) {
-                            viewModel.refreshExplore(defaultExploreQuery)
-                        }
-                        if (tab.ordinal == 1 && viewModel.subscribedQuery != defaultSubscribedQuery) {
-                            viewModel.refreshSubscribed(defaultSubscribedQuery)
-                        }
-                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(tab.ordinal) }
-                    }
-                }
+        // Bottom Search Sheet
+        if (showSearchSheet) {
+            SearchBottomSheet(
+                currentSubscribed = subscribedSubreddits,
+                onSubscribeToggle = viewModel::toggleSubscription,
+                onSubredditSelect = { sub ->
+                    viewModel.refreshExplore(sub)
+                    coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
+                },
+                searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
+                onSearchQuery = { viewModel.searchSubreddits(it) },
+                onDismiss = { showSearchSheet = false }
+            )
+        }
+
+        // Bottom Sort Sheet
+        if (showSortSheet) {
+            SortBottomSheet(
+                currentSort = viewModel.currentSort,
+                onSortSelected = { viewModel.setSort(it) },
+                onDismiss = { showSortSheet = false }
             )
         }
 
@@ -349,23 +366,6 @@ fun HomeScreen(
                 viewModel = viewModel,
                 onDismiss = { activeCommentPost = null }
             )
-        }
-
-        // About & Guide Modal
-        if (showAboutModal) {
-            ModalBottomSheet(
-                onDismissRequest = { showAboutModal = false },
-                containerColor = SurfaceBase,
-                scrimColor = Scrim,
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                dragHandle = { BottomSheetDefaults.DragHandle(color = TextMuted) }
-            ) {
-                AboutPage(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.85f)
-                )
-            }
         }
     }
 }
@@ -631,7 +631,7 @@ private fun BrowseGrid(
                             .fillMaxSize()
                             .statusBarsPadding()
                             .padding(top = TopBarHeight, bottom = 8.dp),
-                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 72.dp),
+                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 120.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
@@ -998,7 +998,7 @@ private fun ErrorPage(
             Text("No Subscriptions", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Tap the search icon in the bottom navigation to discover and subscribe to subreddits.",
+                "Tap the search bar in the bottom controls to discover and subscribe to subreddits.",
                 color = Color.LightGray,
                 fontSize = 14.sp,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
