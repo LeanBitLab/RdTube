@@ -63,14 +63,14 @@ fun SearchPage(
     onSubscribeToggle: (String) -> Unit,
     onSubredditSelect: (String) -> Unit,
     searchResults: List<String>,
-    onSearchQuery: (String) -> Unit,
+    onSearchQuery: (String, Boolean) -> Unit,
     onLoadMoreSubreddits: () -> Unit = {},
     isSubredditSearchingMore: Boolean = false,
     videoSearchResults: List<RedditPost>,
     isVideoSearching: Boolean,
     onLoadMoreVideos: () -> Unit = {},
     isVideoSearchingMore: Boolean = false,
-    onVideoSearchQuery: (String) -> Unit,
+    onVideoSearchQuery: (String, Boolean) -> Unit,
     onVideoClick: (List<RedditPost>, Int) -> Unit,
     likedIds: Set<String> = emptySet(),
     onLike: (RedditPost) -> Unit = {},
@@ -94,9 +94,9 @@ fun SearchPage(
     LaunchedEffect(searchQuery, selectedTab) {
         if (searchQuery.isNotBlank()) {
             if (selectedTab == SearchTab.SUBREDDITS) {
-                onSearchQuery(searchQuery)
+                onSearchQuery(searchQuery, false)
             } else {
-                onVideoSearchQuery(searchQuery)
+                onVideoSearchQuery(searchQuery, false)
             }
         }
     }
@@ -405,7 +405,7 @@ fun SearchPage(
                                                 Surface(
                                                     onClick = {
                                                         searchQuery = tag
-                                                        onVideoSearchQuery(tag)
+                                                        onVideoSearchQuery(tag, true)
                                                         saveSearchHistory(tag)
                                                     },
                                                     shape = RoundedCornerShape(12.dp),
@@ -606,11 +606,6 @@ fun SearchPage(
                     value = searchQuery,
                     onValueChange = {
                         searchQuery = it
-                        if (selectedTab == SearchTab.SUBREDDITS) {
-                            onSearchQuery(it)
-                        } else {
-                            onVideoSearchQuery(it)
-                        }
                     },
                     placeholder = {
                         Text(
@@ -631,7 +626,7 @@ fun SearchPage(
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = {
                                 searchQuery = ""
-                                if (selectedTab == SearchTab.SUBREDDITS) onSearchQuery("") else onVideoSearchQuery("")
+                                if (selectedTab == SearchTab.SUBREDDITS) onSearchQuery("", true) else onVideoSearchQuery("", true)
                             }) {
                                 Icon(Icons.Default.Close, contentDescription = "Clear", tint = TextSecondary, modifier = Modifier.size(16.dp))
                             }
@@ -648,9 +643,9 @@ fun SearchPage(
                             if (cleanQuery.isNotBlank()) {
                                 saveSearchHistory(cleanQuery)
                                 if (selectedTab == SearchTab.SUBREDDITS) {
-                                    onSearchQuery(cleanQuery)
+                                    onSearchQuery(cleanQuery, true)
                                 } else {
-                                    onVideoSearchQuery(cleanQuery)
+                                    onVideoSearchQuery(cleanQuery, true)
                                 }
                             }
                         }

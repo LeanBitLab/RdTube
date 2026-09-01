@@ -245,12 +245,15 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         var finalAfter: String? = null
         try {
             for (page in 0 until 2) {
-                val url = "https://oauth.reddit.com/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&type=link&sort=$sort&limit=50&raw_json=1&include_over_18=on" +
+                val url = "https://oauth.reddit.com/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&type=link&sort=$sort&limit=100&raw_json=1&include_over_18=on" +
                     (if (currentAfter != null) "&after=$currentAfter" else "")
                 val json = performRequest(url, token, timeout = 10000) ?: break
                 val data = json.optJSONObject("data") ?: break
-                currentAfter = if (data.has("after") && !data.isNull("after")) data.optString("after").ifEmpty { null } else null
-                finalAfter = currentAfter
+                val newAfter = if (data.has("after") && !data.isNull("after")) data.optString("after").ifEmpty { null } else null
+                currentAfter = newAfter
+                if (newAfter != null) {
+                    finalAfter = newAfter
+                }
                 val children = data.optJSONArray("children") ?: break
                 for (i in 0 until children.length()) {
                     val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
@@ -260,7 +263,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                         }
                     }
                 }
-                if (results.size >= 15 || currentAfter == null) break
+                if (results.size >= 20 || currentAfter == null) break
             }
         } catch (e: RedditError.RateLimited) {
             Log.w("RedditRepository", "video search rate limited: ${e.message}")

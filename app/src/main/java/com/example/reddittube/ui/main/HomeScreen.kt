@@ -188,14 +188,14 @@ fun HomeScreen(
                         coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
                     },
                     searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
-                    onSearchQuery = { viewModel.searchSubreddits(it) },
+                    onSearchQuery = { query, immediate -> viewModel.searchSubreddits(query, immediate) },
                     onLoadMoreSubreddits = { viewModel.loadMoreSubreddits() },
                     isSubredditSearchingMore = viewModel.isSubredditSearchingMore.collectAsStateWithLifecycle().value,
                     videoSearchResults = viewModel.videoSearchResults.collectAsStateWithLifecycle().value,
                     isVideoSearching = viewModel.isVideoSearching.collectAsStateWithLifecycle().value,
                     onLoadMoreVideos = { viewModel.loadMoreVideos() },
                     isVideoSearchingMore = viewModel.isVideoSearchingMore.collectAsStateWithLifecycle().value,
-                    onVideoSearchQuery = { viewModel.searchVideos(it) },
+                    onVideoSearchQuery = { query, immediate -> viewModel.searchVideos(query, immediate = immediate) },
                     onVideoClick = { list, index ->
                         viewModel.openPlayer(list, index, "search")
                         onItemClick()
