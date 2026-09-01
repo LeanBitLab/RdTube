@@ -35,7 +35,8 @@ data class RedditPost(
     val hlsUrl: String,
     val thumbnailUrl: String = "",
     val numComments: Int = 0,
-    val duration: Int = 0
+    val duration: Int = 0,
+    val over18: Boolean = false
 )
 
 @androidx.compose.runtime.Immutable
@@ -384,7 +385,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             hlsUrl = hlsUrl,
             thumbnailUrl = thumb,
             numComments = childData.optInt("num_comments"),
-            duration = duration
+            duration = duration,
+            over18 = childData.optBoolean("over_18", false)
         )
     }
 

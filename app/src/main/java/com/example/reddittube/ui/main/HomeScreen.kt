@@ -774,24 +774,46 @@ fun VideoCard(
                 ) {
                     ThumbnailImage(url = post.thumbnailUrl, contentDescription = post.title, modifier = Modifier.fillMaxSize())
 
-                    // Glassmorphic Video Duration Badge (Bottom-Right)
+                    // Bottom-Right Overlays: 18+ Micro Badge & Duration
                     val durationStr = formatDuration(post.duration)
-                    if (durationStr.isNotEmpty()) {
-                        Surface(
+                    if (post.over18 || durationStr.isNotEmpty()) {
+                        Row(
                             modifier = Modifier
                                 .padding(10.dp)
                                 .align(Alignment.BottomEnd),
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color.Black.copy(alpha = 0.80f),
-                            border = BorderStroke(1.dp, GlassBorder)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = durationStr,
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            if (post.over18) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.Black.copy(alpha = 0.85f),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+                                ) {
+                                    Text(
+                                        text = "18+",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            if (durationStr.isNotEmpty()) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color.Black.copy(alpha = 0.80f),
+                                    border = BorderStroke(1.dp, GlassBorder)
+                                ) {
+                                    Text(
+                                        text = durationStr,
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 

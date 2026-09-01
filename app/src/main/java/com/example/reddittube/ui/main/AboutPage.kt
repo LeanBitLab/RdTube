@@ -16,11 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,13 +26,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lean.reddittube.ui.main.components.AppUpdateBottomSheet
+import com.lean.reddittube.utils.GitHubRelease
+import com.lean.reddittube.utils.UpdateChecker
+import kotlinx.coroutines.launch
 
 @Composable
 fun AboutPage(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var showClearDialog by remember { mutableStateOf(false) }
+
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var availableRelease by remember { mutableStateOf<GitHubRelease?>(null) }
+    var downloadProgress by remember { mutableStateOf<Float?>(null) }
 
     if (showClearDialog) {
         AlertDialog(
@@ -62,6 +67,32 @@ fun AboutPage(
             titleContentColor = TextPrimary,
             textContentColor = TextSecondary,
             shape = RoundedCornerShape(18.dp)
+        )
+    }
+
+    if (availableRelease != null) {
+        AppUpdateBottomSheet(
+            release = availableRelease!!,
+            onDismiss = { availableRelease = null },
+            downloadProgress = downloadProgress,
+            onInstallClick = { apkUrl ->
+                coroutineScope.launch {
+                    downloadProgress = 0f
+                    UpdateChecker.downloadAndInstallApk(
+                        context = context,
+                        apkUrl = apkUrl,
+                        onProgress = { progress -> downloadProgress = progress },
+                        onComplete = { success, error ->
+                            downloadProgress = null
+                            if (success) {
+                                availableRelease = null
+                            } else {
+                                Toast.makeText(context, "Update failed: $error", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    )
+                }
+            }
         )
     }
 
@@ -98,7 +129,71 @@ fun AboutPage(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text("RdTube", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text("v${com.lean.reddittube.BuildConfig.VERSION_NAME} • Gestures & Quick Guide", color = TextSecondary, fontSize = 11.sp)
+                    Text("v${com.lean.reddittube.BuildConfig.VERSION_NAME} • Unrestricted Power-User Edition", color = TextSecondary, fontSize = 11.sp)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Check for Updates Bar
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .clickable {
+                    if (!isCheckingUpdate) {
+                        isCheckingUpdate = true
+                        coroutineScope.launch {
+                            val release = UpdateChecker.checkForUpdate(com.lean.reddittube.BuildConfig.VERSION_NAME)
+                            isCheckingUpdate = false
+                            if (release != null) {
+                                availableRelease = release
+                            } else {
+                                Toast.makeText(context, "RdTube is up to date! (v${com.lean.reddittube.BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                },
+            shape = RoundedCornerShape(14.dp),
+            color = SurfaceRaised,
+            border = BorderStroke(1.dp, GlassBorder)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.SystemUpdate,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = if (isCheckingUpdate) "Checking for updates..." else "Check for Updates (OTA)",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (isCheckingUpdate) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }
@@ -139,8 +234,9 @@ fun AboutPage(
                 Text("Toolbar Functions", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
 
+                CompactButtonItem(Icons.Default.Repeat, "Loop Video", "Single-video continuous replay toggle")
                 CompactButtonItem(Icons.Default.SkipNext, "Auto-Next", "Auto-play next clip on end")
-                CompactButtonItem(Icons.Default.Download, "Save Video", "0-download export to Downloads")
+                CompactButtonItem(Icons.Default.Download, "Save Video", "Direct export to Downloads")
                 CompactButtonItem(Icons.Default.Lock, "Rotation Lock", "Toggle sensor / portrait orientation")
                 CompactButtonItem(Icons.Default.Settings, "Quality & Speed", "Adjust resolution & playback speed")
                 CompactButtonItem(Icons.AutoMirrored.Filled.VolumeUp, "Mute", "Quick audio mute / unmute")
