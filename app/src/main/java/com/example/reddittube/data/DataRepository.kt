@@ -16,6 +16,7 @@ import java.net.URL
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
@@ -333,7 +334,6 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         feedMap(feed).putAll(map)
     }
 
-    // ponytail: fast-path parser — extracts RedditPost (with thumbnail + comment count) supporting native video, secure_media, crossposts, and mp4 variants
     private fun parseRedditPost(childData: JSONObject): RedditPost? {
         val targetData = childData.optJSONArray("crosspost_parent_list")?.optJSONObject(0) ?: childData
 
@@ -341,6 +341,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val domain = childData.optString("domain", "")
         val url = childData.optString("url", "")
         val postHint = childData.optString("post_hint", "")
+
+        Log.i("RedditRepository", "Post debug: title='${childData.optString("title").take(20)}', domain='$domain', postHint='$postHint', url='$url', isVideo=$isVideo, hasMedia=${childData.has("media")}, hasSecureMedia=${childData.has("secure_media")}, hasPreview=${childData.has("preview")}")
 
         val isVideoCandidate = isVideo ||
             postHint == "hosted:video" || postHint == "rich:video" ||
@@ -455,6 +457,30 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             }
         }
 
+        // Fallback: If anonymous OAuth returned 0 videos (e.g. anonymous OAuth restrictions on NSFW subreddits), try public JSON endpoint
+        if (list.isEmpty()) {
+            try {
+                val publicUrl = "https://www.reddit.com/r/$subreddit/$sort.json?limit=50&raw_json=1&include_over_18=on"
+                val rawJson = performRawPublicRequest(publicUrl)
+                if (rawJson != null) {
+                    val json = JSONObject(rawJson)
+                    val children = json.optJSONObject("data")?.optJSONArray("children")
+                    if (children != null) {
+                        for (i in 0 until children.length()) {
+                            val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
+                            parseRedditPost(childData)?.let { post ->
+                                if (list.none { it.id == post.id }) {
+                                    list.add(post)
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("RedditRepository", "r/$subreddit public fallback error: ${e.message}")
+            }
+        }
+
         // ponytail: server-side video filtering for text-heavy subreddits
         if (list.size < 8) {
             try {
@@ -479,5 +505,28 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         feedMap(feed)[subreddit] = after
         Log.i("RedditRepository", "r/$subreddit parsed ${list.size} videos, after=$after")
         return list
+    }
+
+    private suspend fun performRawPublicRequest(urlStr: String, timeout: Int = 12000): String? = withContext(Dispatchers.IO) {
+        try {
+            val conn = URL(urlStr).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
+            conn.setRequestProperty("Accept", "application/json")
+            conn.connectTimeout = timeout
+            conn.readTimeout = timeout
+
+            if (conn.responseCode == 200) {
+                val stream = if ("gzip".equals(conn.contentEncoding, ignoreCase = true)) {
+                    java.util.zip.GZIPInputStream(conn.inputStream)
+                } else {
+                    conn.inputStream
+                }
+                return@withContext stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            }
+        } catch (e: Exception) {
+            Log.w("RedditRepository", "performRawPublicRequest failed for $urlStr: ${e.message}")
+        }
+        null
     }
 }
