@@ -24,6 +24,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lean.reddittube.theme.*
 
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+
 private val POPULAR_SUBREDDITS = listOf(
     "videos", "tiktokcringe", "unexpected", "youtubehaiku",
     "damnthatsinteresting", "nextfuckinglevel", "idiotsincars",
@@ -41,8 +49,10 @@ fun SearchPage(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     var recentSearches by remember {
         mutableStateOf(
@@ -50,18 +60,36 @@ fun SearchPage(
         )
     }
 
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank()) {
+            onSearchQuery(searchQuery)
+        }
+    }
+
     val saveSearchHistory: (String) -> Unit = { query ->
-        if (query.isNotBlank()) {
-            val updated = (listOf(query.lowercase()) + recentSearches.filterNot { it.equals(query, ignoreCase = true) }).take(10)
+        val clean = query.trim().lowercase().removePrefix("r/")
+        if (clean.isNotBlank()) {
+            val updated = (listOf(clean) + recentSearches.filterNot { it.equals(clean, ignoreCase = true) }).take(10)
             recentSearches = updated
             sharedPreferences.edit().putStringSet("search_history", updated.toSet()).apply()
         }
     }
 
     val handleSelectSubreddit: (String) -> Unit = { sub ->
-        saveSearchHistory(sub)
-        onSubredditSelect(sub)
+        val clean = sub.trim().lowercase().removePrefix("r/")
+        saveSearchHistory(clean)
+        keyboardController?.hide()
+        focusManager.clearFocus()
+        onSubredditSelect(clean)
     }
+
+    val cleanQuery = searchQuery.trim().lowercase().removePrefix("r/")
+    val displayList = if (cleanQuery.isNotBlank()) {
+        (listOf(cleanQuery) + searchResults).filter { it.isNotBlank() }.distinct()
+    } else {
+        POPULAR_SUBREDDITS
+    }
+    val headerText = if (cleanQuery.isNotBlank()) "Search Results" else "Trending & Recommended Subreddits"
 
     Box(
         modifier = modifier
@@ -70,17 +98,13 @@ fun SearchPage(
             .statusBarsPadding()
             .padding(top = TopBarHeight + 4.dp)
     ) {
-        // Scrollable Results & Recommendations
-        val displayList = if (searchQuery.isNotBlank()) searchResults else POPULAR_SUBREDDITS
-        val headerText = if (searchQuery.isNotBlank()) "Search Results" else "Trending & Recommended Subreddits"
-
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 145.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Recent Searches Chips (When query is empty)
-            if (searchQuery.isBlank() && recentSearches.isNotEmpty()) {
+            if (cleanQuery.isBlank() && recentSearches.isNotEmpty()) {
                 item {
                     Row(
                         modifier = Modifier
@@ -134,16 +158,18 @@ fun SearchPage(
                 Text(headerText, color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
             }
 
-            items(displayList.distinct(), key = { sub -> sub }) { sub ->
+            items(displayList, key = { sub -> sub }) { sub ->
                 val isSubbed = currentSubscribed.contains(sub.lowercase())
+                val isExactTyped = cleanQuery.isNotBlank() && sub.equals(cleanQuery, ignoreCase = true)
+
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
                         .clickable { handleSelectSubreddit(sub) },
                     shape = RoundedCornerShape(14.dp),
-                    color = SurfaceRaised,
-                    border = BorderStroke(1.dp, GlassBorder)
+                    color = if (isExactTyped) SurfaceRaised.copy(alpha = 0.90f) else SurfaceRaised,
+                    border = BorderStroke(1.dp, if (isExactTyped) Color.White.copy(alpha = 0.35f) else GlassBorder)
                 ) {
                     Row(
                         modifier = Modifier
@@ -160,12 +186,12 @@ fun SearchPage(
                                 modifier = Modifier
                                     .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.08f)),
+                                    .background(if (isExactTyped) Color.White else Color.White.copy(alpha = 0.08f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = sub.take(1).uppercase(),
-                                    color = Color.White,
+                                    color = if (isExactTyped) Color.Black else Color.White,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -173,7 +199,11 @@ fun SearchPage(
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text("r/$sub", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Text("Tap to view video feed", color = TextMuted, fontSize = 11.sp)
+                                Text(
+                                    text = if (isExactTyped) "Browse r/$sub feed" else "Tap to view video feed",
+                                    color = if (isExactTyped) Color.White.copy(alpha = 0.8f) else TextMuted,
+                                    fontSize = 11.sp
+                                )
                             }
                         }
 
@@ -230,6 +260,19 @@ fun SearchPage(
                             }
                         }
                     },
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Search,
+                        keyboardType = KeyboardType.Text
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            if (cleanQuery.isNotBlank()) {
+                                onSearchQuery(cleanQuery)
+                            }
+                        }
+                    ),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,

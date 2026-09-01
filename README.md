@@ -61,19 +61,20 @@ Browse anonymously without creating accounts or registering API keys, or connect
 - **Dedicated Search Page**: Quick search subreddits with live suggestions, trending lists, and local search history.
 
 ### 🔒 Privacy, Security & Local Persistence
-- **100% Anonymous by Default**: Zero login or Reddit account needed for standard feeds.
-- **Pure Local Storage**: Subscribed subreddits, watch history, and liked videos are saved encrypted on your device and never uploaded to remote tracking servers.
+- **100% Anonymous & Zero Tracking**: No account required to browse standard feeds.
+- **100% Strictly Local Storage**: Liked videos, watch history, and subscriptions are stored locally in private device storage (`SharedPreferences`). They are **never** synced, uploaded, or sent to Reddit's online servers or any cloud database.
 - **Pure OLED Pitch Black Aesthetics**: High-contrast monochromatic UI built for battery efficiency on AMOLED and OLED panels.
 
 ---
 
 ## 🔐 Authentication & Security
 
-### Official OAuth 2.0 Authorization
+### Official OAuth 2.0 Authorization (Read-Only)
 Reddit requires user account authorization for unmoderated or age-restricted media streams. RdTube provides a seamless 1-tap authorization flow:
 - **Official Read-Only Scopes**: Uses Reddit's official OAuth 2.0 endpoint with read-only permissions (`identity`, `read`, `mysubreddits`).
+- **Zero Account Syncing**: Logging in is strictly for token authorization to fetch mature/unrestricted media from Reddit API. It never alters, overwrites, or syncs with your online Reddit upvotes, saved items, or history.
 - **Zero Password Exposure**: Authentication happens entirely inside your browser directly on Reddit servers; RdTube never sees or stores your password.
-- **Zero Account Ban Risk**: Third-party client usage is fully supported by Reddit's developer API terms.
+- **Zero Account Ban Risk**: Third-party client usage is standard and permitted under Reddit's developer API terms.
 
 ---
 
