@@ -328,7 +328,12 @@ fun HomeScreen(
                             if (tab.ordinal == 1 && viewModel.subscribedQuery != defaultSubscribedQuery) {
                                 viewModel.refreshSubscribed(defaultSubscribedQuery)
                             }
-                            coroutineScope.launch { horizontalPagerState.animateScrollToPage(tab.ordinal) }
+                            coroutineScope.launch {
+                                horizontalPagerState.animateScrollToPage(
+                                    page = tab.ordinal,
+                                    animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+                                )
+                            }
                         }
                     }
                 )
@@ -380,8 +385,8 @@ private fun FloatingPillNavBar(
     val haptic = LocalHapticFeedback.current
 
     val springSpec = spring<androidx.compose.ui.unit.Dp>(
-        stiffness = 240f,
-        dampingRatio = 0.88f
+        stiffness = 850f,
+        dampingRatio = 0.85f
     )
 
     Surface(
@@ -783,30 +788,6 @@ fun VideoCard(
                         .background(Color.Black)
                 ) {
                     ThumbnailImage(url = post.thumbnailUrl, contentDescription = post.title, modifier = Modifier.fillMaxSize())
-                    
-                    // Glassmorphic Subreddit Badge (Top-Left)
-                    if (post.subreddit.isNotEmpty()) {
-                        Surface(
-                            modifier = Modifier
-                                .padding(10.dp)
-                                .align(Alignment.TopStart)
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable { onSubredditClick(post.subreddit) },
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color.Black.copy(alpha = 0.70f),
-                            border = BorderStroke(1.dp, GlassBorder)
-                        ) {
-                            Text(
-                                text = "r/${post.subreddit}",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
 
                     // Glassmorphic Video Duration Badge (Bottom-Right)
                     val durationStr = formatDuration(post.duration)
@@ -918,14 +899,38 @@ fun VideoCard(
                             }
                         }
 
-                        if (post.author.isNotEmpty()) {
-                            Text(
-                                text = "u/${post.author}",
-                                color = TextMuted,
-                                fontSize = 11.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        // Subreddit & Author row
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (post.subreddit.isNotEmpty()) {
+                                Text(
+                                    text = "r/${post.subreddit}",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .clickable { onSubredditClick(post.subreddit) },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "•",
+                                    color = TextMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            if (post.author.isNotEmpty()) {
+                                Text(
+                                    text = "u/${post.author}",
+                                    color = TextMuted,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }

@@ -543,6 +543,8 @@ Box(
 
                             val pointerId = down.id
                             var previousY = down.position.y
+                            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                            var accumulatedVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxVol
 
                             while (true) {
                                 val event = awaitPointerEvent(pass = PointerEventPass.Initial)
@@ -555,17 +557,16 @@ Box(
                                 previousY = change.position.y
                                 change.consume()
 
-                                val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                val curPercent = curVol.toFloat() / maxVol.coerceAtLeast(1)
                                 val sensitivity = 0.003f
-                                val nextPercent = (curPercent - dragAmount * sensitivity).coerceIn(0f, 1f)
-                                val targetVol = kotlin.math.round(nextPercent * maxVol).toInt().coerceIn(0, maxVol)
+                                accumulatedVolume = (accumulatedVolume - dragAmount * sensitivity).coerceIn(0f, 1f)
+                                volumePercentage = accumulatedVolume
 
-                                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
-                                val updatedVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                volumePercentage = updatedVol.toFloat() / maxVol.coerceAtLeast(1)
-                                onMuteChange(updatedVol == 0)
+                                val targetVol = kotlin.math.round(accumulatedVolume * maxVol).toInt().coerceIn(0, maxVol)
+                                val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                if (targetVol != curVol) {
+                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
+                                    onMuteChange(targetVol == 0)
+                                }
 
                                 hudJob?.cancel()
                                 hudJob = coroutineScope.launch {
