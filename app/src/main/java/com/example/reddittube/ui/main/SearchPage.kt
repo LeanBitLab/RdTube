@@ -197,13 +197,6 @@ fun SearchPage(
                         }
                     }
 
-                    LaunchedEffect(subListState.isScrollInProgress) {
-                        if (subListState.isScrollInProgress) {
-                            keyboardController?.hide()
-                            focusManager.clearFocus()
-                        }
-                    }
-
                     LazyColumn(
                         state = subListState,
                         modifier = Modifier
@@ -508,13 +501,6 @@ fun SearchPage(
                             }
                         }
 
-                        LaunchedEffect(videoGridState.isScrollInProgress) {
-                            if (videoGridState.isScrollInProgress) {
-                                keyboardController?.hide()
-                                focusManager.clearFocus()
-                            }
-                        }
-
                         LazyVerticalGrid(
                             state = videoGridState,
                             columns = GridCells.Fixed(1),
@@ -606,7 +592,6 @@ fun SearchPage(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .imePadding()
                 .padding(bottom = 76.dp, start = 16.dp, end = 16.dp)
                 .fillMaxWidth()
         ) {
