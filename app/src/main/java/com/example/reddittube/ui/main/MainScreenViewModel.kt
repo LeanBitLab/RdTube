@@ -29,10 +29,15 @@ sealed interface MainScreenUiState {
 }
 
 // ponytail: sort options for Reddit feed
-enum class SortOption(val value: String, val label: String) {
-    HOT("hot", "Hot"),
-    NEW("new", "New"),
-    TOP("top", "Top")
+enum class SortOption(val value: String, val label: String, val description: String) {
+    HOT("hot", "Hot", "Trending videos right now"),
+    NEW("new", "New", "Latest uploaded video clips"),
+    RISING("rising", "Rising", "Rapidly gaining popularity"),
+    TOP_DAY("top?t=day", "Top (Today)", "Highest voted in the past 24 hours"),
+    TOP_WEEK("top?t=week", "Top (This Week)", "Top rated videos this week"),
+    TOP_MONTH("top?t=month", "Top (This Month)", "Top rated videos this month"),
+    TOP_YEAR("top?t=year", "Top (This Year)", "Best videos of the entire year"),
+    TOP_ALL("top?t=all", "Top (All Time)", "Greatest all-time highest voted videos")
 }
 
 class MainScreenViewModel(private val dataRepository: DataRepository) : ViewModel() {

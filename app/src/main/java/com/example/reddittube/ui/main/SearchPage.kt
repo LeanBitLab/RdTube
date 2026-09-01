@@ -459,7 +459,7 @@ fun SearchPage(
             }
         }
 
-        // Bottom-Aligned Search Bar (Positioned above floating dock)
+        // Bottom-Aligned Distinctive Search Bar (Positioned above floating dock)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -470,11 +470,11 @@ fun SearchPage(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = SurfaceRaised.copy(alpha = 0.95f),
-                border = BorderStroke(1.dp, GlassBorder),
-                shadowElevation = 8.dp
+                    .height(54.dp),
+                shape = RoundedCornerShape(27.dp),
+                color = Color(0xFF16161C),
+                border = BorderStroke(1.5.dp, Color(0xFF383848)),
+                shadowElevation = 10.dp
             ) {
                 TextField(
                     value = searchQuery,
@@ -490,11 +490,16 @@ fun SearchPage(
                         Text(
                             text = if (selectedTab == SearchTab.SUBREDDITS) "Search subreddits..." else "Search videos across Reddit...",
                             color = TextMuted,
-                            fontSize = 13.sp
+                            fontSize = 13.5.sp
                         )
                     },
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontSize = 14.sp,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Medium
+                    ),
                     leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White, modifier = Modifier.size(19.dp))
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {

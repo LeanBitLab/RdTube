@@ -271,7 +271,9 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     for (page in 0 until 5) {
                         if (subPosts.size >= 15) break
                         try {
-                            val urlStr = "https://oauth.reddit.com/r/$sub/$sort.json?limit=25&raw_json=1&include_over_18=on" +
+                            val sortPath = if (sort.contains("?")) sort.substringBefore("?") else sort
+                            val sortExtra = if (sort.contains("?")) "&" + sort.substringAfter("?") else ""
+                            val urlStr = "https://oauth.reddit.com/r/$sub/$sortPath.json?limit=25&raw_json=1&include_over_18=on$sortExtra" +
                                 (if (after.isNotEmpty()) "&after=$after" else "")
                             val json = performRequest(urlStr, token) ?: break
                             val data = json.optJSONObject("data") ?: break
@@ -454,10 +456,12 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     private suspend fun performOAuthRequest(subreddit: String, token: String, sort: String = "hot", feed: String = "explore"): List<RedditPost> {
         val list = mutableListOf<RedditPost>()
         var after: String? = null
+        val sortPath = if (sort.contains("?")) sort.substringBefore("?") else sort
+        val sortExtra = if (sort.contains("?")) "&" + sort.substringAfter("?") else ""
         for (page in 0 until 3) {
             if (list.size >= 20) break
             try {
-                val urlStr = "https://oauth.reddit.com/r/$subreddit/$sort.json?limit=50&raw_json=1&include_over_18=on" +
+                val urlStr = "https://oauth.reddit.com/r/$subreddit/$sortPath.json?limit=50&raw_json=1&include_over_18=on$sortExtra" +
                     (if (after != null) "&after=$after" else "")
                 // ponytail: throttled request
                 val json = performRequest(urlStr, token) ?: break
@@ -484,10 +488,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             }
         }
 
-        // Fallback: If anonymous OAuth returned 0 videos (e.g. anonymous OAuth restrictions on NSFW subreddits), try public JSON endpoint
+        // Fallback: If anonymous OAuth returned 0 videos, try public JSON endpoint
         if (list.isEmpty()) {
             try {
-                val publicUrl = "https://www.reddit.com/r/$subreddit/$sort.json?limit=50&raw_json=1&include_over_18=on"
+                val publicUrl = "https://www.reddit.com/r/$subreddit/$sortPath.json?limit=50&raw_json=1&include_over_18=on$sortExtra"
                 val rawJson = performRawPublicRequest(publicUrl)
                 if (rawJson != null) {
                     val json = JSONObject(rawJson)

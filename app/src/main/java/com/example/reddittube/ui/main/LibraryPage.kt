@@ -33,9 +33,9 @@ import com.lean.reddittube.data.RedditPost
 import com.lean.reddittube.theme.*
 
 enum class LibrarySegment(val title: String, val icon: ImageVector) {
-    LIKED("Liked", Icons.Outlined.ThumbUp),
+    SUBSCRIPTIONS("Subreddits", Icons.Outlined.Subscriptions),
     HISTORY("History", Icons.Outlined.History),
-    SUBSCRIPTIONS("Subreddits", Icons.Outlined.Subscriptions)
+    LIKED("Liked", Icons.Outlined.ThumbUp)
 }
 
 @Composable
@@ -47,7 +47,7 @@ fun LibraryPage(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var selectedSegment by remember { mutableStateOf(LibrarySegment.LIKED) }
+    var selectedSegment by remember { mutableStateOf(LibrarySegment.SUBSCRIPTIONS) }
     val likedIds by viewModel.likedIdsFlow.collectAsStateWithLifecycle()
     val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
 
@@ -63,45 +63,50 @@ fun LibraryPage(
             .fillMaxSize()
             .background(Color.Black)
             .statusBarsPadding()
-            .padding(top = TopBarHeight + 4.dp)
+            .padding(top = TopBarHeight + 2.dp)
     ) {
-        // Segmented Control Row (Crisp Monochrome)
-        Row(
+        // Segmented Control (Enclosed Glass Pill Matching SearchPage)
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = SurfaceBar,
+            border = BorderStroke(1.dp, GlassBorder),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
-            LibrarySegment.entries.forEach { segment ->
-                val isSelected = segment == selectedSegment
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .clickable { selectedSegment = segment },
-                    shape = RoundedCornerShape(20.dp),
-                    color = if (isSelected) Color.White else SurfaceRaised,
-                    border = BorderStroke(1.dp, if (isSelected) Color.White else GlassBorder)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                LibrarySegment.entries.forEach { segment ->
+                    val isSelected = segment == selectedSegment
+                    Surface(
+                        onClick = { selectedSegment = segment },
+                        shape = RoundedCornerShape(17.dp),
+                        color = if (isSelected) Color.White else Color.Transparent,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(
-                            segment.icon,
-                            contentDescription = segment.title,
-                            tint = if (isSelected) Color.Black else TextSecondary,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = segment.title,
-                            color = if (isSelected) Color.Black else TextSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        )
+                        Row(
+                            modifier = Modifier.padding(vertical = 7.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                segment.icon,
+                                contentDescription = segment.title,
+                                tint = if (isSelected) Color.Black else TextSecondary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = segment.title,
+                                color = if (isSelected) Color.Black else TextSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }

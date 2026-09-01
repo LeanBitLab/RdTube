@@ -38,13 +38,12 @@ import com.lean.reddittube.utils.UpdateChecker
 import kotlinx.coroutines.launch
 
 private val CURRENT_VERSION_CHANGELOG = """
-• Pure OLED Pitch Black & Crisp Monochrome aesthetic
-• Unrestricted Power-User Feed with sleek glass micro-badges
-• High-Speed Floating Pill Navigation Dock (850f snappy spring physics)
-• Seamless Single-Video Loop toggle directly in the playback bar
-• Ultra-smooth continuous volume & brightness vertical edge sliders
-• Native GitHub Releases In-App OTA Update System
-• Two-finger downward swipe feed refresh
+• Segmented Search: Search Subreddits & Reddit-wide video clips with direct playback
+• Expanded Feed Sorting: Hot, New, Rising, Top (Today, Week, Month, Year, All-Time)
+• Distinctive high-contrast search input with fixed descender alignment
+• Reordered Library Tabs (Subreddits, History, Liked) with enclosed pill styling
+• New Content & Video preferences: Thumbnail Quality, Prefetch Depth, Default Audio & Haptics
+• 100% Community Funded & Strictly Local Storage (Zero tracking/syncing)
 """.trimIndent()
 
 @Composable
@@ -73,6 +72,11 @@ fun AboutPage(
     var isNsfwUnrestricted by remember { mutableStateOf(sharedPreferences.getBoolean("pref_unrestricted_nsfw", true)) }
     var autoNextEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("auto_next", false)) }
     var isLoopEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("loop_video", true)) }
+    var thumbnailQuality by remember { mutableStateOf(sharedPreferences.getString("pref_thumbnail_quality", "High") ?: "High") }
+    var prefetchDepth by remember { mutableStateOf(sharedPreferences.getString("pref_prefetch_depth", "Balanced (10)") ?: "Balanced (10)") }
+    var defaultAudioUnmuted by remember { mutableStateOf(sharedPreferences.getBoolean("pref_default_unmuted", true)) }
+    var hapticFeedbackEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("pref_haptic_feedback", true)) }
+    var autoCheckUpdates by remember { mutableStateOf(sharedPreferences.getBoolean("pref_auto_check_updates", true)) }
 
     if (showClearDialog) {
         AlertDialog(
@@ -237,6 +241,18 @@ fun AboutPage(
                         Text("Check for Updates (OTA)", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+
+                HorizontalDivider(color = BorderSubtle)
+
+                PreferenceSwitchRow(
+                    title = "Auto-Check for Updates",
+                    subtitle = "Notify automatically when a new GitHub release is available",
+                    checked = autoCheckUpdates,
+                    onCheckedChange = { checked ->
+                        autoCheckUpdates = checked
+                        sharedPreferences.edit().putBoolean("pref_auto_check_updates", checked).apply()
+                    }
+                )
             }
         }
 
@@ -329,6 +345,124 @@ fun AboutPage(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Thumbnail Quality Setting
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("Thumbnail Resolution", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Quality of video preview thumbnails in feeds and search", color = TextMuted, fontSize = 11.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = SurfaceBar,
+                        border = BorderStroke(1.dp, GlassBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf("High", "Balanced", "Data Saver").forEach { q ->
+                                val isSelected = thumbnailQuality == q
+                                Surface(
+                                    onClick = {
+                                        thumbnailQuality = q
+                                        sharedPreferences.edit().putString("pref_thumbnail_quality", q).apply()
+                                    },
+                                    shape = RoundedCornerShape(11.dp),
+                                    color = if (isSelected) Color.White else Color.Transparent,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = q,
+                                        color = if (isSelected) Color.Black else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        modifier = Modifier
+                                            .padding(vertical = 6.dp)
+                                            .fillMaxWidth(),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = BorderSubtle)
+
+                // Prefetch Depth Setting
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("Feed Prefetch Depth", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Number of upcoming video streams buffered in the background", color = TextMuted, fontSize = 11.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = SurfaceBar,
+                        border = BorderStroke(1.dp, GlassBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf("Lite (5)", "Balanced (10)", "Max (20)").forEach { depth ->
+                                val isSelected = prefetchDepth == depth
+                                Surface(
+                                    onClick = {
+                                        prefetchDepth = depth
+                                        sharedPreferences.edit().putString("pref_prefetch_depth", depth).apply()
+                                    },
+                                    shape = RoundedCornerShape(11.dp),
+                                    color = if (isSelected) Color.White else Color.Transparent,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = depth,
+                                        color = if (isSelected) Color.Black else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        modifier = Modifier
+                                            .padding(vertical = 6.dp)
+                                            .fillMaxWidth(),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = BorderSubtle)
+
+                // Default Video Audio Switch
+                PreferenceSwitchRow(
+                    title = "Default Audio Unmuted",
+                    subtitle = "Start video playback with sound unmuted",
+                    checked = defaultAudioUnmuted,
+                    onCheckedChange = { checked ->
+                        defaultAudioUnmuted = checked
+                        sharedPreferences.edit().putBoolean("pref_default_unmuted", checked).apply()
+                    }
+                )
+
+                HorizontalDivider(color = BorderSubtle)
+
+                // Haptic Feedback Switch
+                PreferenceSwitchRow(
+                    title = "Haptic Vibration Feedback",
+                    subtitle = "Tactile response on edge sliders, likes, and feed pull-to-refresh",
+                    checked = hapticFeedbackEnabled,
+                    onCheckedChange = { checked ->
+                        hapticFeedbackEnabled = checked
+                        sharedPreferences.edit().putBoolean("pref_haptic_feedback", checked).apply()
+                    }
+                )
+
+                HorizontalDivider(color = BorderSubtle)
+
                 // Unrestricted Content Switch
                 PreferenceSwitchRow(
                     title = "Unrestricted Content",
@@ -460,7 +594,23 @@ fun AboutPage(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Support Development",
+                    text = "Entirely Community Funded",
+                    color = TextPrimary,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "RdTube is 100% free, open-source, and entirely community funded with zero ads, investors, or telemetry. Your sponsorship keeps development completely independent!",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    text = "Sponsor Development",
                     color = TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
