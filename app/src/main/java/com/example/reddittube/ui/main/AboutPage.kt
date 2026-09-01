@@ -27,7 +27,10 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lean.reddittube.theme.*
@@ -62,11 +65,22 @@ fun AboutPage(
     // Expandable Sections State (Independent states)
     var isOtaExpanded by remember { mutableStateOf(false) }
     var isRedditAccountExpanded by remember { mutableStateOf(false) }
+    var isApiKeysExpanded by remember { mutableStateOf(false) }
     var isPreferencesExpanded by remember { mutableStateOf(false) }
     var isGesturesExpanded by remember { mutableStateOf(false) }
     var isToolbarExpanded by remember { mutableStateOf(false) }
     var isFaqExpanded by remember { mutableStateOf(false) }
     var isCommunityExpanded by remember { mutableStateOf(true) }
+
+    // API Keys state
+    var isOverridesEnabled by remember { mutableStateOf(RedditOAuthHelper.isOverridesEnabled(context)) }
+    var customClientId by remember { mutableStateOf(RedditOAuthHelper.getCustomClientId(context)) }
+    var customUserAgent by remember { mutableStateOf(RedditOAuthHelper.getCustomUserAgent(context)) }
+    var customRedirectUri by remember { mutableStateOf(RedditOAuthHelper.getCustomRedirectUri(context)) }
+
+    var showClientIdDialog by remember { mutableStateOf(false) }
+    var showUserAgentDialog by remember { mutableStateOf(false) }
+    var showRedirectUriDialog by remember { mutableStateOf(false) }
 
     // Preferences state
     var isNsfwUnrestricted by remember { mutableStateOf(sharedPreferences.getBoolean("pref_unrestricted_nsfw", true)) }
@@ -127,6 +141,66 @@ fun AboutPage(
                     )
                 }
             }
+        )
+    }
+
+    if (showClientIdDialog) {
+        ApiKeyInputDialog(
+            title = "Reddit API Client ID",
+            initialValue = customClientId,
+            placeholder = "e.g. uLo0abP7KJQqP1G74o4TNg",
+            hint = "Custom Reddit OAuth Client ID created on reddit.com/prefs/apps (Installed App type).",
+            onSave = { newId ->
+                customClientId = newId
+                RedditOAuthHelper.setCustomClientId(context, newId)
+                Toast.makeText(context, if (newId.isNotEmpty()) "Custom Client ID saved" else "Reset to default Client ID", Toast.LENGTH_SHORT).show()
+            },
+            onReset = {
+                customClientId = ""
+                RedditOAuthHelper.setCustomClientId(context, "")
+                Toast.makeText(context, "Reset to default RedReader Client ID", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showClientIdDialog = false }
+        )
+    }
+
+    if (showUserAgentDialog) {
+        ApiKeyInputDialog(
+            title = "User Agent",
+            initialValue = customUserAgent,
+            placeholder = "e.g. android:rdtube:v1.0.6 (by /u/yourname)",
+            hint = "Custom HTTP User-Agent string sent with Reddit API requests.",
+            onSave = { newUa ->
+                customUserAgent = newUa
+                RedditOAuthHelper.setCustomUserAgent(context, newUa)
+                Toast.makeText(context, if (newUa.isNotEmpty()) "Custom User-Agent saved" else "Reset to default User-Agent", Toast.LENGTH_SHORT).show()
+            },
+            onReset = {
+                customUserAgent = ""
+                RedditOAuthHelper.setCustomUserAgent(context, "")
+                Toast.makeText(context, "Reset to default User-Agent", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showUserAgentDialog = false }
+        )
+    }
+
+    if (showRedirectUriDialog) {
+        ApiKeyInputDialog(
+            title = "Redirect URI",
+            initialValue = customRedirectUri,
+            placeholder = "e.g. redreader://rr_oauth_redir or rdtube://oauth",
+            hint = "OAuth callback URI configured in your Reddit App settings.",
+            onSave = { newUri ->
+                customRedirectUri = newUri
+                RedditOAuthHelper.setCustomRedirectUri(context, newUri)
+                Toast.makeText(context, if (newUri.isNotEmpty()) "Custom Redirect URI saved" else "Reset to default Redirect URI", Toast.LENGTH_SHORT).show()
+            },
+            onReset = {
+                customRedirectUri = ""
+                RedditOAuthHelper.setCustomRedirectUri(context, "")
+                Toast.makeText(context, "Reset to default Redirect URI", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showRedirectUriDialog = false }
         )
     }
 
@@ -332,6 +406,98 @@ fun AboutPage(
                         Text("Connect Reddit Account (1-Tap)", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+        }
+
+        // Section: API Keys (Custom Overrides)
+        FoldableSectionCard(
+            title = "API Keys",
+            icon = Icons.Default.Key,
+            badge = if (isOverridesEnabled) "Custom" else "Default",
+            isExpanded = isApiKeysExpanded,
+            onToggle = { isApiKeysExpanded = !isApiKeysExpanded }
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Enable Overrides Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = "Enable Overrides",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        val text = buildAnnotatedString {
+                            append("Use your custom Client ID, User Agent, and Redirect URI instead of the built-in defaults, which are ")
+                            withStyle(SpanStyle(color = Color(0xFFFF4500), fontWeight = FontWeight.Bold)) {
+                                append("RedReader")
+                            }
+                        }
+                        Text(
+                            text = text,
+                            color = TextMuted,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                    }
+                    Switch(
+                        checked = isOverridesEnabled,
+                        onCheckedChange = { checked ->
+                            isOverridesEnabled = checked
+                            RedditOAuthHelper.setOverridesEnabled(context, checked)
+                            Toast.makeText(
+                                context,
+                                if (checked) "Custom API key overrides enabled" else "Using default RedReader API keys",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = Color.White,
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = SurfaceBar,
+                            uncheckedBorderColor = GlassBorder
+                        )
+                    )
+                }
+
+                HorizontalDivider(color = BorderSubtle)
+
+                // Reddit API Client ID Row
+                ApiKeySettingRow(
+                    title = "Reddit API Client ID",
+                    value = customClientId.ifEmpty { "Tap to set custom Client ID" },
+                    isCustom = customClientId.isNotEmpty(),
+                    onClick = { showClientIdDialog = true }
+                )
+
+                HorizontalDivider(color = BorderSubtle)
+
+                // User Agent Row
+                ApiKeySettingRow(
+                    title = "User Agent",
+                    value = customUserAgent.ifEmpty { "Tap to set custom User Agent" },
+                    isCustom = customUserAgent.isNotEmpty(),
+                    onClick = { showUserAgentDialog = true }
+                )
+
+                HorizontalDivider(color = BorderSubtle)
+
+                // Redirect URI Row
+                ApiKeySettingRow(
+                    title = "Redirect URI",
+                    value = customRedirectUri.ifEmpty { "Tap to set custom Redirect URI" },
+                    isCustom = customRedirectUri.isNotEmpty(),
+                    onClick = { showRedirectUriDialog = true }
+                )
             }
         }
 
@@ -988,4 +1154,107 @@ private fun CompactButtonItem(icon: ImageVector, title: String, desc: String) {
         Spacer(modifier = Modifier.width(6.dp))
         Text(text = "• $desc", color = TextSecondary, fontSize = 11.sp, maxLines = 1)
     }
+}
+
+@Composable
+private fun ApiKeySettingRow(
+    title: String,
+    value: String,
+    isCustom: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
+    ) {
+        Text(
+            text = title,
+            color = TextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = value,
+            color = if (isCustom) TextPrimary else TextMuted,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
+            maxLines = 2
+        )
+    }
+}
+
+@Composable
+private fun ApiKeyInputDialog(
+    title: String,
+    initialValue: String,
+    placeholder: String,
+    hint: String? = null,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onReset: (() -> Unit)? = null
+) {
+    var text by remember { mutableStateOf(initialValue) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (hint != null) {
+                    Text(hint, color = TextSecondary, fontSize = 11.sp, lineHeight = 15.sp)
+                }
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    placeholder = { Text(placeholder, color = TextMuted, fontSize = 12.sp) },
+                    singleLine = false,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = GlassBorder,
+                        cursorColor = Color.White
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(text.trim())
+                    onDismiss()
+                }
+            ) {
+                Text("Save", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            Row {
+                if (onReset != null && initialValue.isNotEmpty()) {
+                    TextButton(
+                        onClick = {
+                            onReset()
+                            onDismiss()
+                        }
+                    ) {
+                        Text("Reset", color = Color(0xFFFF5252))
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
+        },
+        containerColor = SurfaceRaised,
+        shape = RoundedCornerShape(18.dp)
+    )
 }

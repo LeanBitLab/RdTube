@@ -26,9 +26,94 @@ object RedditOAuthHelper {
     private const val KEY_USER_TOKEN_EXPIRES_AT = "reddit_user_token_expires_at"
     private const val KEY_USERNAME = "reddit_username"
 
+    // Custom API Key / Client ID overrides keys
+    private const val KEY_ENABLE_OVERRIDES = "pref_reddit_enable_overrides"
+    private const val KEY_CUSTOM_CLIENT_ID = "pref_reddit_custom_client_id"
+    private const val KEY_CUSTOM_USER_AGENT = "pref_reddit_custom_user_agent"
+    private const val KEY_CUSTOM_REDIRECT_URI = "pref_reddit_custom_redirect_uri"
+
     const val DEFAULT_CLIENT_ID = "yH0aTnJEt6qUgGn835B4vg"
     const val DEFAULT_USER_AGENT = "org.quantumbadger.redreader/1.25.1"
-    const val REDIRECT_URI = "redreader://rr_oauth_redir"
+    const val DEFAULT_REDIRECT_URI = "redreader://rr_oauth_redir"
+    const val REDIRECT_URI = DEFAULT_REDIRECT_URI
+
+    fun isOverridesEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_ENABLE_OVERRIDES, false)
+    }
+
+    fun setOverridesEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean(KEY_ENABLE_OVERRIDES, enabled)
+            .remove(KEY_ACCESS_TOKEN)
+            .remove(KEY_TOKEN_EXPIRES_AT)
+            .apply()
+    }
+
+    fun getCustomClientId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_CUSTOM_CLIENT_ID, "") ?: ""
+    }
+
+    fun setCustomClientId(context: Context, clientId: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString(KEY_CUSTOM_CLIENT_ID, clientId.trim())
+            .remove(KEY_ACCESS_TOKEN)
+            .remove(KEY_TOKEN_EXPIRES_AT)
+            .apply()
+    }
+
+    fun getCustomUserAgent(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_CUSTOM_USER_AGENT, "") ?: ""
+    }
+
+    fun setCustomUserAgent(context: Context, userAgent: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString(KEY_CUSTOM_USER_AGENT, userAgent.trim())
+            .remove(KEY_ACCESS_TOKEN)
+            .remove(KEY_TOKEN_EXPIRES_AT)
+            .apply()
+    }
+
+    fun getCustomRedirectUri(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_CUSTOM_REDIRECT_URI, "") ?: ""
+    }
+
+    fun setCustomRedirectUri(context: Context, redirectUri: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString(KEY_CUSTOM_REDIRECT_URI, redirectUri.trim())
+            .apply()
+    }
+
+    fun getClientId(context: Context): String {
+        if (isOverridesEnabled(context)) {
+            val custom = getCustomClientId(context)
+            if (custom.isNotBlank()) return custom
+        }
+        return DEFAULT_CLIENT_ID
+    }
+
+    fun getUserAgent(context: Context): String {
+        if (isOverridesEnabled(context)) {
+            val custom = getCustomUserAgent(context)
+            if (custom.isNotBlank()) return custom
+        }
+        return DEFAULT_USER_AGENT
+    }
+
+    fun getRedirectUri(context: Context): String {
+        if (isOverridesEnabled(context)) {
+            val custom = getCustomRedirectUri(context)
+            if (custom.isNotBlank()) return custom
+        }
+        return DEFAULT_REDIRECT_URI
+    }
 
     fun isLoggedIn(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -53,11 +138,13 @@ object RedditOAuthHelper {
     }
 
     fun launchLogin(context: Context) {
+        val clientId = getClientId(context)
+        val redirectUri = getRedirectUri(context)
         val authUrl = "https://www.reddit.com/api/v1/authorize.compact?" +
-            "client_id=$DEFAULT_CLIENT_ID" +
+            "client_id=$clientId" +
             "&response_type=code" +
             "&state=rdtube_auth_${System.currentTimeMillis()}" +
-            "&redirect_uri=${Uri.encode(REDIRECT_URI)}" +
+            "&redirect_uri=${Uri.encode(redirectUri)}" +
             "&duration=permanent" +
             "&scope=identity,read,mysubreddits,history"
 
@@ -70,6 +157,9 @@ object RedditOAuthHelper {
     suspend fun handleOAuthCallback(context: Context, uri: Uri): Boolean = withContext(Dispatchers.IO) {
         val code = uri.getQueryParameter("code") ?: return@withContext false
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val clientId = getClientId(context)
+        val userAgent = getUserAgent(context)
+        val redirectUri = getRedirectUri(context)
 
         try {
             val url = URL("https://www.reddit.com/api/v1/access_token")
@@ -77,15 +167,15 @@ object RedditOAuthHelper {
             conn.requestMethod = "POST"
             conn.doOutput = true
 
-            val authString = "$DEFAULT_CLIENT_ID:"
+            val authString = "$clientId:"
             val authBase64 = Base64.encodeToString(authString.toByteArray(), Base64.NO_WRAP)
             conn.setRequestProperty("Authorization", "Basic $authBase64")
-            conn.setRequestProperty("User-Agent", DEFAULT_USER_AGENT)
+            conn.setRequestProperty("User-Agent", userAgent)
             conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             conn.connectTimeout = 15000
             conn.readTimeout = 15000
 
-            val params = "grant_type=authorization_code&code=$code&redirect_uri=${Uri.encode(REDIRECT_URI)}"
+            val params = "grant_type=authorization_code&code=$code&redirect_uri=${Uri.encode(redirectUri)}"
             val writer = OutputStreamWriter(conn.outputStream)
             writer.write(params)
             writer.flush()
@@ -106,7 +196,7 @@ object RedditOAuthHelper {
                         .apply()
 
                     // Fetch username
-                    fetchAndSaveUsername(accessToken, prefs)
+                    fetchAndSaveUsername(context, accessToken, prefs)
                     return@withContext true
                 }
             } else {
@@ -118,13 +208,13 @@ object RedditOAuthHelper {
         false
     }
 
-    private fun fetchAndSaveUsername(accessToken: String, prefs: android.content.SharedPreferences) {
+    private fun fetchAndSaveUsername(context: Context, accessToken: String, prefs: android.content.SharedPreferences) {
         try {
             val url = URL("https://oauth.reddit.com/api/v1/me")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.setRequestProperty("Authorization", "Bearer $accessToken")
-            conn.setRequestProperty("User-Agent", DEFAULT_USER_AGENT)
+            conn.setRequestProperty("User-Agent", getUserAgent(context))
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
 
@@ -144,6 +234,8 @@ object RedditOAuthHelper {
     @Synchronized
     fun getOrFetchAccessToken(context: Context): String? {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val clientId = getClientId(context)
+        val userAgent = getUserAgent(context)
 
         // 1. If user is logged in, use and refresh User Access Token (unlocks 18+/NSFW content!)
         val userRefreshToken = prefs.getString(KEY_USER_REFRESH_TOKEN, "")
@@ -156,7 +248,7 @@ object RedditOAuthHelper {
             }
 
             // Refresh user token
-            val refreshedToken = refreshUserToken(prefs, userRefreshToken)
+            val refreshedToken = refreshUserToken(context, prefs, userRefreshToken)
             if (refreshedToken != null) {
                 return refreshedToken
             }
@@ -182,10 +274,10 @@ object RedditOAuthHelper {
             conn.requestMethod = "POST"
             conn.doOutput = true
 
-            val authString = "$DEFAULT_CLIENT_ID:"
+            val authString = "$clientId:"
             val authBase64 = Base64.encodeToString(authString.toByteArray(), Base64.NO_WRAP)
             conn.setRequestProperty("Authorization", "Basic $authBase64")
-            conn.setRequestProperty("User-Agent", DEFAULT_USER_AGENT)
+            conn.setRequestProperty("User-Agent", userAgent)
             conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             conn.connectTimeout = 15000
             conn.readTimeout = 15000
@@ -217,17 +309,19 @@ object RedditOAuthHelper {
         return null
     }
 
-    private fun refreshUserToken(prefs: android.content.SharedPreferences, refreshToken: String): String? {
+    private fun refreshUserToken(context: Context, prefs: android.content.SharedPreferences, refreshToken: String): String? {
+        val clientId = getClientId(context)
+        val userAgent = getUserAgent(context)
         try {
             val url = URL("https://www.reddit.com/api/v1/access_token")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.doOutput = true
 
-            val authString = "$DEFAULT_CLIENT_ID:"
+            val authString = "$clientId:"
             val authBase64 = Base64.encodeToString(authString.toByteArray(), Base64.NO_WRAP)
             conn.setRequestProperty("Authorization", "Basic $authBase64")
-            conn.setRequestProperty("User-Agent", DEFAULT_USER_AGENT)
+            conn.setRequestProperty("User-Agent", userAgent)
             conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             conn.connectTimeout = 15000
             conn.readTimeout = 15000

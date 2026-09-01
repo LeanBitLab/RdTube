@@ -69,7 +69,7 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
                 try {
                     conn.connectTimeout = 10000
                     conn.readTimeout = 10000
-                    conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
+                    conn.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
                     conn.setRequestProperty("Connection", "keep-alive")
                     if (conn.responseCode == 200) {
                         val stream = if ("gzip".equals(conn.contentEncoding, ignoreCase = true)) {

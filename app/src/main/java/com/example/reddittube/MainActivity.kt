@@ -51,7 +51,15 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val uri: Uri = intent?.data ?: return
-        if (uri.scheme == "redreader" && uri.host == "rr_oauth_redir" || uri.scheme == "rdtube" && uri.host == "oauth") {
+        val configuredUri = runCatching { Uri.parse(RedditOAuthHelper.getRedirectUri(this@MainActivity)) }.getOrNull()
+        val isConfiguredMatch = configuredUri != null &&
+            uri.scheme.equals(configuredUri.scheme, ignoreCase = true) &&
+            (configuredUri.host == null || uri.host.equals(configuredUri.host, ignoreCase = true))
+
+        if ((uri.scheme == "redreader" && uri.host == "rr_oauth_redir") ||
+            (uri.scheme == "rdtube" && uri.host == "oauth") ||
+            isConfiguredMatch
+        ) {
             lifecycleScope.launch {
                 val success = RedditOAuthHelper.handleOAuthCallback(this@MainActivity, uri)
                 if (success) {

@@ -106,7 +106,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             try {
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("Authorization", "Bearer $token")
-                conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
+                conn.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
                 conn.setRequestProperty("Connection", "keep-alive")
                 conn.connectTimeout = timeout
                 conn.readTimeout = timeout
@@ -569,7 +569,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         try {
             val conn = URL(urlStr).openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
-            conn.setRequestProperty("User-Agent", RedditOAuthHelper.DEFAULT_USER_AGENT)
+            conn.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
             conn.setRequestProperty("Accept", "application/json")
             conn.connectTimeout = timeout
             conn.readTimeout = timeout
