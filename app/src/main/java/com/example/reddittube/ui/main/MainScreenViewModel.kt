@@ -47,7 +47,14 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _subscribedState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
     val subscribedState: StateFlow<MainScreenUiState> = _subscribedState.asStateFlow()
 
-    var exploreQuery = "videos"
+    companion object {
+        const val DEFAULT_EXPLORE_FEED = "videos+tiktokcringe+unexpected+youtubehaiku+damnthatsinteresting+nextfuckinglevel+idiotsincars+publicfreakout+holdmybeer+maybemaybemaybe+gaming+contagiouslaughter+oddlysatisfying"
+        private const val WATCHED_CAP = 1000
+        private const val LIKED_CAP = 1000
+        private const val CACHE_STALE_DURATION_MS = 5 * 60 * 1000L // 5 minutes
+    }
+
+    var exploreQuery = DEFAULT_EXPLORE_FEED
         private set
     var subscribedQuery = ""
         private set
@@ -79,13 +86,6 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         playerFeed = feed
     }
 
-    // ponytail: persist watched IDs to SharedPreferences so they survive app restart
-    // ponytail: cap at 1000 entries, trim oldest via watched_order list
-    companion object {
-        private const val WATCHED_CAP = 1000
-        private const val LIKED_CAP = 1000
-        private const val CACHE_STALE_DURATION_MS = 5 * 60 * 1000L // 5 minutes
-    }
     private val lastExploreRefreshTime = ConcurrentHashMap<String, Long>()
     private val lastSubscribedRefreshTime = ConcurrentHashMap<String, Long>()
     private val prefs = dataRepository.getContext().getSharedPreferences("rdtube_prefs", android.content.Context.MODE_PRIVATE)
