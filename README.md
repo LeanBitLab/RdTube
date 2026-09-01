@@ -83,6 +83,16 @@
 ## 📝 Notes & Privacy
 
 - **100% Community Funded**: RdTube is completely independent, free, and open-source with zero advertisements, sponsors, or analytics.
+- **Signed In (OAuth) vs. Guest (Unauthenticated)**:
+  | Feature / Aspect | 👤 Guest (Anonymous) | 🔑 Signed In (OAuth) |
+  | :--- | :--- | :--- |
+  | **Account Requirement** | None (Zero registration) | Reddit Account (Browser OAuth) |
+  | **SFW & Standard Feeds** | ✅ Full Access | ✅ Full Access |
+  | **Restricted / NSFW Communities** | ❌ Blocked by Reddit API | ✅ Unrestricted Access |
+  | **API Rate Limits** | Shared guest quota | Dedicated user quota (100 req/min) |
+  | **Watch History & Likes** | 🔒 100% Strictly Local | 🔒 100% Strictly Local |
+  | **Subscribed Feeds** | 🔒 100% Strictly Local | 🔒 100% Strictly Local |
+  | **Account Modification** | None | 🛡️ None (Read-only `identity, read`) |
 - **Official Read-Only OAuth 2.0**: Unrestricted and mature subreddits require Reddit authentication. RdTube uses standard read-only scopes (`identity`, `read`, `mysubreddits`) directly in your browser. Passwords are never seen or stored.
 - **Zero Cloud Syncing**: Connecting an account serves solely to authenticate API media streaming. It never modifies, overwrites, or syncs your Reddit upvotes, saved items, or history.
 - **Account Usage Precaution**: While read-only OAuth is standard under Reddit's developer API, Reddit policies can change over time. If you prefer extra caution, you can use a secondary Reddit account or browse 100% anonymously without logging in.
