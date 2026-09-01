@@ -1,9 +1,6 @@
 package com.lean.reddittube.ui.main
 
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,9 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Subscriptions
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.*
@@ -49,7 +44,6 @@ fun LibraryPage(
     onItemClick: (List<RedditPost>, Int) -> Unit,
     onSubredditClick: (String) -> Unit = {},
     onCommentClick: (RedditPost) -> Unit = {},
-    onShowAbout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -113,28 +107,23 @@ fun LibraryPage(
             }
         }
 
-        // Quick Action Chips Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (selectedSegment == LibrarySegment.HISTORY) {
+        // Action Chip (Clear History only when on History tab and has history)
+        if (selectedSegment == LibrarySegment.HISTORY && watchedPosts.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
                 GlassActionChip(
                     icon = Icons.Outlined.History,
                     label = "Clear History",
                     onClick = { showClearHistoryDialog = true }
                 )
             }
-            GlassActionChip(
-                icon = Icons.Outlined.Info,
-                label = "Guide & Settings",
-                onClick = onShowAbout
-            )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
 
         // Content Area
         when (selectedSegment) {

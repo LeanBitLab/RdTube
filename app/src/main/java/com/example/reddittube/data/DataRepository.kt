@@ -201,7 +201,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         if (token == null) { emit(emptyList()); return@flow }
         val results = mutableListOf<String>()
         try {
-            val url = "https://oauth.reddit.com/subreddits/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&limit=15"
+            val url = "https://oauth.reddit.com/subreddits/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&limit=20&include_over_18=on"
             val json = performRequest(url, token, timeout = 10000)
             val children = json?.optJSONObject("data")?.optJSONArray("children")
             if (children != null) {
@@ -333,36 +333,66 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         feedMap(feed).putAll(map)
     }
 
-    // ponytail: fast-path parser — extracts RedditPost (with thumbnail + comment count) with early candidate filters
+    // ponytail: fast-path parser — extracts RedditPost (with thumbnail + comment count) supporting native video, secure_media, crossposts, and mp4 variants
     private fun parseRedditPost(childData: JSONObject): RedditPost? {
-        val isVideo = childData.optBoolean("is_video", false)
+        val targetData = childData.optJSONArray("crosspost_parent_list")?.optJSONObject(0) ?: childData
+
+        val isVideo = childData.optBoolean("is_video", false) || targetData.optBoolean("is_video", false)
         val domain = childData.optString("domain", "")
         val url = childData.optString("url", "")
         val postHint = childData.optString("post_hint", "")
 
         val isVideoCandidate = isVideo ||
             postHint == "hosted:video" || postHint == "rich:video" ||
-            domain.contains("v.redd.it") || domain.contains("gfycat") || domain.contains("imgur") ||
-            url.endsWith(".mp4") || childData.has("media") || childData.has("preview")
+            domain.contains("v.redd.it") || domain.contains("gfycat") || domain.contains("imgur") || domain.contains("redgifs") ||
+            url.endsWith(".mp4") || childData.has("media") || childData.has("secure_media") || childData.has("preview") ||
+            targetData.has("media") || targetData.has("secure_media") || targetData.has("preview")
 
         if (!isVideoCandidate) return null
 
-        var redditVideo = childData.optJSONObject("media")?.optJSONObject("reddit_video")
-        if (redditVideo == null) {
-            val preview = childData.optJSONObject("preview")
-            redditVideo = preview?.optJSONObject("reddit_video_preview")
-        }
-        if (redditVideo == null) return null
+        var redditVideo = targetData.optJSONObject("secure_media")?.optJSONObject("reddit_video")
+        if (redditVideo == null) redditVideo = targetData.optJSONObject("media")?.optJSONObject("reddit_video")
+        if (redditVideo == null) redditVideo = targetData.optJSONObject("preview")?.optJSONObject("reddit_video_preview")
+        if (redditVideo == null) redditVideo = childData.optJSONObject("secure_media")?.optJSONObject("reddit_video")
+        if (redditVideo == null) redditVideo = childData.optJSONObject("media")?.optJSONObject("reddit_video")
+        if (redditVideo == null) redditVideo = childData.optJSONObject("preview")?.optJSONObject("reddit_video_preview")
 
-        val fallbackUrl = redditVideo.optString("fallback_url").replace("&amp;", "&")
-        val dashUrl = redditVideo.optString("dash_url").replace("&amp;", "&")
-        val hlsUrl = redditVideo.optString("hls_url").replace("&amp;", "&")
+        var fallbackUrl = ""
+        var dashUrl = ""
+        var hlsUrl = ""
+        var duration = 0
+
+        if (redditVideo != null) {
+            fallbackUrl = redditVideo.optString("fallback_url").replace("&amp;", "&")
+            dashUrl = redditVideo.optString("dash_url").replace("&amp;", "&")
+            hlsUrl = redditVideo.optString("hls_url").replace("&amp;", "&")
+            duration = redditVideo.optInt("duration", 0)
+        } else {
+            val mp4Variant = (targetData.optJSONObject("preview") ?: childData.optJSONObject("preview"))
+                ?.optJSONArray("images")
+                ?.optJSONObject(0)
+                ?.optJSONObject("variants")
+                ?.optJSONObject("mp4")
+                ?.optJSONObject("source")
+                ?.optString("url", "")
+                ?.replace("&amp;", "&") ?: ""
+
+            if (mp4Variant.isNotEmpty()) {
+                fallbackUrl = mp4Variant
+            } else {
+                val directUrl = childData.optString("url_overridden_by_dest", childData.optString("url", ""))
+                if (directUrl.endsWith(".mp4", ignoreCase = true)) {
+                    fallbackUrl = directUrl
+                }
+            }
+        }
+
         val videoUrl = if (fallbackUrl.isNotEmpty()) fallbackUrl else if (hlsUrl.isNotEmpty()) hlsUrl else dashUrl
         if (videoUrl.isEmpty()) return null
 
         var thumb = childData.optString("thumbnail", "")
-        if (!thumb.startsWith("http")) {
-            thumb = childData.optJSONObject("preview")
+        if (thumb == "nsfw" || thumb == "default" || thumb == "spoiler" || !thumb.startsWith("http")) {
+            thumb = (targetData.optJSONObject("preview") ?: childData.optJSONObject("preview"))
                 ?.optJSONArray("images")
                 ?.optJSONObject(0)
                 ?.optJSONObject("source")
@@ -370,11 +400,9 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 ?.replace("&amp;", "&") ?: ""
         }
 
-        val isOver18 = childData.optBoolean("over_18", false)
+        val isOver18 = childData.optBoolean("over_18", false) || targetData.optBoolean("over_18", false)
         val nsfwAllowed = context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE).getBoolean("pref_unrestricted_nsfw", true)
         if (isOver18 && !nsfwAllowed) return null
-
-        val duration = redditVideo.optInt("duration", 0)
 
         return RedditPost(
             id = childData.optString("id"),

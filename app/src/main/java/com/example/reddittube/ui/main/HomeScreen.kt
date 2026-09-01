@@ -175,10 +175,7 @@ fun HomeScreen(
                         viewModel.refreshExplore(sub)
                         coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
                     },
-                    onCommentClick = { post -> activeCommentPost = post },
-                    onShowAbout = {
-                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(3) }
-                    }
+                    onCommentClick = { post -> activeCommentPost = post }
                 )
                 3 -> AboutPage(
                     modifier = Modifier.fillMaxSize()

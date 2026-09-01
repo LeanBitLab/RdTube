@@ -4,10 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -415,14 +413,12 @@ private fun FoldableSectionCard(
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (isExpanded) 180f else 0f,
-        animationSpec = tween(200),
+        animationSpec = tween(140),
         label = "ChevronRotation"
     )
 
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = SurfaceRaised,
         border = BorderStroke(1.dp, GlassBorder)
@@ -473,7 +469,11 @@ private fun FoldableSectionCard(
                 )
             }
 
-            AnimatedVisibility(visible = isExpanded) {
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = fadeIn(tween(140)) + expandVertically(tween(140)),
+                exit = fadeOut(tween(110)) + shrinkVertically(tween(110))
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
