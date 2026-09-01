@@ -26,12 +26,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 // ponytail: single-column browse
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -47,9 +49,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -264,65 +270,98 @@ fun HomeScreen(
             }
         }
 
-        // Solid full-width bottom navigation bar — hides on scroll down (except search page), black background
+        // Floating Pill Navigation Dock — hides on scroll down (except search page)
         AnimatedVisibility(
             visible = bottomBarVisible || horizontalPagerState.currentPage == 2,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp, start = 16.dp, end = 16.dp),
+            enter = slideInVertically(initialOffsetY = { it * 2 }) + fadeIn(tween(200)),
+            exit = slideOutVertically(targetOffsetY = { it * 2 }) + fadeOut(tween(200))
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-                color = Color.Black,
-                border = BorderStroke(1.dp, GlassBorder)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(58.dp),
+                shape = RoundedCornerShape(29.dp),
+                color = SurfaceBar.copy(alpha = 0.94f),
+                border = BorderStroke(1.dp, GlassBorder),
+                shadowElevation = 14.dp
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(top = 10.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    BottomNavItem(
-                        icon = Icons.Default.Home,
-                        label = "Explore",
-                        selected = horizontalPagerState.currentPage == 0,
-                        onClick = {
-                            if (viewModel.exploreQuery != defaultExploreQuery) {
-                                viewModel.refreshExplore(defaultExploreQuery)
-                            }
-                            coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
-                        }
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val tabCount = 4
+                    val tabWidth = maxWidth / tabCount
+                    val selectedIndex = horizontalPagerState.currentPage
+
+                    val indicatorOffset by animateDpAsState(
+                        targetValue = tabWidth * selectedIndex,
+                        animationSpec = spring(
+                            stiffness = Spring.StiffnessLow,
+                            dampingRatio = Spring.DampingRatioLowBouncy
+                        ),
+                        label = "PillIndicator"
                     )
-                    BottomNavItem(
-                        icon = Icons.Default.Star,
-                        label = "Subscribed",
-                        selected = horizontalPagerState.currentPage == 1,
-                        onClick = {
-                            if (subscribedSubreddits.isEmpty()) {
-                                Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
-                            } else {
-                                if (viewModel.subscribedQuery != defaultSubscribedQuery) {
-                                    viewModel.refreshSubscribed(defaultSubscribedQuery)
+
+                    // Sliding brand pill indicator background
+                    Box(
+                        modifier = Modifier
+                            .padding(vertical = 5.dp, horizontal = 4.dp)
+                            .width(tabWidth - 8.dp)
+                            .height(48.dp)
+                            .offset(x = indicatorOffset)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(BrandRed)
+                    )
+
+                    // Navigation Tabs
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FloatingNavItem(
+                            icon = Icons.Default.Home,
+                            label = "Explore",
+                            selected = selectedIndex == 0,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                if (viewModel.exploreQuery != defaultExploreQuery) {
+                                    viewModel.refreshExplore(defaultExploreQuery)
                                 }
-                                coroutineScope.launch { horizontalPagerState.animateScrollToPage(1) }
+                                coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
                             }
-                        }
-                    )
-                    BottomNavItem(
-                        icon = Icons.Default.Search,
-                        label = "Search",
-                        selected = horizontalPagerState.currentPage == 2,
-                        onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(2) } }
-                    )
-                    BottomNavItem(
-                        icon = Icons.Default.Info,
-                        label = "About",
-                        selected = horizontalPagerState.currentPage == 3,
-                        onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(3) } }
-                    )
+                        )
+                        FloatingNavItem(
+                            icon = Icons.Default.Star,
+                            label = "Subscribed",
+                            selected = selectedIndex == 1,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                if (subscribedSubreddits.isEmpty()) {
+                                    Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    if (viewModel.subscribedQuery != defaultSubscribedQuery) {
+                                        viewModel.refreshSubscribed(defaultSubscribedQuery)
+                                    }
+                                    coroutineScope.launch { horizontalPagerState.animateScrollToPage(1) }
+                                }
+                            }
+                        )
+                        FloatingNavItem(
+                            icon = Icons.Default.Search,
+                            label = "Search",
+                            selected = selectedIndex == 2,
+                            modifier = Modifier.weight(1f),
+                            onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(2) } }
+                        )
+                        FloatingNavItem(
+                            icon = Icons.Default.Info,
+                            label = "About",
+                            selected = selectedIndex == 3,
+                            modifier = Modifier.weight(1f),
+                            onClick = { coroutineScope.launch { horizontalPagerState.animateScrollToPage(3) } }
+                        )
+                    }
                 }
             }
         }
@@ -440,45 +479,46 @@ fun HomeScreen(
 }
 
 @Composable
-private fun BottomNavItem(
+private fun FloatingNavItem(
     icon: ImageVector,
     label: String,
     selected: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+    val haptic = LocalHapticFeedback.current
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onClick
-            )
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onClick()
+                }
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(if (selected) BrandRed.copy(alpha = 0.18f) else Color.Transparent)
-                .padding(horizontal = 14.dp, vertical = 4.dp),
-            contentAlignment = Alignment.Center
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 icon,
                 contentDescription = label,
-                tint = if (selected) BrandRed else TextSecondary,
-                modifier = Modifier.size(20.dp)
+                tint = if (selected) Color.White else TextSecondary,
+                modifier = Modifier.size(19.dp)
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = label,
+                color = if (selected) Color.White else TextMuted,
+                fontSize = 10.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1
             )
         }
-        Spacer(Modifier.height(3.dp))
-        Text(
-            text = label,
-            color = if (selected) BrandRed else TextMuted,
-            fontSize = 11.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-        )
     }
 }
 
@@ -995,12 +1035,34 @@ private fun VideoCard(
     val coroutineScope = rememberCoroutineScope()
     var isHiding by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
+    var isPressed by remember { mutableStateOf(false) }
+    val cardScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.965f else 1f,
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioMediumBouncy
+        ),
+        label = "VideoCardScale"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
+    ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerInput(post.id) {
                     detectTapGestures(
+                        onPress = {
+                            isPressed = true
+                            tryAwaitRelease()
+                            isPressed = false
+                        },
                         onLongPress = {
                             if (!isHiding) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1014,86 +1076,138 @@ private fun VideoCard(
                         onTap = { if (!isHiding) onClick() }
                     )
                 },
-            shape = RoundedCornerShape(14.dp),
-            color = Color.Black,
-            border = BorderStroke(1.dp, GlassBorder)
+            shape = RoundedCornerShape(16.dp),
+            color = SurfaceRaised,
+            border = BorderStroke(1.dp, GlassBorder),
+            shadowElevation = 4.dp
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                         .background(Color.Black)
                 ) {
                     ThumbnailImage(url = post.thumbnailUrl, contentDescription = post.title, modifier = Modifier.fillMaxSize())
+                    
+                    // Glassmorphic Subreddit Badge (Top-Left)
+                    if (post.subreddit.isNotEmpty()) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(10.dp)
+                                .align(Alignment.TopStart)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onSubredditClick(post.subreddit) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0x8007080A),
+                            border = BorderStroke(1.dp, GlassBorder)
+                        ) {
+                            Text(
+                                text = "r/${post.subreddit}",
+                                color = BrandRedLight,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    // Center Play Overlay Icon
                     Box(
                         modifier = Modifier
                             .size(44.dp)
                             .align(Alignment.Center)
                             .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.55f)),
+                            .background(Color.Black.copy(alpha = 0.55f))
+                            .border(1.dp, Color(0x33FFFFFF), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = "Play video",
                             tint = Color.White,
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
-                Column(modifier = Modifier.padding(12.dp)) {
+
+                // Metadata Details
+                Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         post.title,
                         color = TextPrimary,
                         fontSize = 14.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        fontWeight = FontWeight.SemiBold,
-                        lineHeight = 18.sp
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 19.sp
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(SurfaceGlass)
-                                .clickable { onSubredditClick(post.subreddit) }
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                "r/${post.subreddit}",
-                                color = BrandRed,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { onLike(post) }
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Icon(
-                                if (isLiked) Icons.Default.ThumbUp else Icons.Default.ThumbUpOffAlt,
-                                contentDescription = "Like",
-                                tint = if (isLiked) BrandRed else TextSecondary,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
+                            // Upvote / Like Button
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onLike(post) }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Icon(
+                                    if (isLiked) Icons.Default.ThumbUp else Icons.Default.ThumbUpOffAlt,
+                                    contentDescription = "Like",
+                                    tint = if (isLiked) BrandRed else TextSecondary,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    formatScore(if (isLiked) post.score + 1 else post.score),
+                                    color = if (isLiked) BrandRed else TextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            // Comments Counter
+                            if (post.numComments > 0) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ChatBubbleOutline,
+                                        contentDescription = "Comments",
+                                        tint = TextMuted,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        formatScore(post.numComments),
+                                        color = TextSecondary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+
+                        if (post.author.isNotEmpty()) {
                             Text(
-                                formatScore(if (isLiked) post.score + 1 else post.score),
-                                color = if (isLiked) BrandRed else TextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
+                                text = "u/${post.author}",
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -1111,7 +1225,7 @@ private fun VideoCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(Color.Black.copy(alpha = 0.85f)),
                 contentAlignment = Alignment.Center
             ) {

@@ -1043,16 +1043,14 @@ MinimalButton(
             }
         }
 
-        // Brightness HUD (Top Center of video)
+        // Brightness HUD (Left Edge Vertical Pill)
         AnimatedVisibility(
             visible = showBrightnessHud,
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .displayCutoutPadding()
-                .padding(top = 56.dp),
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(150))
+                .align(Alignment.CenterStart)
+                .padding(start = 20.dp),
+            enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.85f),
+            exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.85f)
         ) {
             val displayBright = if (brightnessPercentage < 0f && activity != null) {
                 val lp = activity.window.attributes
@@ -1060,34 +1058,32 @@ MinimalButton(
                     Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
                 } else lp.screenBrightness
             } else brightnessPercentage
-            TopHud(
+            VerticalGestureHUD(
                 progress = displayBright.coerceIn(0f, 1f),
-                icon = { Icon(Icons.Default.BrightnessHigh, contentDescription = "Brightness", tint = Color.White, modifier = Modifier.size(16.dp)) }
+                icon = { Icon(Icons.Default.BrightnessHigh, contentDescription = "Brightness", tint = Color.White, modifier = Modifier.size(20.dp)) }
             )
         }
 
-        // Volume HUD (Top Center of video)
+        // Volume HUD (Right Edge Vertical Pill)
         AnimatedVisibility(
             visible = showVolumeHud,
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .displayCutoutPadding()
-                .padding(top = 56.dp),
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(150))
+                .align(Alignment.CenterEnd)
+                .padding(end = 20.dp),
+            enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.85f),
+            exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.85f)
         ) {
             val maxV = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
             val curV = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
             val displayVol = if (volumePercentage >= 0f) volumePercentage else (curV.toFloat() / maxV)
-            TopHud(
+            VerticalGestureHUD(
                 progress = displayVol.coerceIn(0f, 1f),
                 icon = {
                     Icon(
                         if (displayVol <= 0f) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
                         contentDescription = "Volume",
                         tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             )
@@ -1135,34 +1131,39 @@ MinimalButton(
 
 
 @Composable
-private fun TopHud(
+private fun VerticalGestureHUD(
     progress: Float,
     icon: @Composable () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color.Black.copy(alpha = 0.82f),
-        border = BorderStroke(1.dp, GlassBorder)
+        shape = RoundedCornerShape(24.dp),
+        color = Color(0xCC07080A),
+        border = BorderStroke(1.dp, GlassBorder),
+        shadowElevation = 10.dp
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .width(46.dp)
+                .height(150.dp)
+                .padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             icon()
             Box(
                 modifier = Modifier
-                    .width(80.dp)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.25f)),
-                contentAlignment = Alignment.CenterStart
+                    .weight(1f)
+                    .width(5.dp)
+                    .padding(vertical = 8.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color.White.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.BottomCenter
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(progress.coerceIn(0f, 1f))
-                        .clip(RoundedCornerShape(2.dp))
+                        .fillMaxWidth()
+                        .fillMaxHeight(progress.coerceIn(0f, 1f))
+                        .clip(RoundedCornerShape(3.dp))
                         .background(BrandRed)
                 )
             }
