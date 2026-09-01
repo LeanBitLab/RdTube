@@ -17,6 +17,7 @@ fun RedditPost.toJson(): JSONObject = JSONObject().apply {
     put("hlsUrl", hlsUrl)
     put("thumbnailUrl", thumbnailUrl)
     put("numComments", numComments)
+    put("duration", duration)
 }
 
 fun JSONObject.toRedditPost(): RedditPost = RedditPost(
@@ -31,5 +32,6 @@ fun JSONObject.toRedditPost(): RedditPost = RedditPost(
     dashUrl = optString("dashUrl"),
     hlsUrl = optString("hlsUrl"),
     thumbnailUrl = optString("thumbnailUrl"),
-    numComments = optInt("numComments")
+    numComments = optInt("numComments"),
+    duration = optInt("duration", 0)
 )

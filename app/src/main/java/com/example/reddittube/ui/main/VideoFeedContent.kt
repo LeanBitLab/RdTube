@@ -40,6 +40,7 @@ fun VideoFeedContent(
     onRemoveVideo: (RedditPost) -> Unit = {},
     onLike: (RedditPost) -> Unit = {},
     onSubredditClick: (String) -> Unit = {},
+    onCommentClick: (RedditPost) -> Unit = {},
     onLoadMore: () -> Unit = {},
     onRefresh: () -> Unit = {},
     isLoadingMore: Boolean = false,
@@ -113,6 +114,7 @@ fun VideoFeedContent(
                             onSwipeAdvance = onNext,
                             onNext = onNext,
                             onSubredditClick = onSubredditClick,
+                            onCommentClick = onCommentClick,
                             onBack = onBack,
                             onRefresh = onRefresh
                         )

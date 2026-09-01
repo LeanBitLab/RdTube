@@ -105,6 +105,7 @@ fun VideoPage(
     onSubredditClick: (String) -> Unit = {},
     isMuted: Boolean = false,
     onMuteChange: (Boolean) -> Unit = {},
+    onCommentClick: (RedditPost) -> Unit = {},
     onBack: (() -> Unit)? = null,
     onRefresh: () -> Unit = {}
 ) {
@@ -909,13 +910,24 @@ Box(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-// Quality / Speed
-MinimalButton(
-    onClick = { showQualitySheet = true },
-    label = currentQuality
-) {
-    Icon(Icons.Default.Settings, contentDescription = "Quality", tint = Color.White, modifier = Modifier.size(14.dp))
-}
+                    // Comments button
+                    MinimalButton(
+                        onClick = {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onCommentClick(post)
+                        },
+                        label = if (post.numComments > 0) com.lean.reddittube.utils.formatScore(post.numComments) else ""
+                    ) {
+                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Comments", tint = Color.White, modifier = Modifier.size(14.dp))
+                    }
+
+                    // Quality / Speed
+                    MinimalButton(
+                        onClick = { showQualitySheet = true },
+                        label = currentQuality
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = "Quality", tint = Color.White, modifier = Modifier.size(14.dp))
+                    }
 // Rotation lock
                     MinimalButton(
                         onClick = {

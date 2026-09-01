@@ -6,12 +6,14 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lean.reddittube.data.DataRepository
+import com.lean.reddittube.data.RedditComment
 import com.lean.reddittube.data.RedditError
 import com.lean.reddittube.data.RedditPost
 import com.lean.reddittube.utils.toJson
 import com.lean.reddittube.utils.toRedditPost
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -382,6 +384,18 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         return watchedOrder.mapNotNull { id ->
             watchedPosts[id] ?: watchedTitles[id]?.let { RedditPost(id, it, "", "", 0, "", "", "", "", "") }
         }
+    }
+
+    fun clearWatchedHistory() {
+        watchedIds.clear()
+        watchedOrder.clear()
+        watchedTitles.clear()
+        watchedPosts.clear()
+        saveWatched()
+    }
+
+    fun fetchComments(subreddit: String, postId: String): Flow<List<RedditComment>> {
+        return dataRepository.fetchPostComments(subreddit, postId)
     }
 
     private fun saveExploreCache(query: String, posts: List<RedditPost>) {

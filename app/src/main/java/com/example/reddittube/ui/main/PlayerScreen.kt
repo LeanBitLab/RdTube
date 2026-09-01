@@ -15,9 +15,12 @@ import androidx.compose.ui.draw.clip
 import com.lean.reddittube.theme.HPad
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.lean.reddittube.data.RedditPost
+import com.lean.reddittube.ui.main.components.CommentsBottomSheet
 
 // ponytail: full-screen player launched from the browse grid — plays the chosen video on the existing player
 @Composable
@@ -31,6 +34,8 @@ fun PlayerScreen(
     val subscribedState by viewModel.subscribedState.collectAsStateWithLifecycle()
     val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
     val feed = viewModel.playerFeed
+
+    var activeCommentPost by remember { mutableStateOf<RedditPost?>(null) }
 
     // ponytail: pager must follow the live feed (explore/subscribed) so load-more actually grows it;
     // for history/liked ("other") it stays the opened snapshot
@@ -57,10 +62,19 @@ fun PlayerScreen(
                 onRemoveVideo = { viewModel.markAsWatched(it) },
                 onLike = viewModel::toggleLike,
                 onSubredditClick = { sub -> viewModel.refreshExplore(sub); onBack() },
+                onCommentClick = { activeCommentPost = it },
                 onLoadMore = { if (feed != "other") viewModel.loadMore(feed != "subscribed") },
                 onRefresh = { viewModel.refreshExplore() },
                 isRefreshing = exploreState is MainScreenUiState.Loading,
                 onBack = onBack
+            )
+        }
+
+        if (activeCommentPost != null) {
+            CommentsBottomSheet(
+                post = activeCommentPost!!,
+                viewModel = viewModel,
+                onDismiss = { activeCommentPost = null }
             )
         }
     }

@@ -34,7 +34,17 @@ data class RedditPost(
     val dashUrl: String,
     val hlsUrl: String,
     val thumbnailUrl: String = "",
-    val numComments: Int = 0
+    val numComments: Int = 0,
+    val duration: Int = 0
+)
+
+@androidx.compose.runtime.Immutable
+data class RedditComment(
+    val id: String,
+    val author: String,
+    val body: String,
+    val score: Int,
+    val createdUtc: Long
 )
 
 // ponytail: Sealed error hierarchy for typed error handling
@@ -51,6 +61,7 @@ interface DataRepository {
     fun fetchRedditVideos(subreddits: String, sort: String = "hot", feed: String = "explore"): Flow<List<RedditPost>>
     fun searchSubreddits(query: String): Flow<List<String>>
     fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String = "hot", feed: String = "explore"): Flow<FetchMoreResult>
+    fun fetchPostComments(subreddit: String, postId: String): Flow<List<RedditComment>>
     fun getAfterMap(feed: String = "explore"): Map<String, String?>
     fun saveAfterMap(map: Map<String, String?>, feed: String = "explore")
 }
@@ -70,12 +81,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     }
 
     /**
-     * Throttled HTTP request with 429 retry. Returns parsed JSONObject or null.
-     * ponytail: single choke point for all Reddit API calls
+     * Throttled HTTP request with 429 retry. Returns raw response body string or null.
      */
-    private suspend fun performRequest(urlStr: String, token: String, timeout: Int = 15000): JSONObject? {
+    private suspend fun performRawRequest(urlStr: String, token: String, timeout: Int = 15000): String? {
         for (attempt in 0 until MAX_RETRIES) {
-            // throttle: serialize the wait so concurrent flows can't both pass the interval check
             requestMutex.withLock {
                 val now = System.currentTimeMillis()
                 val elapsed = now - lastRequestTime.get()
@@ -103,8 +112,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     } else {
                         conn.inputStream
                     }
-                    val body = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    return JSONObject(body)
+                    return stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                 }
 
                 if (code == 429) {
@@ -131,6 +139,61 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         }
         return null
     }
+
+    /**
+     * Throttled HTTP request with 429 retry. Returns parsed JSONObject or null.
+     * ponytail: single choke point for all Reddit API calls
+     */
+    private suspend fun performRequest(urlStr: String, token: String, timeout: Int = 15000): JSONObject? {
+        val raw = performRawRequest(urlStr, token, timeout) ?: return null
+        return try {
+            JSONObject(raw)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override fun fetchPostComments(subreddit: String, postId: String): Flow<List<RedditComment>> = flow {
+        val token = RedditOAuthHelper.getOrFetchAccessToken(context)
+        if (token == null) { emit(emptyList()); return@flow }
+        val comments = mutableListOf<RedditComment>()
+        try {
+            val url = "https://oauth.reddit.com/r/$subreddit/comments/$postId.json?limit=30&raw_json=1"
+            val raw = performRawRequest(url, token, timeout = 12000)
+            if (raw != null) {
+                val jsonArray = org.json.JSONArray(raw)
+                if (jsonArray.length() > 1) {
+                    val commentListing = jsonArray.getJSONObject(1)
+                    val dataObj = commentListing.optJSONObject("data")
+                    val children = dataObj?.optJSONArray("children")
+                    if (children != null) {
+                        for (i in 0 until children.length()) {
+                            val child = children.getJSONObject(i)
+                            val kind = child.optString("kind", "")
+                            if (kind == "t1") {
+                                val cData = child.optJSONObject("data") ?: continue
+                                val body = cData.optString("body", "").trim()
+                                if (body.isNotEmpty() && body != "[deleted]" && body != "[removed]") {
+                                    comments.add(
+                                        RedditComment(
+                                            id = cData.optString("id"),
+                                            author = cData.optString("author", "[deleted]"),
+                                            body = body,
+                                            score = cData.optInt("score", 0),
+                                            createdUtc = cData.optLong("created_utc", 0L)
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("RedditRepository", "fetchPostComments error: ${e.message}")
+        }
+        emit(comments)
+    }.flowOn(Dispatchers.IO)
 
     override fun searchSubreddits(query: String): Flow<List<String>> = flow {
         val token = RedditOAuthHelper.getOrFetchAccessToken(context)
@@ -306,6 +369,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 ?.replace("&amp;", "&") ?: ""
         }
 
+        val duration = redditVideo.optInt("duration", 0)
+
         return RedditPost(
             id = childData.optString("id"),
             title = childData.optString("title"),
@@ -318,7 +383,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             dashUrl = dashUrl,
             hlsUrl = hlsUrl,
             thumbnailUrl = thumb,
-            numComments = childData.optInt("num_comments")
+            numComments = childData.optInt("num_comments"),
+            duration = duration
         )
     }
 
