@@ -261,11 +261,32 @@ fun AboutPage(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "✓ 18+ subreddits and media streams are unlocked via your Reddit account authorization.",
+                        text = "✓ 18+ subreddits and media streams are unlocked via your official Reddit authorization.",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.White.copy(alpha = 0.06f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "100% Safe & Read-Only • Official OAuth 2.0 • Zero risk to your Reddit account.",
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+
                     Button(
                         onClick = {
                             RedditOAuthHelper.logout(context)
@@ -294,6 +315,27 @@ fun AboutPage(
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.White.copy(alpha = 0.06f),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Shield, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Zero Ban Risk: Standard read-only OAuth 2.0 flow. RdTube never sees your password.",
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+
                     Button(
                         onClick = {
                             RedditOAuthHelper.launchLogin(context)
@@ -419,7 +461,47 @@ fun AboutPage(
             }
         }
 
-        // Section 5: Community & Links (Expandable/Foldable)
+        // Section 5: Security & Reddit FAQ (Expandable/Foldable)
+        var isFaqExpanded by remember { mutableStateOf(false) }
+        FoldableSectionCard(
+            title = "Account Safety & FAQ",
+            icon = Icons.Default.HelpOutline,
+            isExpanded = isFaqExpanded,
+            onToggle = { isFaqExpanded = !isFaqExpanded }
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Does logging in risk a Reddit ban?",
+                    color = TextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "No, zero ban risk. RdTube uses Reddit's official OAuth 2.0 authorization with read-only scopes. Reddit explicitly permits third-party client apps, and your password is never exposed.",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+                HorizontalDivider(color = BorderSubtle)
+                Text(
+                    text = "Why is login required for 18+ subreddits?",
+                    color = TextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Reddit's API blocks mature media for unauthenticated/guest users. Logging in authenticates your age verification preference directly with Reddit's servers.",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+            }
+        }
+
+        // Section 6: Community & Links (Expandable/Foldable)
         FoldableSectionCard(
             title = "Community & Project",
             icon = Icons.Default.Favorite,
