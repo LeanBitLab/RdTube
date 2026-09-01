@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.lean.reddittube.theme.*
 import com.lean.reddittube.ui.main.components.AppUpdateBottomSheet
 import com.lean.reddittube.utils.GitHubRelease
+import com.lean.reddittube.utils.RedditOAuthHelper
 import com.lean.reddittube.utils.UpdateChecker
 import kotlinx.coroutines.launch
 
@@ -237,7 +238,84 @@ fun AboutPage(
             }
         }
 
-        // Section 2: Content & Preferences (Expandable/Foldable with 18+ Toggle)
+        // Section 2: Reddit Account (18+ Authentication)
+        var isLoggedIn by remember { mutableStateOf(RedditOAuthHelper.isLoggedIn(context)) }
+        var username by remember { mutableStateOf(RedditOAuthHelper.getUsername(context)) }
+
+        FoldableSectionCard(
+            title = "Reddit Account (18+ Access)",
+            icon = Icons.Default.AccountCircle,
+            badge = if (isLoggedIn) "u/${username ?: "User"}" else "Unlinked",
+            isExpanded = isPreferencesExpanded,
+            onToggle = { isPreferencesExpanded = !isPreferencesExpanded }
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (isLoggedIn) {
+                    Text(
+                        text = "Connected as u/${username ?: "Reddit User"}",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "✓ 18+ subreddits and media streams are unlocked via your Reddit account authorization.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                    Button(
+                        onClick = {
+                            RedditOAuthHelper.logout(context)
+                            isLoggedIn = false
+                            username = null
+                            Toast.makeText(context, "Logged out from Reddit", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SurfaceBar,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, GlassBorder)
+                    ) {
+                        Icon(Icons.Default.Logout, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Log Out from Reddit", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Text(
+                        text = "Reddit API requires account authorization to access 18+ / mature subreddits and media. Tap below to connect securely via Reddit OAuth.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                    Button(
+                        onClick = {
+                            RedditOAuthHelper.launchLogin(context)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Login, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Connect Reddit Account (1-Tap)", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // Section 3: Content & Preferences (Expandable/Foldable with 18+ Toggle)
         FoldableSectionCard(
             title = "Content & Preferences",
             icon = Icons.Default.Tune,
