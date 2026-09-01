@@ -19,7 +19,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,10 +54,10 @@ fun CommentsBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SurfaceBase,
+        containerColor = Color.Black,
         scrimColor = Scrim,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { BottomSheetDefaults.DragHandle(color = TextMuted) }
+        dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0x66FFFFFF)) }
     ) {
         Column(
             modifier = Modifier
@@ -79,7 +78,7 @@ fun CommentsBottomSheet(
                         Text(
                             text = "Comments",
                             style = MaterialTheme.typography.titleLarge,
-                            color = TextPrimary,
+                            color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                         if (post.numComments > 0) {
@@ -91,7 +90,7 @@ fun CommentsBottomSheet(
                             ) {
                                 Text(
                                     text = formatScore(post.numComments),
-                                    color = BrandRedLight,
+                                    color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -187,7 +186,7 @@ private fun CommentRow(comment: RedditComment) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "u/${comment.author}",
-                        color = BrandRedLight,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
                     )
@@ -214,7 +213,7 @@ private fun CommentRow(comment: RedditComment) {
                         Icon(
                             Icons.Default.ArrowUpward,
                             contentDescription = "Upvotes",
-                            tint = BrandRedLight,
+                            tint = Color.White,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(Modifier.width(3.dp))

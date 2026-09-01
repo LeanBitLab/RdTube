@@ -30,10 +30,10 @@ fun SortBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SurfaceBase,
+        containerColor = Color.Black,
         scrimColor = Scrim,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { BottomSheetDefaults.DragHandle(color = TextMuted) }
+        dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0x66FFFFFF)) }
     ) {
         Column(
             modifier = Modifier
@@ -44,7 +44,7 @@ fun SortBottomSheet(
             Text(
                 text = "Sort Feed",
                 style = MaterialTheme.typography.titleLarge,
-                color = TextPrimary,
+                color = Color.White,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -61,8 +61,8 @@ fun SortBottomSheet(
                             onDismiss()
                         },
                     shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) BrandRed.copy(alpha = 0.18f) else Color.Transparent,
-                    border = if (isSelected) BorderStroke(1.dp, BrandRedLight.copy(alpha = 0.5f)) else null
+                    color = if (isSelected) Color.White.copy(alpha = 0.15f) else Color.Transparent,
+                    border = if (isSelected) BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)) else null
                 ) {
                     Row(
                         modifier = Modifier
@@ -73,7 +73,7 @@ fun SortBottomSheet(
                     ) {
                         Text(
                             text = option.label,
-                            color = if (isSelected) BrandRedLight else TextPrimary,
+                            color = if (isSelected) Color.White else TextSecondary,
                             fontSize = 15.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )
@@ -81,7 +81,7 @@ fun SortBottomSheet(
                             Icon(
                                 Icons.Default.Check,
                                 contentDescription = "Selected",
-                                tint = BrandRedLight,
+                                tint = Color.White,
                                 modifier = Modifier.size(18.dp)
                             )
                         }

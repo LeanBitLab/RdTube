@@ -12,18 +12,18 @@ import androidx.compose.ui.platform.LocalContext
 
 import androidx.compose.ui.graphics.Color
 
-private val BrandDarkRedContainer = BrandRed.copy(alpha = 0.2f)
+private val BrandContainer = BrandRed.copy(alpha = 0.15f)
 
-fun createDarkColorScheme(amoledMode: Boolean = false) = darkColorScheme(
-    primary = BrandRed,
-    onPrimary = TextPrimary,
-    primaryContainer = BrandDarkRedContainer,
-    onPrimaryContainer = TextPrimary,
+fun createDarkColorScheme(amoledMode: Boolean = true) = darkColorScheme(
+    primary = Color.White,
+    onPrimary = Color.Black,
+    primaryContainer = BrandContainer,
+    onPrimaryContainer = Color.White,
     secondary = TextSecondary,
-    onSecondary = TextPrimary,
-    background = if (amoledMode) Color.Black else RichObsidian,
+    onSecondary = Color.White,
+    background = Color.Black,
     onBackground = TextPrimary,
-    surface = if (amoledMode) Color.Black else SurfaceBase,
+    surface = Color.Black,
     onSurface = TextPrimary,
     surfaceVariant = SurfaceRaised,
     onSurfaceVariant = TextSecondary,

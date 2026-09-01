@@ -50,7 +50,7 @@ fun AboutPage(
                         Toast.makeText(context, "Thumbnail cache cleared", Toast.LENGTH_SHORT).show()
                     }
                 ) {
-                    Text("Clear", color = BrandRed, fontWeight = FontWeight.Bold)
+                    Text("Clear", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -60,61 +60,63 @@ fun AboutPage(
             },
             containerColor = SurfaceRaised,
             titleContentColor = TextPrimary,
-            textContentColor = TextSecondary
+            textContentColor = TextSecondary,
+            shape = RoundedCornerShape(18.dp)
         )
     }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(RichObsidian)
+            .background(Color.Black)
             .statusBarsPadding()
-            .padding(start = HPad, top = TopBarHeight + 2.dp, end = HPad, bottom = 84.dp)
+            .padding(start = HPad, top = TopBarHeight + 2.dp, end = HPad, bottom = 90.dp)
             .verticalScroll(rememberScrollState())
     ) {
         // App Header Banner
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(14.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
-                        .background(BrandRed),
+                        .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(22.dp))
                 }
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("RdTube", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("RdTube", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Text("v${com.lean.reddittube.BuildConfig.VERSION_NAME} • Gestures & Quick Guide", color = TextSecondary, fontSize = 11.sp)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Compact Gestures Card
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(14.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder)
         ) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                Text("Gestures", color = BrandRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(6.dp))
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text("Gestures", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
 
+                CompactGestureItem("Two-Finger Swipe ↓", "Refresh Video Feed Instantly")
                 CompactGestureItem("Left Edge ↕", "Adjust Screen Brightness")
                 CompactGestureItem("Right Edge ↕", "Adjust System Volume")
                 CompactGestureItem("Swipe Left ↔", "Dismiss & Mark Watched")
@@ -124,18 +126,18 @@ fun AboutPage(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Compact Toolbar Functions Card
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(14.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder)
         ) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                Text("Toolbar Functions", color = BrandRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(6.dp))
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text("Toolbar Functions", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
 
                 CompactButtonItem(Icons.Default.SkipNext, "Auto-Next", "Auto-play next clip on end")
                 CompactButtonItem(Icons.Default.Download, "Save Video", "0-download export to Downloads")
@@ -145,7 +147,7 @@ fun AboutPage(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Actions Row (Sponsor & Clear Cache)
         Row(
@@ -159,18 +161,18 @@ fun AboutPage(
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sponsors/LeanBitLab"))
                         context.startActivity(intent)
                     },
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = SurfaceRaised,
-                border = BorderStroke(1.dp, BrandRed.copy(alpha = 0.4f))
+                border = BorderStroke(1.dp, GlassBorder)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(Icons.Default.Favorite, contentDescription = null, tint = BrandRed, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Sponsor Project", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Sponsor", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -178,16 +180,16 @@ fun AboutPage(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { showClearDialog = true },
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = SurfaceRaised,
                 border = BorderStroke(1.dp, GlassBorder)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Clear Cache", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
@@ -207,16 +209,16 @@ private fun CompactGestureItem(tag: String, label: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            shape = RoundedCornerShape(4.dp),
-            color = BrandRed.copy(alpha = 0.12f),
-            border = BorderStroke(1.dp, BrandRed.copy(alpha = 0.25f))
+            shape = RoundedCornerShape(6.dp),
+            color = Color.White.copy(alpha = 0.12f),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
         ) {
             Text(
                 text = tag,
-                color = BrandRed,
+                color = Color.White,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -232,7 +234,7 @@ private fun CompactButtonItem(icon: ImageVector, title: String, desc: String) {
             .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = BrandRed, modifier = Modifier.size(14.dp))
+        Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
         Spacer(modifier = Modifier.width(8.dp))
         Text(text = title, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.width(6.dp))

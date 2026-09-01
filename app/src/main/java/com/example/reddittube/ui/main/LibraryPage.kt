@@ -68,11 +68,11 @@ fun LibraryPage(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(RichObsidian)
+            .background(Color.Black)
             .statusBarsPadding()
             .padding(top = TopBarHeight + 4.dp)
     ) {
-        // Segmented Control Row
+        // Segmented Control Row (Crisp Monochrome)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -88,8 +88,8 @@ fun LibraryPage(
                         .clip(RoundedCornerShape(20.dp))
                         .clickable { selectedSegment = segment },
                     shape = RoundedCornerShape(20.dp),
-                    color = if (isSelected) BrandRed else SurfaceRaised,
-                    border = BorderStroke(1.dp, if (isSelected) BrandRedLight else GlassBorder)
+                    color = if (isSelected) Color.White else SurfaceRaised,
+                    border = BorderStroke(1.dp, if (isSelected) Color.White else GlassBorder)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxSize(),
@@ -99,13 +99,13 @@ fun LibraryPage(
                         Icon(
                             segment.icon,
                             contentDescription = segment.title,
-                            tint = if (isSelected) Color.White else TextSecondary,
+                            tint = if (isSelected) Color.Black else TextSecondary,
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = segment.title,
-                            color = if (isSelected) Color.White else TextSecondary,
+                            color = if (isSelected) Color.Black else TextSecondary,
                             fontSize = 12.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
@@ -216,12 +216,12 @@ fun LibraryPage(
                                             modifier = Modifier
                                                 .size(36.dp)
                                                 .clip(CircleShape)
-                                                .background(BrandRed.copy(alpha = 0.15f)),
+                                                .background(Color.White.copy(alpha = 0.12f)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = "r/",
-                                                color = BrandRedLight,
+                                                color = Color.White,
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -255,7 +255,7 @@ fun LibraryPage(
                                         Icon(
                                             Icons.Default.DeleteOutline,
                                             contentDescription = "Unsubscribe",
-                                            tint = BrandRedLight,
+                                            tint = TextSecondary,
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
@@ -335,7 +335,7 @@ fun LibraryPage(
                         Toast.makeText(context, "History cleared", Toast.LENGTH_SHORT).show()
                     }
                 ) {
-                    Text("Clear", color = BrandRed, fontWeight = FontWeight.Bold)
+                    Text("Clear", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -360,7 +360,7 @@ fun LibraryPage(
                         Toast.makeText(context, "Cache cleared", Toast.LENGTH_SHORT).show()
                     }
                 ) {
-                    Text("Clear", color = BrandRed, fontWeight = FontWeight.Bold)
+                    Text("Clear", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {

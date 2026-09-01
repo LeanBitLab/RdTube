@@ -70,10 +70,10 @@ fun SearchBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SurfaceBase,
+        containerColor = Color.Black,
         scrimColor = Scrim,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { BottomSheetDefaults.DragHandle(color = TextMuted) }
+        dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0x66FFFFFF)) }
     ) {
         Column(
             modifier = Modifier
@@ -97,7 +97,7 @@ fun SearchBottomSheet(
                     },
                     placeholder = { Text("Search subreddits...", color = TextMuted, fontSize = 14.sp) },
                     leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = "Search", tint = BrandRedLight, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White, modifier = Modifier.size(20.dp))
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -111,7 +111,7 @@ fun SearchBottomSheet(
                         unfocusedContainerColor = Color.Transparent,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = BrandRed,
+                        cursorColor = Color.White,
                         focusedTextColor = TextPrimary,
                         unfocusedTextColor = TextPrimary
                     ),
@@ -132,7 +132,7 @@ fun SearchBottomSheet(
                     Text("Recent Searches", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text(
                         "Clear",
-                        color = BrandRedLight,
+                        color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.clickable {
@@ -210,12 +210,12 @@ fun SearchBottomSheet(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(CircleShape)
-                                    .background(if (isSubbed) BrandRed.copy(alpha = 0.2f) else SurfaceBar)
+                                    .background(if (isSubbed) Color.White.copy(alpha = 0.15f) else SurfaceBar)
                             ) {
                                 Icon(
                                     imageVector = if (isSubbed) Icons.Default.Check else Icons.Default.Add,
                                     contentDescription = if (isSubbed) "Subscribed" else "Subscribe",
-                                    tint = if (isSubbed) BrandRedLight else TextSecondary,
+                                    tint = if (isSubbed) Color.White else TextSecondary,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }

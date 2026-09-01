@@ -1,10 +1,11 @@
 package com.lean.reddittube
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -37,8 +38,8 @@ fun MainNavigation() {
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
         transitionSpec = {
-            (slideInHorizontally(animationSpec = tween(300)) { width -> width } + fadeIn(tween(300)))
-                .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { width -> -width / 3 } + fadeOut(tween(300)))
+            (fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) + scaleIn(initialScale = 0.95f, animationSpec = tween(240, easing = FastOutSlowInEasing)))
+                .togetherWith(fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) + scaleOut(targetScale = 0.97f, animationSpec = tween(180, easing = FastOutSlowInEasing)))
         },
         entryProvider =
             entryProvider {

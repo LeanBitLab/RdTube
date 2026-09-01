@@ -125,7 +125,7 @@ fun HomeScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(RichObsidian)
+            .background(Color.Black)
     ) {
         HorizontalPager(
             state = horizontalPagerState,
@@ -186,13 +186,13 @@ fun HomeScreen(
             }
         }
 
-        // Minimal Clean Top Header: Brand mark only (everything else accessible at thumb bottom)
+        // Minimal Clean Top Header: Monochrome Brand mark only
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(TopBarHeight)
-                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.65f), Color.Transparent)))
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent)))
         ) {
             Row(
                 modifier = Modifier
@@ -218,10 +218,10 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .size(30.dp)
-                            .background(BrandRed, shape = RoundedCornerShape(8.dp)),
+                            .background(Color.White, shape = RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Rd", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Rd", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                     Text("Tube", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                 }
@@ -256,7 +256,7 @@ fun HomeScreen(
                             .clip(RoundedCornerShape(19.dp))
                             .clickable { showSearchSheet = true },
                         shape = RoundedCornerShape(19.dp),
-                        color = SurfaceRaised.copy(alpha = 0.92f),
+                        color = SurfaceRaised.copy(alpha = 0.95f),
                         border = BorderStroke(1.dp, GlassBorder)
                     ) {
                         Row(
@@ -265,7 +265,7 @@ fun HomeScreen(
                                 .padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Search, contentDescription = "Search", tint = BrandRedLight, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Search subreddits...", color = TextMuted, fontSize = 12.sp)
                         }
@@ -278,7 +278,7 @@ fun HomeScreen(
                             .clip(RoundedCornerShape(19.dp))
                             .clickable { showSortSheet = true },
                         shape = RoundedCornerShape(19.dp),
-                        color = SurfaceRaised.copy(alpha = 0.92f),
+                        color = SurfaceRaised.copy(alpha = 0.95f),
                         border = BorderStroke(1.dp, GlassBorder)
                     ) {
                         Row(
@@ -287,7 +287,7 @@ fun HomeScreen(
                                 .padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort", tint = BrandRedLight, modifier = Modifier.size(15.dp))
+                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort", tint = Color.White, modifier = Modifier.size(15.dp))
                             Spacer(Modifier.width(6.dp))
                             Text(viewModel.currentSort.label, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
@@ -300,7 +300,7 @@ fun HomeScreen(
                             .clip(CircleShape)
                             .clickable { refreshCurrentFeed() },
                         shape = CircleShape,
-                        color = SurfaceRaised.copy(alpha = 0.92f),
+                        color = SurfaceRaised.copy(alpha = 0.95f),
                         border = BorderStroke(1.dp, GlassBorder)
                     ) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -310,7 +310,7 @@ fun HomeScreen(
                 }
             }
 
-            // Ultra-Smooth, Lightweight Floating Pill Navigation Dock
+            // Ultra-Smooth, Minimalist Monochrome Floating Pill Navigation Dock
             AnimatedVisibility(
                 visible = bottomBarVisible || horizontalPagerState.currentPage == 2 || horizontalPagerState.currentPage == 3,
                 enter = slideInVertically(initialOffsetY = { it * 2 }) + fadeIn(tween(180)),
@@ -380,19 +380,19 @@ private fun FloatingPillNavBar(
     val haptic = LocalHapticFeedback.current
 
     val springSpec = spring<androidx.compose.ui.unit.Dp>(
-        stiffness = 220f,
-        dampingRatio = 0.85f
+        stiffness = 240f,
+        dampingRatio = 0.88f
     )
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(58.dp),
-        shape = RoundedCornerShape(29.dp),
-        color = SurfaceBar.copy(alpha = 0.85f),
+            .height(56.dp),
+        shape = RoundedCornerShape(28.dp),
+        color = SurfaceBar.copy(alpha = 0.90f),
         border = BorderStroke(1.dp, GlassBorder),
         shadowElevation = 0.dp,
-        tonalElevation = 2.dp
+        tonalElevation = 0.dp
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val tabWidth = maxWidth / tabs.size
@@ -403,15 +403,15 @@ private fun FloatingPillNavBar(
                 label = "PillIndicator"
             )
 
-            // Animated sliding highlight pill
+            // Animated sliding high-contrast white highlight pill
             Box(
                 modifier = Modifier
                     .padding(vertical = 5.dp, horizontal = 5.dp)
                     .width(tabWidth - 10.dp)
                     .fillMaxHeight()
                     .offset(x = indicatorOffset)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(BrandRed)
+                    .clip(RoundedCornerShape(23.dp))
+                    .background(Color.White)
             )
 
             Row(modifier = Modifier.fillMaxSize()) {
@@ -438,13 +438,13 @@ private fun FloatingPillNavBar(
                             Icon(
                                 imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
                                 contentDescription = tab.title,
-                                tint = if (isSelected) Color.White else TextSecondary,
+                                tint = if (isSelected) Color.Black else TextSecondary,
                                 modifier = Modifier.size(19.dp)
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 text = tab.title,
-                                color = if (isSelected) Color.White else TextMuted,
+                                color = if (isSelected) Color.Black else TextMuted,
                                 fontSize = 10.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 maxLines = 1
@@ -531,8 +531,8 @@ private fun BrowseGrid(
                     repeat(4) {
                         val transition = rememberInfiniteTransition(label = "shimmer")
                         val pulseAlpha by transition.animateFloat(
-                            initialValue = 0.15f,
-                            targetValue = 0.40f,
+                            initialValue = 0.12f,
+                            targetValue = 0.30f,
                             animationSpec = infiniteRepeatable(
                                 animation = tween(800, easing = LinearEasing),
                                 repeatMode = RepeatMode.Reverse
@@ -594,12 +594,12 @@ private fun BrowseGrid(
                             Spacer(Modifier.height(16.dp))
                             Button(
                                 onClick = onRefresh,
-                                colors = ButtonDefaults.buttonColors(containerColor = BrandRed),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Refresh", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Refresh", color = Color.Black, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -660,7 +660,7 @@ private fun BrowseGrid(
                                 ) {
                                     Surface(
                                         shape = RoundedCornerShape(20.dp),
-                                        color = SurfaceBase.copy(alpha = 0.88f),
+                                        color = Color.Black.copy(alpha = 0.88f),
                                         border = BorderStroke(1.dp, GlassBorder)
                                     ) {
                                         SectionLoadingIndicator(
@@ -688,8 +688,8 @@ private fun BrowseGrid(
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = SurfaceBase.copy(alpha = 0.92f),
-                border = BorderStroke(1.dp, BrandRed)
+                color = Color.Black.copy(alpha = 0.95f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -699,7 +699,7 @@ private fun BrowseGrid(
                     Icon(
                         Icons.Default.Refresh,
                         contentDescription = null,
-                        tint = BrandRed,
+                        tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
@@ -730,10 +730,10 @@ fun VideoCard(
 
     var isPressed by remember { mutableStateOf(false) }
     val cardScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.965f else 1f,
+        targetValue = if (isPressed) 0.985f else 1f,
         animationSpec = spring(
-            stiffness = Spring.StiffnessMediumLow,
-            dampingRatio = Spring.DampingRatioMediumBouncy
+            stiffness = 300f,
+            dampingRatio = Spring.DampingRatioNoBouncy
         ),
         label = "VideoCardScale"
     )
@@ -761,7 +761,7 @@ fun VideoCard(
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                 isHiding = true
                                 coroutineScope.launch {
-                                    delay(350)
+                                    delay(300)
                                     onRemoveVideo(post)
                                 }
                             }
@@ -772,7 +772,7 @@ fun VideoCard(
             shape = RoundedCornerShape(16.dp),
             color = SurfaceRaised,
             border = BorderStroke(1.dp, GlassBorder),
-            shadowElevation = 4.dp
+            shadowElevation = 0.dp
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Box(
@@ -790,15 +790,15 @@ fun VideoCard(
                             modifier = Modifier
                                 .padding(10.dp)
                                 .align(Alignment.TopStart)
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .clickable { onSubredditClick(post.subreddit) },
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0x8007080A),
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color.Black.copy(alpha = 0.70f),
                             border = BorderStroke(1.dp, GlassBorder)
                         ) {
                             Text(
                                 text = "r/${post.subreddit}",
-                                color = BrandRedLight,
+                                color = Color.White,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -816,7 +816,7 @@ fun VideoCard(
                                 .padding(10.dp)
                                 .align(Alignment.BottomEnd),
                             shape = RoundedCornerShape(8.dp),
-                            color = Color.Black.copy(alpha = 0.70f),
+                            color = Color.Black.copy(alpha = 0.80f),
                             border = BorderStroke(1.dp, GlassBorder)
                         ) {
                             Text(
@@ -832,10 +832,10 @@ fun VideoCard(
                     // Center Play Overlay Icon
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(42.dp)
                             .align(Alignment.Center)
                             .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.55f))
+                            .background(Color.Black.copy(alpha = 0.60f))
                             .border(1.dp, Color(0x33FFFFFF), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
@@ -843,7 +843,7 @@ fun VideoCard(
                             Icons.Default.PlayArrow,
                             contentDescription = "Play video",
                             tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -880,13 +880,13 @@ fun VideoCard(
                                 Icon(
                                     if (isLiked) Icons.Default.ThumbUp else Icons.Default.ThumbUpOffAlt,
                                     contentDescription = "Like",
-                                    tint = if (isLiked) BrandRed else TextSecondary,
+                                    tint = if (isLiked) Color.White else TextSecondary,
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     formatScore(if (isLiked) post.score + 1 else post.score),
-                                    color = if (isLiked) BrandRed else TextSecondary,
+                                    color = if (isLiked) Color.White else TextSecondary,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -935,7 +935,7 @@ fun VideoCard(
         // Hiding overlay indicator
         AnimatedVisibility(
             visible = isHiding,
-            enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.88f),
+            enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.92f),
             exit = fadeOut(tween(150)),
             modifier = Modifier.matchParentSize()
         ) {
@@ -948,8 +948,8 @@ fun VideoCard(
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = SurfaceBase.copy(alpha = 0.95f),
-                    border = BorderStroke(1.dp, BrandRed)
+                    color = Color.Black.copy(alpha = 0.95f),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -959,7 +959,7 @@ fun VideoCard(
                         Icon(
                             imageVector = Icons.Default.VisibilityOff,
                             contentDescription = "Hidden",
-                            tint = BrandRed,
+                            tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
@@ -993,7 +993,7 @@ private fun ErrorPage(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (isNoSubscriptions) {
-            Icon(Icons.Default.Add, contentDescription = "Add", tint = BrandRed, modifier = Modifier.size(64.dp))
+            Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.White, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text("No Subscriptions", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
@@ -1009,8 +1009,8 @@ private fun ErrorPage(
             Spacer(modifier = Modifier.height(8.dp))
             Text(message, color = Color.LightGray, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onRefresh, colors = ButtonDefaults.buttonColors(containerColor = BrandRed)) {
-                Text("Try Again", color = Color.White)
+            Button(onClick = onRefresh, colors = ButtonDefaults.buttonColors(containerColor = Color.White)) {
+                Text("Try Again", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         }
     }
