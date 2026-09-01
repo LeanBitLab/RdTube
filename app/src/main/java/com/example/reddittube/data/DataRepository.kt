@@ -543,7 +543,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         // ponytail: server-side video filtering for text-heavy subreddits
         if (list.size < 8) {
             try {
-                val searchUrl = "https://oauth.reddit.com/r/$subreddit/search.json?q=site:v.redd.it&restrict_sr=1&sort=$sort&limit=50&raw_json=1&include_over_18=on"
+                val searchUrl = "https://oauth.reddit.com/r/$subreddit/search.json?q=site:v.redd.it&restrict_sr=1&sort=$sortPath&limit=50&raw_json=1&include_over_18=on$sortExtra"
                 val json = performRequest(searchUrl, token)
                 val data = json?.optJSONObject("data")
                 val children = data?.optJSONArray("children")

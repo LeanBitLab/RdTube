@@ -3,6 +3,9 @@ package com.lean.reddittube.ui.main
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lean.reddittube.data.DataRepository
@@ -59,7 +62,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     var subscribedQuery = ""
         private set
 
-    var currentSort: SortOption = SortOption.HOT
+    var currentSort: SortOption by mutableStateOf(SortOption.HOT)
         private set
 
     private val _searchResults = MutableStateFlow<List<String>>(emptyList())
@@ -349,8 +352,14 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     }
 
     fun setSort(sort: SortOption) {
+        if (currentSort == sort) return
         currentSort = sort
+        dataRepository.saveAfterMap(emptyMap(), "explore")
+        dataRepository.saveAfterMap(emptyMap(), "subscribed")
         refreshExplore(forceRefresh = true)
+        if (subscribedQuery.isNotEmpty()) {
+            refreshSubscribed(subscribedQuery, forceRefresh = true)
+        }
     }
 
     private val memoryFeedCache = com.lean.reddittube.util.AdaptiveCacheEngine<String, List<RedditPost>>(
@@ -363,13 +372,14 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     fun refreshExplore(query: String = exploreQuery, forceRefresh: Boolean = false) {
         exploreQuery = query
         viewModelScope.launch {
-            // ponytail: show query-specific cached feed instantly (0ms latency), else show loading
-            val cached = (memoryFeedCache[query] ?: loadExploreCache(query).filter { !isHidden(it.id) }).distinctBy { it.id }
-            val lastRefresh = lastExploreRefreshTime[query] ?: 0L
+            val sortVal = currentSort.value
+            val cacheKey = "explore_${query}_$sortVal"
+            val cached = (memoryFeedCache[cacheKey] ?: loadExploreCache(query, sortVal).filter { !isHidden(it.id) }).distinctBy { it.id }
+            val lastRefresh = lastExploreRefreshTime[cacheKey] ?: 0L
             val isFresh = (System.currentTimeMillis() - lastRefresh) < CACHE_STALE_DURATION_MS
 
             if (cached.isNotEmpty()) {
-                memoryFeedCache[query] = cached
+                memoryFeedCache[cacheKey] = cached
                 _exploreState.value = MainScreenUiState.Success(cached)
                 if (!forceRefresh && isFresh) {
                     return@launch
@@ -378,15 +388,17 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 _exploreState.value = MainScreenUiState.Loading
             }
             try {
-                dataRepository.fetchRedditVideos(query, currentSort.value).collect { posts ->
+                dataRepository.fetchRedditVideos(query, sortVal, "explore").collect { posts ->
                     val filtered = posts.filter { !isHidden(it.id) }.distinctBy { it.id }
                     if (filtered.isNotEmpty()) {
-                        memoryFeedCache[query] = filtered
-                        lastExploreRefreshTime[query] = System.currentTimeMillis()
+                        memoryFeedCache[cacheKey] = filtered
+                        lastExploreRefreshTime[cacheKey] = System.currentTimeMillis()
                         _exploreState.value = MainScreenUiState.Success(filtered)
-                        saveExploreCache(query, filtered)
+                        saveExploreCache(query, sortVal, filtered)
                     } else if (cached.isNotEmpty()) {
                         _exploreState.value = MainScreenUiState.Success(cached)
+                    } else {
+                        _exploreState.value = MainScreenUiState.Error(RedditError.NoVideosFound(query))
                     }
                 }
             } catch (e: RedditError) {
@@ -410,9 +422,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 _subscribedState.value = MainScreenUiState.Error(RedditError.Unknown("No subscribed subreddits. Use the search icon to add subreddits."))
                 return@launch
             }
-            val cacheKey = "sub_$query"
-            val cached = (memoryFeedCache[cacheKey] ?: loadSubscribedCache(query).filter { !isHidden(it.id) }).distinctBy { it.id }
-            val lastRefresh = lastSubscribedRefreshTime[query] ?: 0L
+            val sortVal = currentSort.value
+            val cacheKey = "sub_${query}_$sortVal"
+            val cached = (memoryFeedCache[cacheKey] ?: loadSubscribedCache(query, sortVal).filter { !isHidden(it.id) }).distinctBy { it.id }
+            val lastRefresh = lastSubscribedRefreshTime[cacheKey] ?: 0L
             val isFresh = (System.currentTimeMillis() - lastRefresh) < CACHE_STALE_DURATION_MS
 
             if (cached.isNotEmpty()) {
@@ -425,15 +438,17 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 _subscribedState.value = MainScreenUiState.Loading
             }
             try {
-                dataRepository.fetchRedditVideos(query, currentSort.value, "subscribed").collect { posts ->
+                dataRepository.fetchRedditVideos(query, sortVal, "subscribed").collect { posts ->
                     val filtered = posts.filter { !isHidden(it.id) }.distinctBy { it.id }
                     if (filtered.isNotEmpty()) {
                         memoryFeedCache[cacheKey] = filtered
-                        lastSubscribedRefreshTime[query] = System.currentTimeMillis()
+                        lastSubscribedRefreshTime[cacheKey] = System.currentTimeMillis()
                         _subscribedState.value = MainScreenUiState.Success(filtered)
-                        saveSubscribedCache(query, filtered)
+                        saveSubscribedCache(query, sortVal, filtered)
                     } else if (cached.isNotEmpty()) {
                         _subscribedState.value = MainScreenUiState.Success(cached)
+                    } else {
+                        _subscribedState.value = MainScreenUiState.Error(RedditError.NoVideosFound(query))
                     }
                 }
             } catch (e: RedditError) {
@@ -551,13 +566,13 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         return dataRepository.fetchPostComments(subreddit, postId)
     }
 
-    private fun saveExploreCache(query: String, posts: List<RedditPost>) {
+    private fun saveExploreCache(query: String, sort: String, posts: List<RedditPost>) {
         val arr = org.json.JSONArray().apply { posts.take(60).forEach { put(it.toJson()) } }
-        prefs.edit().putString("explore_cache_$query", arr.toString()).apply()
+        prefs.edit().putString("explore_cache_${query}_$sort", arr.toString()).apply()
     }
 
-    private fun loadExploreCache(query: String): List<RedditPost> {
-        val str = prefs.getString("explore_cache_$query", null) ?: return emptyList()
+    private fun loadExploreCache(query: String, sort: String): List<RedditPost> {
+        val str = prefs.getString("explore_cache_${query}_$sort", null) ?: return emptyList()
         return try {
             val arr = org.json.JSONArray(str)
             (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }.distinctBy { it.id }
@@ -566,13 +581,13 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         }
     }
 
-    private fun saveSubscribedCache(query: String, posts: List<RedditPost>) {
+    private fun saveSubscribedCache(query: String, sort: String, posts: List<RedditPost>) {
         val arr = org.json.JSONArray().apply { posts.take(60).forEach { put(it.toJson()) } }
-        prefs.edit().putString("subscribed_cache_$query", arr.toString()).apply()
+        prefs.edit().putString("subscribed_cache_${query}_$sort", arr.toString()).apply()
     }
 
-    private fun loadSubscribedCache(query: String): List<RedditPost> {
-        val str = prefs.getString("subscribed_cache_$query", null) ?: return emptyList()
+    private fun loadSubscribedCache(query: String, sort: String): List<RedditPost> {
+        val str = prefs.getString("subscribed_cache_${query}_$sort", null) ?: return emptyList()
         return try {
             val arr = org.json.JSONArray(str)
             (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }.distinctBy { it.id }
