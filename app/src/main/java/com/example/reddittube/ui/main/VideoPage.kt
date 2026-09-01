@@ -346,8 +346,9 @@ Box(
                             val width = size.width
                             val isLeftThird = offset.x < width / 3f
                             val isRightThird = offset.x > (width * 2f / 3f)
+                            val isHaptic = sharedPreferences.getBoolean("pref_haptic_feedback", true)
                             if (isLeftThird) {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (isHaptic) hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val newPos = (exoPlayer.currentPosition - 10000).coerceAtLeast(0)
                                 exoPlayer.seekTo(newPos)
                                 seekFeedback = "« 10s"
@@ -357,7 +358,7 @@ Box(
                                     seekFeedback = null
                                 }
                             } else if (isRightThird) {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (isHaptic) hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val dur = exoPlayer.duration.coerceAtLeast(0)
                                 val newPos = (exoPlayer.currentPosition + 10000).coerceAtMost(dur)
                                 exoPlayer.seekTo(newPos)
@@ -435,12 +436,13 @@ Box(
                         },
                         onDragEnd = {
                             val threshold = size.width * 0.25f
+                            val isHaptic = sharedPreferences.getBoolean("pref_haptic_feedback", true)
                             if (totalX <= -threshold) {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (isHaptic) hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onRemoveVideo(post)
                                 onSwipeAdvance()
                             } else if (totalX >= threshold) {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (isHaptic) hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onLike(post)
                                 onSwipeAdvance()
                             }

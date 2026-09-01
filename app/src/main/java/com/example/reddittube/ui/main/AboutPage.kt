@@ -87,6 +87,7 @@ fun AboutPage(
                 TextButton(
                     onClick = {
                         showClearDialog = false
+                        com.lean.reddittube.ui.main.components.clearThumbnailCache()
                         Toast.makeText(context, "Thumbnail cache cleared", Toast.LENGTH_SHORT).show()
                     }
                 ) {

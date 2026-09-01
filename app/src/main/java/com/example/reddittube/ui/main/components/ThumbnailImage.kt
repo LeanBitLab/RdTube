@@ -46,14 +46,23 @@ private val thumbCache = com.lean.reddittube.util.AdaptiveCacheEngine<String, Bi
     sizeEstimator = { bmp -> bmp.allocationByteCount.toLong().coerceAtLeast(1024L) }
 )
 
+fun clearThumbnailCache() {
+    thumbCache.clear()
+}
+
 @Composable
 fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier = Modifier) {
-    var bitmap by remember(url) { mutableStateOf<Bitmap?>(thumbCache[url]) }
-    var failed by remember(url) { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", android.content.Context.MODE_PRIVATE) }
+    val quality = remember(url) { sharedPreferences.getString("pref_thumbnail_quality", "High") ?: "High" }
+    val cacheKey = "$quality:$url"
 
-    LaunchedEffect(url) {
+    var bitmap by remember(cacheKey) { mutableStateOf<Bitmap?>(thumbCache[cacheKey]) }
+    var failed by remember(cacheKey) { mutableStateOf(false) }
+
+    LaunchedEffect(cacheKey) {
         if (url.isBlank()) { failed = true; return@LaunchedEffect }
-        if (thumbCache.containsKey(url)) { bitmap = thumbCache[url]; return@LaunchedEffect }
+        if (thumbCache.containsKey(cacheKey)) { bitmap = thumbCache[cacheKey]; return@LaunchedEffect }
         runCatching {
             withContext(Dispatchers.IO) {
                 val conn = URL(url).openConnection() as HttpURLConnection
@@ -72,7 +81,15 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
                         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
                         opts.inJustDecodeBounds = false
-                        opts.inSampleSize = (opts.outWidth / 480f).coerceAtLeast(opts.outHeight / 480f)
+
+                        val targetRes = when (quality) {
+                            "High" -> 720f
+                            "Balanced" -> 400f
+                            "Data Saver" -> 240f
+                            else -> 720f
+                        }
+                        opts.inPreferredConfig = if (quality == "High") Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565
+                        opts.inSampleSize = (opts.outWidth / targetRes).coerceAtLeast(opts.outHeight / targetRes)
                             .toInt().coerceAtLeast(1)
                         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
                     } else null
@@ -81,7 +98,7 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
                 }
             }
         }.onSuccess { bmp ->
-            if (bmp != null) { thumbCache.put(url, bmp); bitmap = bmp } else failed = true
+            if (bmp != null) { thumbCache.put(cacheKey, bmp); bitmap = bmp } else failed = true
         }.onFailure { failed = true }
     }
 

@@ -48,13 +48,17 @@ fun VideoFeedContent(
     startIndex: Int = 0,
     onBack: (() -> Unit)? = null
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", android.content.Context.MODE_PRIVATE) }
+    val defaultUnmuted = remember { sharedPreferences.getBoolean("pref_default_unmuted", true) }
+
     val distinctData = remember(data) { data.distinctBy { it.id } }
     val pagerState = rememberPagerState(
         initialPage = startIndex.coerceIn(0, (distinctData.size - 1).coerceAtLeast(0)),
         pageCount = { distinctData.size }
     )
     val coroutineScope = rememberCoroutineScope()
-    var isMuted by remember { mutableStateOf(false) }
+    var isMuted by remember { mutableStateOf(!defaultUnmuted) }
 
     val onNext: () -> Unit = {
         coroutineScope.launch {
@@ -65,10 +69,17 @@ fun VideoFeedContent(
         }
     }
 
-    // ponytail: trigger loadMore when user approaches end of feed (within last 2 items, minimum 10 items)
+    val prefetchStr = remember { sharedPreferences.getString("pref_prefetch_depth", "Balanced (10)") ?: "Balanced (10)" }
+    val prefetchThreshold = when {
+        prefetchStr.contains("5") -> 3
+        prefetchStr.contains("20") -> 10
+        else -> 5
+    }
+
+    // ponytail: trigger loadMore when user approaches end of feed
     val currentPage by remember { derivedStateOf { pagerState.currentPage } }
     LaunchedEffect(currentPage, distinctData.size, isLoadingMore) {
-        if (currentPage >= (distinctData.size - 5).coerceAtLeast(0) && !isLoadingMore && distinctData.isNotEmpty()) {
+        if (currentPage >= (distinctData.size - prefetchThreshold).coerceAtLeast(0) && !isLoadingMore && distinctData.isNotEmpty()) {
             onLoadMore()
         }
     }
