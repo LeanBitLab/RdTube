@@ -174,6 +174,16 @@ fun HomeScreen(
                     },
                     searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
                     onSearchQuery = { viewModel.searchSubreddits(it) },
+                    videoSearchResults = viewModel.videoSearchResults.collectAsStateWithLifecycle().value,
+                    isVideoSearching = viewModel.isVideoSearching.collectAsStateWithLifecycle().value,
+                    onVideoSearchQuery = { viewModel.searchVideos(it) },
+                    onVideoClick = { list, index ->
+                        viewModel.openPlayer(list, index, "search")
+                        onItemClick()
+                    },
+                    likedIds = likedIds,
+                    onLike = viewModel::toggleLike,
+                    onCommentClick = { post -> activeCommentPost = post },
                     modifier = Modifier.fillMaxSize()
                 )
                 3 -> LibraryPage(

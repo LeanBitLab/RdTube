@@ -62,6 +62,7 @@ interface DataRepository {
     fun getContext(): Context
     fun fetchRedditVideos(subreddits: String, sort: String = "hot", feed: String = "explore"): Flow<List<RedditPost>>
     fun searchSubreddits(query: String): Flow<List<String>>
+    fun searchRedditVideos(query: String, sort: String = "relevance"): Flow<List<RedditPost>>
     fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String = "hot", feed: String = "explore"): Flow<FetchMoreResult>
     fun fetchPostComments(subreddit: String, postId: String): Flow<List<RedditComment>>
     fun getAfterMap(feed: String = "explore"): Map<String, String?>
@@ -215,6 +216,32 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             Log.w("RedditRepository", "search rate limited: ${e.message}")
         } catch (e: Exception) {
             Log.e("RedditRepository", "search error: ${e.message}")
+        }
+        emit(results)
+    }.flowOn(Dispatchers.IO)
+
+    override fun searchRedditVideos(query: String, sort: String): Flow<List<RedditPost>> = flow {
+        val token = RedditOAuthHelper.getOrFetchAccessToken(context)
+        if (token == null) { emit(emptyList()); return@flow }
+        val results = mutableListOf<RedditPost>()
+        try {
+            val url = "https://oauth.reddit.com/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&type=link&sort=$sort&limit=50&raw_json=1&include_over_18=on"
+            val json = performRequest(url, token, timeout = 10000)
+            val children = json?.optJSONObject("data")?.optJSONArray("children")
+            if (children != null) {
+                for (i in 0 until children.length()) {
+                    val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
+                    parseRedditPost(childData)?.let { post ->
+                        if (results.none { it.id == post.id }) {
+                            results.add(post)
+                        }
+                    }
+                }
+            }
+        } catch (e: RedditError.RateLimited) {
+            Log.w("RedditRepository", "video search rate limited: ${e.message}")
+        } catch (e: Exception) {
+            Log.e("RedditRepository", "video search error: ${e.message}")
         }
         emit(results)
     }.flowOn(Dispatchers.IO)

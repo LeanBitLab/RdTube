@@ -53,6 +53,12 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _searchResults = MutableStateFlow<List<String>>(emptyList())
     val searchResults: StateFlow<List<String>> = _searchResults.asStateFlow()
 
+    private val _videoSearchResults = MutableStateFlow<List<RedditPost>>(emptyList())
+    val videoSearchResults: StateFlow<List<RedditPost>> = _videoSearchResults.asStateFlow()
+
+    private val _isVideoSearching = MutableStateFlow(false)
+    val isVideoSearching: StateFlow<Boolean> = _isVideoSearching.asStateFlow()
+
     // ponytail: list + index opened from the browse/home grid, played by PlayerScreen
     private val _playerList = MutableStateFlow<List<RedditPost>>(emptyList())
     val playerList: StateFlow<List<RedditPost>> = _playerList.asStateFlow()
@@ -213,6 +219,41 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 }
             } catch (_: Exception) {
                 _searchResults.value = emptyList()
+            }
+        }
+    }
+
+    private var videoSearchJob: Job? = null
+    private val videoSearchCache = ConcurrentHashMap<String, List<RedditPost>>()
+
+    fun searchVideos(query: String, sort: String = "relevance") {
+        val trimmed = query.trim()
+        if (trimmed.length < 2) {
+            _videoSearchResults.value = emptyList()
+            _isVideoSearching.value = false
+            return
+        }
+
+        val cached = videoSearchCache[trimmed]
+        if (cached != null) {
+            _videoSearchResults.value = cached
+            _isVideoSearching.value = false
+            return
+        }
+
+        videoSearchJob?.cancel()
+        videoSearchJob = viewModelScope.launch {
+            _isVideoSearching.value = true
+            delay(250) // Debounce typing
+            try {
+                dataRepository.searchRedditVideos(trimmed, sort).collect { results ->
+                    videoSearchCache[trimmed] = results
+                    _videoSearchResults.value = results
+                }
+            } catch (_: Exception) {
+                _videoSearchResults.value = emptyList()
+            } finally {
+                _isVideoSearching.value = false
             }
         }
     }
