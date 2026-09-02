@@ -18,7 +18,7 @@
 **A private, fast, and sleek open-source video client for Reddit.**  
 *Pure OLED pitch black, high-speed feed prefetching, and zero tracking.*
 
-[Screenshots](#-screenshots) • [Download](#-download) • [Features](#-features) • [Notes & Privacy](#-notes--privacy) • [Setup & Building](#-setup--building) • [LeanBitLab Projects](https://github.com/LeanBitLab#-android-projects)
+[Screenshots](#-screenshots) • [Features](#-features) • [Notes & Privacy](#-notes--privacy) • [Download](#-download) • [Setup & Building](#-setup--building) • [LeanBitLab Projects](https://github.com/LeanBitLab#-android-projects)
 
 </div>
 
@@ -61,6 +61,28 @@
 
 ---
 
+## 📝 Notes & Privacy
+
+- **100% Community Funded**: RdTube is completely independent, free, and open-source with zero advertisements, sponsors, or analytics.
+- **Signed In (OAuth) vs. Guest (Unauthenticated)**:
+  | Feature / Aspect | 👤 Guest (Anonymous) | 🔑 Signed In (OAuth) |
+  | :--- | :--- | :--- |
+  | **Account Requirement** | None (Zero registration) | Reddit Account (Browser OAuth) |
+  | **SFW & Standard Feeds** | ✅ Full Access | ✅ Full Access |
+  | **Restricted / NSFW Communities** | ❌ Blocked by Reddit API | ✅ Unrestricted Access |
+  | **API Rate Limits** | Shared guest quota | Dedicated user quota (100 req/min) |
+  | **Watch History & Likes** | 🔒 100% Strictly Local | 🔒 100% Strictly Local |
+  | **Subscribed Feeds** | 🔒 100% Strictly Local | 🔒 100% Strictly Local |
+  | **Account Modification** | None | 🛡️ None (Read-only `identity, read`) |
+- **Official Read-Only OAuth 2.0**: Unrestricted and mature subreddits require Reddit authentication. RdTube uses standard read-only scopes (`identity`, `read`, `mysubreddits`) directly in your browser. Passwords are never seen or stored.
+- **Zero Cloud Syncing**: Connecting an account serves solely to authenticate API media streaming. It never modifies, overwrites, or syncs your Reddit upvotes, saved items, or history.
+- **In-App OTA Updates**: Built-in GitHub Releases update checker in the About page notifies you of new versions and downloads APKs with a single tap.
+
+> [!IMPORTANT]
+> **Account Usage Precaution**: While read-only OAuth is standard under Reddit's developer API, Reddit policies can change over time. If you prefer extra caution, you can use a secondary Reddit account or browse 100% anonymously without logging in.
+
+---
+
 ## 📥 Download
 
 <table border="0">
@@ -77,26 +99,6 @@
     </td>
   </tr>
 </table>
-
----
-
-## 📝 Notes & Privacy
-
-- **100% Community Funded**: RdTube is completely independent, free, and open-source with zero advertisements, sponsors, or analytics.
-- **Signed In (OAuth) vs. Guest (Unauthenticated)**:
-  | Feature / Aspect | 👤 Guest (Anonymous) | 🔑 Signed In (OAuth) |
-  | :--- | :--- | :--- |
-  | **Account Requirement** | None (Zero registration) | Reddit Account (Browser OAuth) |
-  | **SFW & Standard Feeds** | ✅ Full Access | ✅ Full Access |
-  | **Restricted / NSFW Communities** | ❌ Blocked by Reddit API | ✅ Unrestricted Access |
-  | **API Rate Limits** | Shared guest quota | Dedicated user quota (100 req/min) |
-  | **Watch History & Likes** | 🔒 100% Strictly Local | 🔒 100% Strictly Local |
-  | **Subscribed Feeds** | 🔒 100% Strictly Local | 🔒 100% Strictly Local |
-  | **Account Modification** | None | 🛡️ None (Read-only `identity, read`) |
-- **Official Read-Only OAuth 2.0**: Unrestricted and mature subreddits require Reddit authentication. RdTube uses standard read-only scopes (`identity`, `read`, `mysubreddits`) directly in your browser. Passwords are never seen or stored.
-- **Zero Cloud Syncing**: Connecting an account serves solely to authenticate API media streaming. It never modifies, overwrites, or syncs your Reddit upvotes, saved items, or history.
-- **Account Usage Precaution**: While read-only OAuth is standard under Reddit's developer API, Reddit policies can change over time. If you prefer extra caution, you can use a secondary Reddit account or browse 100% anonymously without logging in.
-- **In-App OTA Updates**: Built-in GitHub Releases update checker in the About page notifies you of new versions and downloads APKs with a single tap.
 
 ---
 
@@ -158,7 +160,7 @@ If RdTube improves your daily video browsing, please consider supporting our ind
 
 ## 🙏 Acknowledgements & Credits
 
-- **[Continuum](https://github.com/alien-m/continuum)**: Huge credit and appreciation to the open-source Continuum Reddit client for inspiring the customizable API Keys, custom Client ID, and User Agent override architecture.
+- **[Continuum](https://github.com/alien-m/continuum)**: Huge credit and appreciation to the open-source Continuum Reddit client for inspiring us to build this app. We highly recommend users check it out!
 
 ---
 
