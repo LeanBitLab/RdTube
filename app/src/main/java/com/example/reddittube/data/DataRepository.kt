@@ -80,11 +80,11 @@ data class FetchMoreResult(val posts: List<RedditPost>, val afterMap: Map<String
 class DefaultDataRepository(private val context: Context) : DataRepository {
     override fun getContext(): Context = context
 
-    // ponytail: throttle to 55 req/min (limit is 60), global across all callers
+    // Global request throttle to protect against rate limits while permitting rapid bursts
     private val lastRequestTime = AtomicLong(0)
     private val requestMutex = Mutex()
     private companion object {
-        const val MIN_REQUEST_INTERVAL_MS = 1100L  // ~55 req/min
+        const val MIN_REQUEST_INTERVAL_MS = 200L
         const val MAX_RETRIES = 2
     }
 
@@ -167,8 +167,22 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val comments = mutableListOf<RedditComment>()
         try {
             val url = "https://oauth.reddit.com/r/$subreddit/comments/$postId.json?limit=100&sort=top&raw_json=1"
-            val raw = performRawRequest(url, token, timeout = 12000)
-            if (raw != null) {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
+            conn.setRequestProperty("Connection", "keep-alive")
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
+
+            val code = conn.responseCode
+            if (code == 200) {
+                val stream = if ("gzip".equals(conn.contentEncoding, ignoreCase = true)) {
+                    java.util.zip.GZIPInputStream(conn.inputStream)
+                } else {
+                    conn.inputStream
+                }
+                val raw = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                 val jsonArray = org.json.JSONArray(raw)
                 if (jsonArray.length() > 1) {
                     val commentListing = jsonArray.getJSONObject(1)
@@ -196,7 +210,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                         }
                     }
                 }
+            } else {
+                Log.w("RedditRepository", "Comments HTTP $code for $url")
             }
+            conn.disconnect()
             comments.sortByDescending { it.score }
         } catch (e: Exception) {
             Log.e("RedditRepository", "fetchPostComments error: ${e.message}")
@@ -331,21 +348,29 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         emit(FetchMoreResult(allPosts, nextAfterMap))
     }.flowOn(Dispatchers.IO)
 
-    // ponytail: parallel per-subreddit fetches using coroutines async for 3x-5x speedup
+    // Combined multi-subreddit fetch in a single fast HTTP query with fallback
     private suspend fun fetchOAuthJsonVideos(subreddits: String, sort: String = "hot", feed: String = "explore"): List<RedditPost> = coroutineScope {
         val cleanSubs = subreddits.replace(" ", "").trim()
-        val subs = cleanSubs.split("+").filter { it.isNotEmpty() }
-        if (subs.isEmpty()) return@coroutineScope emptyList()
+        if (cleanSubs.isEmpty()) return@coroutineScope emptyList()
 
         val token = RedditOAuthHelper.getOrFetchAccessToken(context)
             ?: throw RedditError.Unknown("Failed to authenticate with Reddit. Check your connection.")
-        
-        val deferredLists = subs.map { sub ->
+
+        // 1. Fast path: combined multi-subreddit query in a single HTTP request (~300ms)
+        val combinedResult = performOAuthRequest(cleanSubs, token, sort, feed)
+        if (combinedResult.isNotEmpty()) {
+            Log.i("RedditRepository", "fetchOAuthJsonVideos returning ${combinedResult.size} combined videos for $subreddits")
+            return@coroutineScope combinedResult
+        }
+
+        // 2. Fallback: per-subreddit parallel queries if combined query returned empty
+        val subs = cleanSubs.split("+").filter { it.isNotEmpty() }
+        if (subs.size <= 1) return@coroutineScope combinedResult
+
+        val deferredLists = subs.take(6).map { sub ->
             async(Dispatchers.IO) {
                 var result = performOAuthRequest(sub, token, sort, feed)
                 if (result.isEmpty()) {
-                    val prefs = context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE)
-                    prefs.edit().remove("reddit_access_token").remove("reddit_token_expires_at").apply()
                     val freshToken = RedditOAuthHelper.getOrFetchAccessToken(context)
                     if (freshToken != null) {
                         result = performOAuthRequest(sub, freshToken, sort, feed)

@@ -24,6 +24,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -810,7 +811,7 @@ Box(
                         .fillMaxWidth(0.9f),
                     shape = RoundedCornerShape(16.dp),
                     color = SurfaceRaised,
-                    border = BorderStroke(1.dp, BrandRed)
+                    border = BorderStroke(1.dp, GlassBorder)
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
@@ -818,7 +819,7 @@ Box(
                     ) {
                         Text(
                             text = "Player Gestures",
-                            color = BrandRed,
+                            color = TextPrimary,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -834,9 +835,13 @@ Box(
                                 showOnboarding = false
                                 sharedPreferences.edit().putBoolean("has_seen_onboarding", true).apply()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandRed)
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Got it!", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Got it!", color = Color.Black, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -896,16 +901,51 @@ Box(
                 }
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Post title
-                Text(
-                    text = post.title,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+                // Post title with expandable support for long titles
+                var isTitleExpanded by remember(post.id) { mutableStateOf(false) }
+                val isLongTitle = post.title.length > 55
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize()
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                            onClick = { if (isLongTitle) isTitleExpanded = !isTitleExpanded }
+                        )
+                ) {
+                    Text(
+                        text = post.title,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        lineHeight = 19.sp,
+                        maxLines = if (isTitleExpanded) 12 else 2,
+                        overflow = if (isTitleExpanded) TextOverflow.Clip else TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (isLongTitle) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { isTitleExpanded = !isTitleExpanded }
+                        ) {
+                            Text(
+                                text = if (isTitleExpanded) "Show less" else "Show more",
+                                color = TextSecondary,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Icon(
+                                imageVector = if (isTitleExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (isTitleExpanded) "Show less" else "Show more",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Horizontal row of quick action buttons
                 Row(
