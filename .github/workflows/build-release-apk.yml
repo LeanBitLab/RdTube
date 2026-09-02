@@ -59,6 +59,4 @@ jobs:
         with:
           body_path: docs/releasenote/release_notes_temp.md
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
-          files: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/mapping/release/mapping.txt
+          files: app/build/outputs/apk/release/*.apk
