@@ -80,8 +80,8 @@
 
 > [!IMPORTANT]
 > **Reddit API Policy & Custom Client IDs**:
-> - **Guest Mode (Default)**: Requires **no account, no setup, and no Client ID**. RdTube works 100% out-of-the-box for anonymous video browsing and streaming.
-> - **Optional Login & Custom API Keys**: Under Reddit's updated API policies, self-service creation of new personal Client IDs (via `reddit.com/prefs/apps`) is restricted and may require manual developer approval from Reddit. The custom Client ID and login options are primarily intended for power users who **already have a pre-existing Client ID** created prior to the policy rollout or have approved Reddit Developer access.
+> - **Guest Mode (Default)**: Powered by the built-in default Client ID with **zero setup, no registration, and no personal Client ID required**. RdTube works 100% out-of-the-box for anonymous video browsing and streaming.
+> - **Optional Login & Custom Client ID Overrides**: Under Reddit's updated API policies, creating new personal Client IDs (via `reddit.com/prefs/apps`) is restricted and requires manual developer approval from Reddit. The custom Client ID and login options are primarily intended for power users who **already have a pre-existing Client ID** created prior to the policy rollout or have approved Reddit Developer access.
 > - **Account Safety**: If you use Reddit OAuth, read-only permissions are used. For extra caution, you may use a secondary Reddit account or browse anonymously in Guest mode.
 
 ---
