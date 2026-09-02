@@ -41,11 +41,14 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
-      - name: Upload APK
+      - name: Upload APK and Release Notes
         uses: actions/upload-artifact@v4
         with:
           name: RdTube-Release-APK
-          path: app/build/outputs/apk/**/*.apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            docs/releasenote/release_notes_v*.md
+            app/build/outputs/mapping/release/mapping.txt
 
       - name: Generate Release Notes
         run: python3 docs/scripts/generate_release_notes.py
@@ -56,4 +59,6 @@ jobs:
         with:
           body_path: docs/releasenote/release_notes_temp.md
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
-          files: app/build/outputs/apk/release/*.apk
+          files: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/mapping/release/mapping.txt
