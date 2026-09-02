@@ -79,7 +79,10 @@
 - **In-App OTA Updates**: Built-in GitHub Releases update checker in the About page notifies you of new versions and downloads APKs with a single tap.
 
 > [!IMPORTANT]
-> **Account Usage Precaution**: While read-only OAuth is standard under Reddit's developer API, Reddit policies can change over time. If you prefer extra caution, you can use a secondary Reddit account or browse 100% anonymously without logging in.
+> **Reddit API Policy & Custom Client IDs**:
+> - **Guest Mode (Default)**: Requires **no account, no setup, and no Client ID**. RdTube works 100% out-of-the-box for anonymous video browsing and streaming.
+> - **Optional Login & Custom API Keys**: Under Reddit's updated API policies, self-service creation of new personal Client IDs (via `reddit.com/prefs/apps`) is restricted and may require manual developer approval from Reddit. The custom Client ID and login options are primarily intended for power users who **already have a pre-existing Client ID** created prior to the policy rollout or have approved Reddit Developer access.
+> - **Account Safety**: If you use Reddit OAuth, read-only permissions are used. For extra caution, you may use a secondary Reddit account or browse anonymously in Guest mode.
 
 ---
 
