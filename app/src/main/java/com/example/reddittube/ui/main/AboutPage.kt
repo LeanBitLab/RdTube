@@ -41,12 +41,15 @@ import com.lean.reddittube.utils.UpdateChecker
 import kotlinx.coroutines.launch
 
 private val CURRENT_VERSION_CHANGELOG = """
+• Pitch Black OLED Theme: Pure monochrome aesthetic with glass accents and adaptive icon
+• Custom API Keys & Overrides: Support for custom Reddit Client ID, User Agent, and Redirect URI
+• 1-Tap Reddit OAuth Login: Connect account to unlock mature & unrestricted subreddits
 • Segmented Search: Search Subreddits & Reddit-wide video clips with direct playback
-• Expanded Feed Sorting: Hot, New, Rising, Top (Today, Week, Month, Year, All-Time)
-• Distinctive high-contrast search input with fixed descender alignment
-• Reordered Library Tabs (Subreddits, History, Liked) with enclosed pill styling
-• New Content & Video preferences: Thumbnail Quality, Prefetch Depth, Default Audio & Haptics
-• 100% Community Funded & Strictly Local Storage (Zero tracking/syncing)
+• Fast Top Comments: Top 100 comments sorted by score loaded in an instant bottom sheet
+• Multi-Sub Fast Feed: Combined multi-subreddit fetching loading feeds in under 300ms
+• Expandable Titles: Smooth 'Show more / Show less' expansion for long post titles
+• Expanded Sorting & Preferences: Hot, New, Rising, Top (Day, Week, Month, Year, All-Time)
+• Performance: R8 Full Mode, automatic release log stripping, and token concurrency safety
 """.trimIndent()
 
 @Composable
