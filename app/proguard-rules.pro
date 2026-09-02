@@ -30,9 +30,6 @@
 
 # Strip Coroutines debug probes in release
 -dontwarn kotlinx.coroutines.debug.**
--assumenosideeffects class kotlinx.coroutines.internal.SystemPropsKt {
-    static int systemProp(java.lang.String, int, int, int) return 0;
-}
 
 # -------------------------------------------------------------------
 # kotlinx.serialization & Data Models
