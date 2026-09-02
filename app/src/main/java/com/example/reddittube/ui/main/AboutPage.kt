@@ -34,10 +34,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lean.reddittube.theme.*
-import com.lean.reddittube.ui.main.components.AppUpdateBottomSheet
-import com.lean.reddittube.utils.GitHubRelease
 import com.lean.reddittube.utils.RedditOAuthHelper
-import com.lean.reddittube.utils.UpdateChecker
 import kotlinx.coroutines.launch
 
 private val CURRENT_VERSION_CHANGELOG = """
@@ -61,12 +58,9 @@ fun AboutPage(
     val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
 
     var showClearDialog by remember { mutableStateOf(false) }
-    var isCheckingUpdate by remember { mutableStateOf(false) }
-    var availableRelease by remember { mutableStateOf<GitHubRelease?>(null) }
-    var downloadProgress by remember { mutableStateOf<Float?>(null) }
 
     // Expandable Sections State (Independent states)
-    var isOtaExpanded by remember { mutableStateOf(false) }
+    var isVersionExpanded by remember { mutableStateOf(false) }
     var isRedditAccountExpanded by remember { mutableStateOf(false) }
     var isPreferencesExpanded by remember { mutableStateOf(false) }
     var isGesturesExpanded by remember { mutableStateOf(false) }
@@ -92,7 +86,6 @@ fun AboutPage(
     var prefetchDepth by remember { mutableStateOf(sharedPreferences.getString("pref_prefetch_depth", "Balanced (10)") ?: "Balanced (10)") }
     var defaultAudioUnmuted by remember { mutableStateOf(sharedPreferences.getBoolean("pref_default_unmuted", true)) }
     var hapticFeedbackEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("pref_haptic_feedback", true)) }
-    var autoCheckUpdates by remember { mutableStateOf(sharedPreferences.getBoolean("pref_auto_check_updates", true)) }
 
     if (showClearDialog) {
         AlertDialog(
@@ -117,32 +110,6 @@ fun AboutPage(
             },
             containerColor = SurfaceRaised,
             shape = RoundedCornerShape(18.dp)
-        )
-    }
-
-    if (availableRelease != null) {
-        AppUpdateBottomSheet(
-            release = availableRelease!!,
-            onDismiss = { availableRelease = null },
-            downloadProgress = downloadProgress,
-            onInstallClick = { apkUrl ->
-                coroutineScope.launch {
-                    downloadProgress = 0f
-                    UpdateChecker.downloadAndInstallApk(
-                        context = context,
-                        apkUrl = apkUrl,
-                        onProgress = { progress -> downloadProgress = progress },
-                        onComplete = { success, error ->
-                            downloadProgress = null
-                            if (success) {
-                                availableRelease = null
-                            } else {
-                                Toast.makeText(context, "Update failed: $error", Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    )
-                }
-            }
         )
     }
 
@@ -245,13 +212,13 @@ fun AboutPage(
             }
         }
 
-        // Section 1: OTA Updates & Changelog (Expandable/Foldable)
+        // Section 1: Version & Release Notes (Expandable/Foldable)
         FoldableSectionCard(
-            title = "OTA Updates & Changelog",
-            icon = Icons.Default.SystemUpdate,
+            title = "Version & Release Notes",
+            icon = Icons.Default.Info,
             badge = "v${com.lean.reddittube.BuildConfig.VERSION_NAME}",
-            isExpanded = isOtaExpanded,
-            onToggle = { isOtaExpanded = !isOtaExpanded }
+            isExpanded = isVersionExpanded,
+            onToggle = { isVersionExpanded = !isVersionExpanded }
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -283,21 +250,11 @@ fun AboutPage(
                     }
                 }
 
-                // Check for Updates Button
+                // View Releases on GitHub Button
                 Button(
                     onClick = {
-                        if (!isCheckingUpdate) {
-                            isCheckingUpdate = true
-                            coroutineScope.launch {
-                                val release = UpdateChecker.checkForUpdate(com.lean.reddittube.BuildConfig.VERSION_NAME)
-                                isCheckingUpdate = false
-                                if (release != null) {
-                                    availableRelease = release
-                                } else {
-                                    Toast.makeText(context, "RdTube is up to date! (v${com.lean.reddittube.BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube/releases"))
+                        context.startActivity(intent)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -308,28 +265,10 @@ fun AboutPage(
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    if (isCheckingUpdate) {
-                        CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Checking GitHub Releases...", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Check for Updates (OTA)", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
+                    Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("View Releases on GitHub", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-
-                HorizontalDivider(color = BorderSubtle)
-
-                PreferenceSwitchRow(
-                    title = "Auto-Check for Updates",
-                    subtitle = "Notify automatically when a new GitHub release is available",
-                    checked = autoCheckUpdates,
-                    onCheckedChange = { checked ->
-                        autoCheckUpdates = checked
-                        sharedPreferences.edit().putBoolean("pref_auto_check_updates", checked).apply()
-                    }
-                )
             }
         }
 
