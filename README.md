@@ -76,7 +76,6 @@
   | **Account Modification** | None | 🛡️ None (Read-only `identity, read`) |
 - **Official Read-Only OAuth 2.0**: Unrestricted and mature subreddits require Reddit authentication. RdTube uses standard read-only scopes (`identity`, `read`, `mysubreddits`) directly in your browser. Passwords are never seen or stored.
 - **Zero Cloud Syncing**: Connecting an account serves solely to authenticate API media streaming. It never modifies, overwrites, or syncs your Reddit upvotes, saved items, or history.
-- **In-App OTA Updates**: Built-in GitHub Releases update checker in the About page notifies you of new versions and downloads APKs with a single tap.
 
 > [!IMPORTANT]
 > **Reddit API Policy & Custom Client IDs**:
