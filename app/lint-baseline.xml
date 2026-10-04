@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <issue
+        id="NewApi"
+        message="`android:windowLightNavigationBar` requires API level 27 (current min is 24)">
+        <location
+            file="src/main/res/values/themes.xml"
+            line="9"
+            column="21"/>
+    </issue>
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: MediaCodec.BUFFER_FLAG_SYNC_FRAME, MediaCodec.BUFFER_FLAG_KEY_FRAME, MediaCodec.BUFFER_FLAG_CODEC_CONFIG, MediaCodec.BUFFER_FLAG_END_OF_STREAM, MediaCodec.BUFFER_FLAG_PARTIAL_FRAME, MediaCodec.BUFFER_FLAG_DECODE_ONLY, but could be MediaExtractor.SAMPLE_FLAG_SYNC, MediaExtractor.SAMPLE_FLAG_ENCRYPTED, MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME">
+        <location
+            file="src/main/java/com/example/reddittube/utils/DownloadHelper.kt"
+            line="228"
+            column="37"/>
+    </issue>
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: MediaCodec.BUFFER_FLAG_SYNC_FRAME, MediaCodec.BUFFER_FLAG_KEY_FRAME, MediaCodec.BUFFER_FLAG_CODEC_CONFIG, MediaCodec.BUFFER_FLAG_END_OF_STREAM, MediaCodec.BUFFER_FLAG_PARTIAL_FRAME, MediaCodec.BUFFER_FLAG_DECODE_ONLY, but could be MediaExtractor.SAMPLE_FLAG_SYNC, MediaExtractor.SAMPLE_FLAG_ENCRYPTED, MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME">
+        <location
+            file="src/main/java/com/example/reddittube/utils/DownloadHelper.kt"
+            line="241"
+            column="37"/>
+    </issue>
+    <issue
+        id="WrongConstant"
+        message="Must be one of: C.AUDIO_CONTENT_TYPE_MOVIE, C.AUDIO_CONTENT_TYPE_MUSIC, C.AUDIO_CONTENT_TYPE_SONIFICATION, C.AUDIO_CONTENT_TYPE_SPEECH, C.AUDIO_CONTENT_TYPE_UNKNOWN">
+        <location
+            file="src/main/java/com/example/reddittube/ui/main/VideoPage.kt"
+            line="149"
+            column="74"/>
+    </issue>
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <location
+            file="src/main/java/com/example/reddittube/ui/main/VideoPage.kt"
+            line="136"
+            column="51"/>
+    </issue>
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <location
+            file="src/main/java/com/example/reddittube/ui/main/VideoPage.kt"
+            line="142"
+            column="25"/>
+    </issue>
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <location
+            file="src/main/java/com/example/reddittube/ui/main/VideoPage.kt"
+            line="143"
+            column="13"/>
+    </issue>
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <location
+            file="src/main/java/com/example/reddittube/ui/main/VideoPage.kt"
+            line="149"
+            column="13"/>
+    </issue>
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <location
+            file="src/main/java/com/example/reddittube/ui/main/VideoPage.kt"
+            line="461"
+            column="13"/>
+    </issue>
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <location
+            file="src/main/java/com/example/reddittube/ui/main/VideoPage.kt"
+            line="461"
+            column="51"/>
+    </issue>
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <location
+            file="src/main/java/com/example/reddittube/ui/main/VideoPage.kt"
+            line="461"
+            column="74"/>
+    </issue>
+</lint>
