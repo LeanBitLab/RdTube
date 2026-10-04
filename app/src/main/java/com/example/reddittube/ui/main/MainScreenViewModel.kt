@@ -197,11 +197,12 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     fun getLikedPosts(): List<RedditPost> = likedOrder.mapNotNull { likedPostsMap[it] }
 
     private fun saveLiked() {
+        // ⚡ Bolt: Use .apply() instead of .commit() to prevent main thread blocking when saving large JSON payloads
         prefs.edit()
             .putStringSet("liked_ids", likedIdsSet.toSet())
             .putString("liked_order", org.json.JSONArray(likedOrder).toString())
             .putString("liked_posts", org.json.JSONArray().apply { likedPostsMap.values.forEach { put(it.toJson()) } }.toString())
-            .commit()
+            .apply()
     }
 
     private fun showError(e: Throwable) {
@@ -540,12 +541,13 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     }
 
     private fun saveWatched() {
+        // ⚡ Bolt: Use .apply() instead of .commit() to prevent main thread blocking when saving large JSON payloads
         prefs.edit()
             .putStringSet("watched_ids", watchedIds.toSet())
             .putString("watched_order", org.json.JSONArray(watchedOrder).toString())
             .putString("watched_titles", org.json.JSONObject(watchedTitles).toString())
             .putString("watched_posts", org.json.JSONArray().apply { watchedPosts.values.forEach { put(it.toJson()) } }.toString())
-            .commit()
+            .apply()
     }
 
     fun getWatchedPosts(): List<RedditPost> {
