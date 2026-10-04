@@ -26,6 +26,9 @@ object RedditOAuthHelper {
     private const val KEY_USER_TOKEN_EXPIRES_AT = "reddit_user_token_expires_at"
     private const val KEY_USERNAME = "reddit_username"
 
+    // Security keys
+    private const val KEY_OAUTH_STATE = "reddit_oauth_state"
+
     // Custom API Key / Client ID overrides keys
     private const val KEY_ENABLE_OVERRIDES = "pref_reddit_enable_overrides"
     private const val KEY_CUSTOM_CLIENT_ID = "pref_reddit_custom_client_id"
@@ -140,10 +143,15 @@ object RedditOAuthHelper {
     fun launchLogin(context: Context) {
         val clientId = getClientId(context)
         val redirectUri = getRedirectUri(context)
+        val state = UUID.randomUUID().toString()
+
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_OAUTH_STATE, state).apply()
+
         val authUrl = "https://www.reddit.com/api/v1/authorize.compact?" +
             "client_id=$clientId" +
             "&response_type=code" +
-            "&state=rdtube_auth_${System.currentTimeMillis()}" +
+            "&state=$state" +
             "&redirect_uri=${Uri.encode(redirectUri)}" +
             "&duration=permanent" +
             "&scope=identity,read,mysubreddits,history"
@@ -156,7 +164,17 @@ object RedditOAuthHelper {
 
     suspend fun handleOAuthCallback(context: Context, uri: Uri): Boolean = withContext(Dispatchers.IO) {
         val code = uri.getQueryParameter("code") ?: return@withContext false
+        val state = uri.getQueryParameter("state")
+
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedState = prefs.getString(KEY_OAUTH_STATE, null)
+        prefs.edit().remove(KEY_OAUTH_STATE).apply()
+
+        if (state == null || state != savedState) {
+            Log.e("RedditOAuth", "OAuth state mismatch or missing, possible CSRF attack. Expected: $savedState, Got: $state")
+            return@withContext false
+        }
+
         val clientId = getClientId(context)
         val userAgent = getUserAgent(context)
         val redirectUri = getRedirectUri(context)
