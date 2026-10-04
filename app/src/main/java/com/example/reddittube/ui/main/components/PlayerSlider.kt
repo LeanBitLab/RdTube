@@ -193,5 +193,7 @@ private fun formatTime(millis: Long): String {
     val totalSeconds = millis / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return String.format(Locale.US, "%d:%02d", minutes, seconds)
+    // ⚡ Bolt: Optimized string formatting. Replaced slow String.format() with
+    // string interpolation to reduce CPU cycles and GC pressure during continuous playback updates.
+    return "$minutes:${if (seconds < 10) "0$seconds" else seconds}"
 }
