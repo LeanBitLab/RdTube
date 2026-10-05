@@ -25,6 +25,7 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
 
     private val store = ConcurrentHashMap<K, CacheNode<V>>()
     private val lambda = 0.005 // Time decay parameter
+    private val currentSizeBytes = java.util.concurrent.atomic.AtomicLong(0L)
 
     /**
      * Dynamically calculates target capacity C_max based on available JVM memory:
@@ -35,7 +36,7 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
             val runtime = Runtime.getRuntime()
             val availableMemory = runtime.maxMemory() - (runtime.totalMemory() - runtime.freeMemory())
             val allocatable = (availableMemory * memoryFraction).toLong()
-            val totalSize = store.values.sumOf { it.sizeBytes }
+            val totalSize = currentSizeBytes.get()
             val count = store.size.coerceAtLeast(1)
             val avgItemSize = (totalSize / count).coerceAtLeast(1024L)
             val calcCapacity = (allocatable / avgItemSize).toInt()
@@ -70,7 +71,12 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
     fun put(key: K, value: V) {
         val now = SystemClock.elapsedRealtime()
         val weight = sizeEstimator(value)
-        store[key] = CacheNode(value = value, frequency = 1, lastAccessedMs = now, sizeBytes = weight)
+        val oldNode = store.put(key, CacheNode(value = value, frequency = 1, lastAccessedMs = now, sizeBytes = weight))
+        if (oldNode != null) {
+            currentSizeBytes.addAndGet(weight - oldNode.sizeBytes)
+        } else {
+            currentSizeBytes.addAndGet(weight)
+        }
         trimToCapacity()
     }
 
@@ -94,13 +100,19 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
             val candidate = store.filter { (k, n) ->
                 !isProtectedKey(k) || (now - n.lastAccessedMs > protectedTtlMs)
             }.minByOrNull { computeScore(it.value, now) } ?: break
-            store.remove(candidate.key)
+            val removedNode = store.remove(candidate.key)
+            if (removedNode != null) {
+                currentSizeBytes.addAndGet(-removedNode.sizeBytes)
+            }
         }
     }
 
     fun containsKey(key: K): Boolean = store.containsKey(key)
 
-    fun clear() = store.clear()
+    fun clear() {
+        store.clear()
+        currentSizeBytes.set(0L)
+    }
 
     fun size(): Int = store.size
 }
