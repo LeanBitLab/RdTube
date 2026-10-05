@@ -66,6 +66,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -729,7 +730,7 @@ Box(
                     .clip(CircleShape)
                     .background(Color.Black.copy(alpha = 0.65f))
                     .border(1.dp, GlassBorder, CircleShape)
-                    .clickable {
+                    .clickable(role = Role.Button) {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (exoPlayer.playbackState == Player.STATE_ENDED) {
                             exoPlayer.seekTo(0)
@@ -786,7 +787,7 @@ Box(
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(Color.Black.copy(alpha = 0.55f))
-                    .clickable { onBack?.invoke() },
+                    .clickable(role = Role.Button) { onBack?.invoke() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(22.dp))
@@ -799,7 +800,7 @@ Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.85f))
-                    .clickable {
+                    .clickable(role = Role.Button) {
                         showOnboarding = false
                         sharedPreferences.edit().putBoolean("has_seen_onboarding", true).apply()
                     },
@@ -868,7 +869,7 @@ Box(
                         color = BrandRed,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { onSubredditClick(post.subreddit) }
+                        modifier = Modifier.clickable(role = Role.Button) { onSubredditClick(post.subreddit) }
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     val isSubbed = subscribedSet.contains(post.subreddit.lowercase())
@@ -877,7 +878,7 @@ Box(
                             .size(32.dp)
                             .clip(CircleShape)
                             .background(BrandRed.copy(alpha = if (isSubbed) 0.2f else 0.15f))
-                            .clickable {
+                            .clickable(role = Role.Button) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onSubscribeToggle(post.subreddit.lowercase())
                             },
@@ -912,6 +913,7 @@ Box(
                         .clickable(
                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                             indication = null,
+                            role = Role.Button,
                             onClick = { if (isLongTitle) isTitleExpanded = !isTitleExpanded }
                         )
                 ) {
@@ -928,7 +930,7 @@ Box(
                         Spacer(modifier = Modifier.height(3.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { isTitleExpanded = !isTitleExpanded }
+                            modifier = Modifier.clickable(role = Role.Button) { isTitleExpanded = !isTitleExpanded }
                         ) {
                             Text(
                                 text = if (isTitleExpanded) "Show less" else "Show more",
@@ -938,7 +940,7 @@ Box(
                             )
                             Icon(
                                 imageVector = if (isTitleExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = if (isTitleExpanded) "Show less" else "Show more",
+                                contentDescription = null,
                                 tint = TextSecondary,
                                 modifier = Modifier.size(15.dp)
                             )
