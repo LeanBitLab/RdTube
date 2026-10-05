@@ -1,6 +1,3 @@
-## 2024-05-18 - MinimalButton Accessibility
-**Learning:** Custom clickable components without a specific Semantic Role assigned will not be announced correctly by screen readers. Applying `role = Role.Button` to the `clickable` modifier ensures it is recognized correctly as a button.
-**Action:** Add `role = Role.Button` to the `clickable` modifier for custom interactive button components.
-## 2024-05-18 - Redundant Icon Content Descriptions
-**Learning:** Adding `contentDescription` to icons that are directly adjacent to `Text` components containing the same wording is an anti-pattern. Screen readers will announce the information twice (e.g., "Liked, Liked"), creating a noisy experience. Icons in this context should remain decorative (`contentDescription = null`).
-**Action:** Verify if text alternatives exist near visual elements before assigning a `contentDescription` to avoid duplicate screen reader announcements.
+## 2024-05-24 - Double announcements in Jetpack Compose custom buttons
+**Learning:** When creating custom buttons using `clickable` in Jetpack Compose that contain both text and an icon, providing `contentDescription` on the icon can result in double announcements for screen readers if the text already conveys the meaning. Additionally, `clickable` elements acting as buttons must explicitly have `role = Role.Button` to be properly identified by screen readers.
+**Action:** When implementing custom buttons with `clickable`, always add `role = Role.Button`. For decorative icons adjacent to text with the same meaning, use `contentDescription = null` to avoid redundant screen reader announcements.
