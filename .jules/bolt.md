@@ -1,5 +1,3 @@
-## 2024-05-24 - Started
-
-## 2024-05-24 - O(N) Iteration in Cache Size Calculation
-**Learning:** Calculating dynamic capacity dynamically via `store.values.sumOf { it.sizeBytes }` effectively incurs an O(N) cost on every `put` because it runs when `trimToCapacity()` calls `dynamicCapacity`. When cache sizes get large, this causes O(N²) overall insertion performance and UI stutters.
-**Action:** Use an `AtomicLong` (O(1)) to track the running sum of cache size instead of dynamically iterating through the entire collection.
+## 2024-06-25 - Avoid Eager Collection Operations in Tight Loops
+**Learning:** Using `store.filter { ... }.minByOrNull { ... }` inside a `while` loop for cache eviction creates temporary `LinkedHashMap` instances on every iteration, leading to excessive GC pressure and O(N) memory allocations per loop cycle.
+**Action:** Replace functional pipelines that allocate intermediate collections with explicit, allocation-free `for` loops when iterating over Maps or Collections within performance-critical tight loops (like cache eviction).
