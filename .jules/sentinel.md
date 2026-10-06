@@ -1,0 +1,4 @@
+## 2024-05-24 - CSRF in Reddit OAuth Flow
+**Vulnerability:** The OAuth flow generated a predictable `state` parameter based on `System.currentTimeMillis()` and entirely failed to validate the `state` parameter upon receiving the callback in `handleOAuthCallback`.
+**Learning:** This is a classic CSRF vulnerability, meaning an attacker could craft a malicious link to log a victim into the attacker's Reddit account on the victim's device.
+**Prevention:** Always use cryptographically secure random values (like UUIDs) for OAuth `state` parameters. Store the state securely before initiating the flow, and rigorously validate the returned state parameter during the callback before exchanging the code for an access token. Ensure the stored state is deleted immediately after validation to prevent replay attacks.
