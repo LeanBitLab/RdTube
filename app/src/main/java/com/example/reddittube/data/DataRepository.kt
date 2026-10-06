@@ -259,6 +259,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val token = RedditOAuthHelper.getOrFetchAccessToken(context)
         if (token == null) { emit(SearchVideosResult(emptyList(), null)); return@flow }
         val results = mutableListOf<RedditPost>()
+        val seenIds = mutableSetOf<String>()
         var currentAfter = after
         var finalAfter: String? = null
         try {
@@ -276,7 +277,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 for (i in 0 until children.length()) {
                     val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
                     parseRedditPost(childData)?.let { post ->
-                        if (results.none { it.id == post.id }) {
+                        // Performance optimization: Avoid O(N^2) list search by using a Set for seen IDs
+                        if (seenIds.add(post.id)) {
                             results.add(post)
                         }
                     }
