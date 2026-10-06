@@ -167,22 +167,32 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val comments = mutableListOf<RedditComment>()
         try {
             val url = "https://oauth.reddit.com/r/$subreddit/comments/$postId.json?limit=100&sort=top&raw_json=1"
-            val conn = URL(url).openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
-            conn.setRequestProperty("Connection", "keep-alive")
-            conn.connectTimeout = 8000
-            conn.readTimeout = 8000
+            val raw = withContext(Dispatchers.IO) {
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
+                conn.setRequestProperty("Connection", "keep-alive")
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
 
-            val code = conn.responseCode
-            if (code == 200) {
-                val stream = if ("gzip".equals(conn.contentEncoding, ignoreCase = true)) {
-                    java.util.zip.GZIPInputStream(conn.inputStream)
+                val code = conn.responseCode
+                val responseRaw = if (code == 200) {
+                    val stream = if ("gzip".equals(conn.contentEncoding, ignoreCase = true)) {
+                        java.util.zip.GZIPInputStream(conn.inputStream)
+                    } else {
+                        conn.inputStream
+                    }
+                    stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                 } else {
-                    conn.inputStream
+                    Log.w("RedditRepository", "Comments HTTP $code for $url")
+                    null
                 }
-                val raw = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                conn.disconnect()
+                responseRaw
+            }
+
+            if (raw != null) {
                 val jsonArray = org.json.JSONArray(raw)
                 if (jsonArray.length() > 1) {
                     val commentListing = jsonArray.getJSONObject(1)
@@ -210,11 +220,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                         }
                     }
                 }
-            } else {
-                Log.w("RedditRepository", "Comments HTTP $code for $url")
+                comments.sortByDescending { it.score }
             }
-            conn.disconnect()
-            comments.sortByDescending { it.score }
         } catch (e: Exception) {
             Log.e("RedditRepository", "fetchPostComments error: ${e.message}")
         }
