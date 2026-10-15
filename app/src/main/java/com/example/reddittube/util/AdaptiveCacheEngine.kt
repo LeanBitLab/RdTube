@@ -97,9 +97,24 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
         val target = dynamicCapacity
         val now = SystemClock.elapsedRealtime()
         while (store.size > target) {
-            val candidate = store.filter { (k, n) ->
-                !isProtectedKey(k) || (now - n.lastAccessedMs > protectedTtlMs)
-            }.minByOrNull { computeScore(it.value, now) } ?: break
+            // ⚡ Bolt: Removed eager store.filter Map creation to prevent heavy GC pressure.
+            // Using an explicit loop avoids allocating temporary collections on every eviction iteration.
+            var minEntry: Map.Entry<K, CacheNode<V>>? = null
+            var minScore = Double.MAX_VALUE
+
+            for (entry in store.entries) {
+                val k = entry.key
+                val n = entry.value
+                if (!isProtectedKey(k) || (now - n.lastAccessedMs > protectedTtlMs)) {
+                    val score = computeScore(n, now)
+                    if (score < minScore) {
+                        minScore = score
+                        minEntry = entry
+                    }
+                }
+            }
+
+            val candidate = minEntry ?: break
             val removedNode = store.remove(candidate.key)
             if (removedNode != null) {
                 currentSizeBytes.addAndGet(-removedNode.sizeBytes)
