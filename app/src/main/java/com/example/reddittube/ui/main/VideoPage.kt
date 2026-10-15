@@ -988,7 +988,7 @@ Box(
                     ) {
                         Icon(
                             if (isRotationLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                            contentDescription = "Rotation",
+                            contentDescription = if (isRotationLocked) "Unlock rotation" else "Lock rotation",
                             tint = if (isRotationLocked) BrandRed else Color.White,
                             modifier = Modifier.size(14.dp)
                         )
@@ -1001,7 +1001,7 @@ Box(
                     ) {
                         Icon(
                             if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = "Mute",
+                            contentDescription = if (isMuted) "Unmute" else "Mute",
                             tint = if (isMuted) BrandRed else Color.White,
                             modifier = Modifier.size(14.dp)
                         )
@@ -1017,7 +1017,7 @@ Box(
                     ) {
                         Icon(
                             Icons.Default.SkipNext,
-                            contentDescription = "Auto-next",
+                            contentDescription = if (autoNextEnabled) "Disable auto-next" else "Enable auto-next",
                             tint = if (autoNextEnabled) Color.White else TextMuted,
                             modifier = Modifier.size(14.dp)
                         )
@@ -1034,7 +1034,7 @@ Box(
                     ) {
                         Icon(
                             Icons.Default.Repeat,
-                            contentDescription = "Loop video",
+                            contentDescription = if (isLoopEnabled) "Disable loop video" else "Enable loop video",
                             tint = if (isLoopEnabled) Color.White else TextMuted,
                             modifier = Modifier.size(14.dp)
                         )
