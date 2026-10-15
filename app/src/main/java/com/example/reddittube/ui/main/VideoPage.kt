@@ -69,6 +69,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -729,7 +730,7 @@ Box(
                     .clip(CircleShape)
                     .background(Color.Black.copy(alpha = 0.65f))
                     .border(1.dp, GlassBorder, CircleShape)
-                    .clickable {
+                    .clickable(role = Role.Button) {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (exoPlayer.playbackState == Player.STATE_ENDED) {
                             exoPlayer.seekTo(0)
@@ -786,7 +787,7 @@ Box(
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(Color.Black.copy(alpha = 0.55f))
-                    .clickable { onBack?.invoke() },
+                    .clickable(role = Role.Button) { onBack?.invoke() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(22.dp))
@@ -877,7 +878,7 @@ Box(
                             .size(32.dp)
                             .clip(CircleShape)
                             .background(BrandRed.copy(alpha = if (isSubbed) 0.2f else 0.15f))
-                            .clickable {
+                            .clickable(role = Role.Button) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onSubscribeToggle(post.subreddit.lowercase())
                             },
@@ -988,7 +989,7 @@ Box(
                     ) {
                         Icon(
                             if (isRotationLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                            contentDescription = "Rotation",
+                            contentDescription = if (isRotationLocked) "Unlock rotation" else "Lock rotation",
                             tint = if (isRotationLocked) BrandRed else Color.White,
                             modifier = Modifier.size(14.dp)
                         )
@@ -1001,7 +1002,7 @@ Box(
                     ) {
                         Icon(
                             if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = "Mute",
+                            contentDescription = if (isMuted) "Unmute" else "Mute",
                             tint = if (isMuted) BrandRed else Color.White,
                             modifier = Modifier.size(14.dp)
                         )
@@ -1017,7 +1018,7 @@ Box(
                     ) {
                         Icon(
                             Icons.Default.SkipNext,
-                            contentDescription = "Auto-next",
+                            contentDescription = if (autoNextEnabled) "Disable auto-next" else "Enable auto-next",
                             tint = if (autoNextEnabled) Color.White else TextMuted,
                             modifier = Modifier.size(14.dp)
                         )
@@ -1034,7 +1035,7 @@ Box(
                     ) {
                         Icon(
                             Icons.Default.Repeat,
-                            contentDescription = "Loop video",
+                            contentDescription = if (isLoopEnabled) "Disable loop" else "Enable loop",
                             tint = if (isLoopEnabled) Color.White else TextMuted,
                             modifier = Modifier.size(14.dp)
                         )
