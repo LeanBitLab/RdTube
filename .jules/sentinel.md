@@ -2,3 +2,7 @@
 **Vulnerability:** OAuth state parameter used a predictable `System.currentTimeMillis()` value, vulnerable to CSRF attacks.
 **Learning:** Always use a cryptographically secure random value for OAuth state parameter and persist it across process boundaries using shared preferences or similar mechanisms to verify during the callback.
 **Prevention:** Follow OAuth 2.0 security guidelines and utilize `java.security.SecureRandom` or UUIDs to generate state parameters, ensuring they are verified in the callback process.
+## 2024-05-31 - [Android Manifest Security Baseline]
+**Vulnerability:** Weak default Android application security settings (`allowBackup="true"` implicitly allowed, `usesCleartextTraffic` implicitly allowed on older APIs).
+**Learning:** The application was vulnerable to data extraction (including sensitive OAuth tokens) via adb backup and Man-In-The-Middle (MITM) attacks for unencrypted traffic.
+**Prevention:** Explicitly set `android:allowBackup="false"` and `android:usesCleartextTraffic="false"` in `AndroidManifest.xml` unless there is a specific, well-justified reason to enable them.
