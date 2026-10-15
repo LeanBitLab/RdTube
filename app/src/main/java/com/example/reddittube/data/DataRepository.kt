@@ -259,6 +259,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val token = RedditOAuthHelper.getOrFetchAccessToken(context)
         if (token == null) { emit(SearchVideosResult(emptyList(), null)); return@flow }
         val results = mutableListOf<RedditPost>()
+        val seenIds = mutableSetOf<String>()
         var currentAfter = after
         var finalAfter: String? = null
         try {
@@ -276,7 +277,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 for (i in 0 until children.length()) {
                     val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
                     parseRedditPost(childData)?.let { post ->
-                        if (results.none { it.id == post.id }) {
+                        if (seenIds.add(post.id)) {
                             results.add(post)
                         }
                     }
@@ -312,6 +313,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             subs.map { sub ->
                 async(Dispatchers.IO) {
                     val subPosts = mutableListOf<RedditPost>()
+                    val seenIds = mutableSetOf<String>()
                     var after = afterMap[sub] ?: ""
                     for (page in 0 until 5) {
                         if (subPosts.size >= 15) break
@@ -327,7 +329,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                             for (i in 0 until children.length()) {
                                 val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
                                 parseRedditPost(childData)?.let { post ->
-                                    if (subPosts.none { it.id == post.id }) {
+                                    if (seenIds.add(post.id)) {
                                         subPosts.add(post)
                                     }
                                 }
@@ -508,6 +510,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
 
     private suspend fun performOAuthRequest(subreddit: String, token: String, sort: String = "hot", feed: String = "explore"): List<RedditPost> {
         val list = mutableListOf<RedditPost>()
+        val seenIds = mutableSetOf<String>()
         var after: String? = null
         val sortPath = if (sort.contains("?")) sort.substringBefore("?") else sort
         val sortExtra = if (sort.contains("?")) "&" + sort.substringAfter("?") else ""
@@ -527,7 +530,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 for (i in 0 until children.length()) {
                     val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
                     parseRedditPost(childData)?.let { post ->
-                        if (list.none { it.id == post.id }) {
+                        if (seenIds.add(post.id)) {
                             list.add(post)
                         }
                     }
@@ -553,7 +556,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                         for (i in 0 until children.length()) {
                             val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
                             parseRedditPost(childData)?.let { post ->
-                                if (list.none { it.id == post.id }) {
+                                if (seenIds.add(post.id)) {
                                     list.add(post)
                                 }
                             }
@@ -576,7 +579,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     for (i in 0 until children.length()) {
                         val childData = children.getJSONObject(i).optJSONObject("data") ?: continue
                         val post = parseRedditPost(childData)
-                        if (post != null && list.none { it.id == post.id }) {
+                        if (post != null && seenIds.add(post.id)) {
                             list.add(post)
                         }
                     }
