@@ -629,11 +629,13 @@ private fun BrowseGrid(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(
+                        // ⚡ Bolt: Performance optimization
+                        // Impact: Prevents O(N) lookup (indexOf) for every visible item during composition by using itemsIndexed.
+                        // Measurement: Scrolling through large feed lists will be noticeably smoother with fewer dropped frames.
+                        itemsIndexed(
                             items = distinctData,
-                            key = { post -> post.id }
-                        ) { post ->
-                            val index = distinctData.indexOf(post).coerceAtLeast(0)
+                            key = { _, post -> post.id }
+                        ) { index, post ->
                             VideoCard(
                                 post = post,
                                 isLiked = likedIds.contains(post.id),
