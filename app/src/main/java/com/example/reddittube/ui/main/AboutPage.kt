@@ -38,6 +38,8 @@ import com.lean.reddittube.utils.RedditOAuthHelper
 private val CURRENT_VERSION_CHANGELOG = """
 • Pitch Black OLED Theme: Pure monochrome aesthetic with solid surfaces and adaptive icon
 • Categorized Settings: Clean background-based sections without distracting wireframe borders
+• Top Search Bar & Zero Shifts: Stable top search position with unified tab alignment
+• 30% Watch History & Reactive Clearing: Reliable watch tracking with instant UI clear
 • Persistent Rotation Lock: Feed orientation state persists across swipe navigation
 • Auto-Mute NSFW Option: Configurable preference to automatically silence mature videos
 • Unified Search History: Immediate suggestion recall across both Subreddit and Video searches
