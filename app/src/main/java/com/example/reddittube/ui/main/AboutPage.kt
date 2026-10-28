@@ -93,17 +93,11 @@ fun AboutPage(
         else -> null
     }
 
-    // Categorized Section States (Folded by default)
-    var isPlaybackExpanded by remember { mutableStateOf(false) }
-    var isMediaExpanded by remember { mutableStateOf(false) }
-    var isContentExpanded by remember { mutableStateOf(false) }
-    var isInterfaceExpanded by remember { mutableStateOf(false) }
+    // Unified Category Card States (Folded by default)
+    var isAppAboutExpanded by remember { mutableStateOf(false) }
+    var isPreferencesExpanded by remember { mutableStateOf(false) }
     var isRedditAccountExpanded by remember { mutableStateOf(false) }
-    var isGesturesExpanded by remember { mutableStateOf(false) }
-    var isToolbarExpanded by remember { mutableStateOf(false) }
-    var isFaqExpanded by remember { mutableStateOf(false) }
-    var isVersionExpanded by remember { mutableStateOf(false) }
-    var isCommunityExpanded by remember { mutableStateOf(false) }
+    var isHelpExpanded by remember { mutableStateOf(false) }
 
     // Preferences state
     var autoMuteNsfw by remember { mutableStateOf(sharedPreferences.getBoolean("pref_auto_mute_nsfw", true)) }
@@ -210,52 +204,327 @@ fun AboutPage(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // App Header Banner
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            color = SettingsCardBg
+        // ==========================================
+        // CATEGORY 1: RDTUBE (APP & COMMUNITY)
+        // ==========================================
+        FoldableSectionCard(
+            title = "RdTube",
+            icon = Icons.Default.PlayArrow,
+            badge = "v${com.lean.reddittube.BuildConfig.VERSION_NAME}",
+            isExpanded = isAppAboutExpanded,
+            onToggle = { isAppAboutExpanded = !isAppAboutExpanded }
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(Color.White),
-                    contentAlignment = Alignment.Center
+                Text(
+                    text = "Installed Version: v${com.lean.reddittube.BuildConfig.VERSION_NAME}",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Current Version Changelog Box
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SettingsSubCardBg
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(26.dp))
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("What's New in this Build:", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = CURRENT_VERSION_CHANGELOG,
+                            color = TextPrimary,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text("RdTube", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    Text("v${com.lean.reddittube.BuildConfig.VERSION_NAME} • Unrestricted Power-User Edition", color = TextSecondary, fontSize = 11.5.sp)
+
+                // View Releases on GitHub Button
+                Button(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube/releases"))
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SettingsButtonBg,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("View Releases on GitHub", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                HorizontalDivider(color = SettingsDividerColor, modifier = Modifier.padding(vertical = 4.dp))
+
+                Text(
+                    text = "Entirely Community Funded",
+                    color = TextPrimary,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "RdTube is 100% free, open-source, and entirely community funded with zero ads, investors, or telemetry. Your sponsorship keeps development completely independent!",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    text = "Sponsor Development",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Sponsorship & Donation buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sponsors/LeanBitLab"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFFE91E63), modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("GitHub Sponsors", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://opencollective.com/leanbitlab-org"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color(0xFF1F6FEB), modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open Collective", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = SettingsDividerColor, modifier = Modifier.padding(vertical = 4.dp))
+
+                Text(
+                    text = "Official Channels & Socials",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Social Grid Row 1: Telegram & Reddit
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/LeanBitLab"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, tint = Color(0xFF29B6F6), modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Telegram", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/LeanBitLab_/"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Forum, contentDescription = null, tint = Color(0xFFFF4500), modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("r/LeanBitLab_", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+
+                // Social Grid Row 2: X (Twitter) & YouTube
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://x.com/LeanBitLab"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("X (Twitter)", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/@LeanBitLab"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.PlayCircleOutline, contentDescription = null, tint = Color(0xFFFF0000), modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("YouTube", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = SettingsDividerColor, modifier = Modifier.padding(vertical = 4.dp))
+
+                // Project & Code Links
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Code, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("GitHub Repo", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube/issues"))
+                                context.startActivity(intent)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.BugReport, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Report Issue", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
                 }
             }
         }
 
         // ==========================================
-        // CATEGORY 1: PREFERENCES
+        // CATEGORY 2: PREFERENCES
         // ==========================================
         SettingsCategoryHeader("PREFERENCES")
 
-        // 1. Playback & Audio
         FoldableSectionCard(
-            title = "Playback & Audio",
-            icon = Icons.Default.PlayCircleOutline,
-            isExpanded = isPlaybackExpanded,
-            onToggle = { isPlaybackExpanded = !isPlaybackExpanded }
+            title = "App Preferences",
+            icon = Icons.Default.Tune,
+            isExpanded = isPreferencesExpanded,
+            onToggle = { isPreferencesExpanded = !isPreferencesExpanded }
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Default Video Audio Switch
+                // Section: Playback & Audio
+                Text(
+                    text = "Playback & Audio",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+
                 PreferenceSwitchRow(
                     title = "Default Audio Unmuted",
                     subtitle = "Start video playback with sound unmuted",
@@ -268,7 +537,6 @@ fun AboutPage(
 
                 HorizontalDivider(color = SettingsDividerColor)
 
-                // Auto-Mute NSFW Switch
                 PreferenceSwitchRow(
                     title = "Auto-Mute NSFW Videos",
                     subtitle = "Automatically start 18+ unrestricted videos muted",
@@ -282,7 +550,6 @@ fun AboutPage(
 
                 HorizontalDivider(color = SettingsDividerColor)
 
-                // Loop Video Switch
                 PreferenceSwitchRow(
                     title = "Default Video Looping",
                     subtitle = "Replay videos continuously in player",
@@ -295,7 +562,6 @@ fun AboutPage(
 
                 HorizontalDivider(color = SettingsDividerColor)
 
-                // Auto-Next Switch
                 PreferenceSwitchRow(
                     title = "Auto-Next Video",
                     subtitle = "Automatically advance to next video upon completion",
@@ -305,21 +571,18 @@ fun AboutPage(
                         sharedPreferences.edit().putBoolean("auto_next", checked).apply()
                     }
                 )
-            }
-        }
 
-        // 2. Media Quality & Cache
-        FoldableSectionCard(
-            title = "Media Quality & Cache",
-            icon = Icons.Default.Tune,
-            isExpanded = isMediaExpanded,
-            onToggle = { isMediaExpanded = !isMediaExpanded }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Thumbnail Quality Setting
+                HorizontalDivider(color = SettingsDividerColor)
+
+                // Section: Media Quality & Cache
+                Text(
+                    text = "Media Quality & Cache",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                )
+
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text("Thumbnail Resolution", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text("Quality of video preview thumbnails in feeds and search", color = TextMuted, fontSize = 11.sp)
@@ -365,7 +628,6 @@ fun AboutPage(
 
                 HorizontalDivider(color = SettingsDividerColor)
 
-                // Prefetch Depth Setting
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text("Feed Prefetch Depth", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text("Number of upcoming video streams buffered in the background", color = TextMuted, fontSize = 11.sp)
@@ -410,7 +672,6 @@ fun AboutPage(
 
                 HorizontalDivider(color = SettingsDividerColor)
 
-                // Clear Thumbnail Cache Action
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -426,21 +687,18 @@ fun AboutPage(
                     }
                     Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
                 }
-            }
-        }
 
-        // 3. Content & Restrictions
-        FoldableSectionCard(
-            title = "Content & Restrictions",
-            icon = Icons.Default.Shield,
-            isExpanded = isContentExpanded,
-            onToggle = { isContentExpanded = !isContentExpanded }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Unrestricted Content Switch
+                HorizontalDivider(color = SettingsDividerColor)
+
+                // Section: Content & Restrictions
+                Text(
+                    text = "Content & Restrictions",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                )
+
                 PreferenceSwitchRow(
                     title = "Unrestricted Content",
                     subtitle = "Allow unrestricted media in feeds with subtle glass badges",
@@ -451,21 +709,18 @@ fun AboutPage(
                         Toast.makeText(context, if (checked) "Unrestricted content enabled" else "Unrestricted content filtered", Toast.LENGTH_SHORT).show()
                     }
                 )
-            }
-        }
 
-        // 4. Interface & Haptics
-        FoldableSectionCard(
-            title = "Interface & Haptics",
-            icon = Icons.Default.TouchApp,
-            isExpanded = isInterfaceExpanded,
-            onToggle = { isInterfaceExpanded = !isInterfaceExpanded }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Haptic Feedback Switch
+                HorizontalDivider(color = SettingsDividerColor)
+
+                // Section: Interface & Haptics
+                Text(
+                    text = "Interface & Haptics",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                )
+
                 PreferenceSwitchRow(
                     title = "Haptic Vibration Feedback",
                     subtitle = "Tactile response on edge sliders, likes, and feed pull-to-refresh",
@@ -479,7 +734,7 @@ fun AboutPage(
         }
 
         // ==========================================
-        // CATEGORY 2: ACCOUNT & CONNECTIVITY
+        // CATEGORY 3: ACCOUNT & CONNECTIVITY
         // ==========================================
         SettingsCategoryHeader("ACCOUNT & CONNECTIVITY")
 
@@ -663,89 +918,112 @@ fun AboutPage(
                     )
                 }
 
-                HorizontalDivider(color = SettingsDividerColor)
+                // Custom Credentials rows only show when Enable Overrides is switched ON
+                AnimatedVisibility(
+                    visible = isOverridesEnabled,
+                    enter = fadeIn(tween(140)) + expandVertically(tween(140)),
+                    exit = fadeOut(tween(110)) + shrinkVertically(tween(110))
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        HorizontalDivider(color = SettingsDividerColor, modifier = Modifier.padding(bottom = 8.dp))
 
-                // Reddit API Client ID Row
-                ApiKeySettingRow(
-                    title = "Reddit API Client ID",
-                    value = customClientId.ifEmpty { "Tap to set custom Client ID" },
-                    isCustom = customClientId.isNotEmpty(),
-                    onClick = { showClientIdDialog = true }
-                )
+                        // Reddit API Client ID Row
+                        ApiKeySettingRow(
+                            title = "Reddit API Client ID",
+                            value = customClientId.ifEmpty { "Tap to set custom Client ID" },
+                            isCustom = customClientId.isNotEmpty(),
+                            onClick = { showClientIdDialog = true }
+                        )
 
-                HorizontalDivider(color = SettingsDividerColor)
+                        HorizontalDivider(color = SettingsDividerColor, modifier = Modifier.padding(vertical = 4.dp))
 
-                // User Agent Row
-                ApiKeySettingRow(
-                    title = "User Agent",
-                    value = customUserAgent.ifEmpty { "Tap to set custom User Agent" },
-                    isCustom = customUserAgent.isNotEmpty(),
-                    onClick = { showUserAgentDialog = true }
-                )
+                        // User Agent Row
+                        ApiKeySettingRow(
+                            title = "User Agent",
+                            value = customUserAgent.ifEmpty { "Tap to set custom User Agent" },
+                            isCustom = customUserAgent.isNotEmpty(),
+                            onClick = { showUserAgentDialog = true }
+                        )
 
-                HorizontalDivider(color = SettingsDividerColor)
+                        HorizontalDivider(color = SettingsDividerColor, modifier = Modifier.padding(vertical = 4.dp))
 
-                // Redirect URI Row
-                ApiKeySettingRow(
-                    title = "Redirect URI",
-                    value = customRedirectUri.ifEmpty { "Tap to set custom Redirect URI" },
-                    isCustom = customRedirectUri.isNotEmpty(),
-                    onClick = { showRedirectUriDialog = true }
-                )
+                        // Redirect URI Row
+                        ApiKeySettingRow(
+                            title = "Redirect URI",
+                            value = customRedirectUri.ifEmpty { "Tap to set custom Redirect URI" },
+                            isCustom = customRedirectUri.isNotEmpty(),
+                            onClick = { showRedirectUriDialog = true }
+                        )
+                    }
+                }
             }
         }
 
         // ==========================================
-        // CATEGORY 3: HELP & REFERENCE
+        // CATEGORY 4: HELP & REFERENCE
         // ==========================================
         SettingsCategoryHeader("HELP & REFERENCE")
 
-        // 1. Gesture Controls Guide
         FoldableSectionCard(
-            title = "Gesture Controls Guide",
-            icon = Icons.Default.TouchApp,
-            isExpanded = isGesturesExpanded,
-            onToggle = { isGesturesExpanded = !isGesturesExpanded }
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                CompactGestureItem("Two-Finger Swipe ↓", "Refresh Video Feed Instantly")
-                CompactGestureItem("Left Edge ↕", "Adjust Screen Brightness")
-                CompactGestureItem("Right Edge ↕", "Adjust System Volume")
-                CompactGestureItem("Swipe Left ↔", "Dismiss & Mark Watched")
-                CompactGestureItem("Swipe Right ↔", "Like Video & Advance")
-                CompactGestureItem("Double-Tap ⏩", "Seek 10s Rewind/Forward")
-                CompactGestureItem("Single Tap 👆", "Play / Pause / Replay")
-            }
-        }
-
-        // 2. Player Toolbar Functions
-        FoldableSectionCard(
-            title = "Player Toolbar Functions",
-            icon = Icons.Default.Widgets,
-            isExpanded = isToolbarExpanded,
-            onToggle = { isToolbarExpanded = !isToolbarExpanded }
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                CompactButtonItem(Icons.Default.Repeat, "Loop Video", "Single-video continuous replay toggle")
-                CompactButtonItem(Icons.Default.SkipNext, "Auto-Next", "Auto-play next clip on end")
-                CompactButtonItem(Icons.Default.Download, "Save Video", "Direct export to Downloads")
-                CompactButtonItem(Icons.Default.Lock, "Rotation Lock", "Toggle sensor / portrait orientation")
-                CompactButtonItem(Icons.Default.Settings, "Quality & Speed", "Adjust resolution & playback speed")
-                CompactButtonItem(Icons.AutoMirrored.Filled.VolumeUp, "Mute", "Quick audio mute / unmute")
-            }
-        }
-
-        // 3. Security & FAQ
-        FoldableSectionCard(
-            title = "Account Safety & FAQ",
+            title = "Help & Reference",
             icon = Icons.Default.HelpOutline,
-            isExpanded = isFaqExpanded,
-            onToggle = { isFaqExpanded = !isFaqExpanded }
+            isExpanded = isHelpExpanded,
+            onToggle = { isHelpExpanded = !isHelpExpanded }
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Section: Gesture Controls Guide
+                Text(
+                    text = "Gesture Controls Guide",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    CompactGestureItem("Two-Finger Swipe ↓", "Refresh Video Feed Instantly")
+                    CompactGestureItem("Left Edge ↕", "Adjust Screen Brightness")
+                    CompactGestureItem("Right Edge ↕", "Adjust System Volume")
+                    CompactGestureItem("Swipe Left ↔", "Dismiss & Mark Watched")
+                    CompactGestureItem("Swipe Right ↔", "Like Video & Advance")
+                    CompactGestureItem("Double-Tap ⏩", "Seek 10s Rewind/Forward")
+                    CompactGestureItem("Single Tap 👆", "Play / Pause / Replay")
+                }
+
+                HorizontalDivider(color = SettingsDividerColor, modifier = Modifier.padding(vertical = 4.dp))
+
+                // Section: Player Toolbar Functions
+                Text(
+                    text = "Player Toolbar Functions",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    CompactButtonItem(Icons.Default.Repeat, "Loop Video", "Single-video continuous replay toggle")
+                    CompactButtonItem(Icons.Default.SkipNext, "Auto-Next", "Auto-play next clip on end")
+                    CompactButtonItem(Icons.Default.Download, "Save Video", "Direct export to Downloads")
+                    CompactButtonItem(Icons.Default.Lock, "Rotation Lock", "Toggle sensor / portrait orientation")
+                    CompactButtonItem(Icons.Default.Settings, "Quality & Speed", "Adjust resolution & playback speed")
+                    CompactButtonItem(Icons.AutoMirrored.Filled.VolumeUp, "Mute", "Quick audio mute / unmute")
+                }
+
+                HorizontalDivider(color = SettingsDividerColor, modifier = Modifier.padding(vertical = 4.dp))
+
+                // Section: Security & FAQ
+                Text(
+                    text = "Account Safety & FAQ",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+
                 Text(
                     text = "Why is login required for unrestricted subreddits?",
                     color = TextPrimary,
@@ -758,317 +1036,6 @@ fun AboutPage(
                     fontSize = 11.sp,
                     lineHeight = 15.sp
                 )
-            }
-        }
-
-        // ==========================================
-        // CATEGORY 4: ABOUT & COMMUNITY
-        // ==========================================
-        SettingsCategoryHeader("ABOUT & COMMUNITY")
-
-        // 1. Version & Release Notes
-        FoldableSectionCard(
-            title = "Version & Release Notes",
-            icon = Icons.Default.Info,
-            badge = "v${com.lean.reddittube.BuildConfig.VERSION_NAME}",
-            isExpanded = isVersionExpanded,
-            onToggle = { isVersionExpanded = !isVersionExpanded }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "Installed Version: v${com.lean.reddittube.BuildConfig.VERSION_NAME}",
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Current Version Changelog Box
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = SettingsSubCardBg
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("What's New in this Build:", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = CURRENT_VERSION_CHANGELOG,
-                            color = TextPrimary,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp
-                        )
-                    }
-                }
-
-                // View Releases on GitHub Button
-                Button(
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube/releases"))
-                        context.startActivity(intent)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(42.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SettingsButtonBg,
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("View Releases on GitHub", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        // 2. Community & Support
-        FoldableSectionCard(
-            title = "Community & Support",
-            icon = Icons.Default.Favorite,
-            isExpanded = isCommunityExpanded,
-            onToggle = { isCommunityExpanded = !isCommunityExpanded }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "Entirely Community Funded",
-                    color = TextPrimary,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = "RdTube is 100% free, open-source, and entirely community funded with zero ads, investors, or telemetry. Your sponsorship keeps development completely independent!",
-                    color = TextSecondary,
-                    fontSize = 11.5.sp,
-                    lineHeight = 16.sp
-                )
-
-                Spacer(Modifier.height(2.dp))
-
-                Text(
-                    text = "Sponsor Development",
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Sponsorship & Donation buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sponsors/LeanBitLab"))
-                                context.startActivity(intent)
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        color = SettingsSubCardBg
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFFE91E63), modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("GitHub Sponsors", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://opencollective.com/leanbitlab-org"))
-                                context.startActivity(intent)
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        color = SettingsSubCardBg
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color(0xFF1F6FEB), modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Open Collective", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = SettingsDividerColor)
-
-                Text(
-                    text = "Official Channels & Socials",
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Social Grid Row 1: Telegram & Reddit
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/LeanBitLab"))
-                                context.startActivity(intent)
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        color = SettingsSubCardBg
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.Send, contentDescription = null, tint = Color(0xFF29B6F6), modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Telegram", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/LeanBitLab_/"))
-                                context.startActivity(intent)
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        color = SettingsSubCardBg
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.Forum, contentDescription = null, tint = Color(0xFFFF4500), modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("r/LeanBitLab_", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
-
-                // Social Grid Row 2: X (Twitter) & YouTube
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://x.com/LeanBitLab"))
-                                context.startActivity(intent)
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        color = SettingsSubCardBg
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("X (Twitter)", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/@LeanBitLab"))
-                                context.startActivity(intent)
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        color = SettingsSubCardBg
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.PlayCircleOutline, contentDescription = null, tint = Color(0xFFFF0000), modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("YouTube", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = SettingsDividerColor)
-
-                // Project & Code Links
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube"))
-                                context.startActivity(intent)
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        color = SettingsSubCardBg
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.Code, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("GitHub Repo", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube/issues"))
-                                context.startActivity(intent)
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        color = SettingsSubCardBg
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.BugReport, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Report Issue", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
             }
         }
 
