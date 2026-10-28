@@ -629,11 +629,10 @@ private fun BrowseGrid(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(
+                        itemsIndexed(
                             items = distinctData,
-                            key = { post -> post.id }
-                        ) { post ->
-                            val index = distinctData.indexOf(post).coerceAtLeast(0)
+                            key = { _, post -> post.id }
+                        ) { index, post ->
                             VideoCard(
                                 post = post,
                                 isLiked = likedIds.contains(post.id),
