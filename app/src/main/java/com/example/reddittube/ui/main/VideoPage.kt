@@ -11,7 +11,6 @@ import android.net.Uri
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -642,15 +641,14 @@ Box(
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = SurfaceBase.copy(alpha = 0.85f),
-                    border = BorderStroke(1.dp, BrandRed.copy(alpha = 0.6f))
+                    color = SurfacePill
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Icon(Icons.Default.ThumbUp, contentDescription = null, tint = BrandRed, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.ThumbUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Text("Liked", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
@@ -669,8 +667,7 @@ Box(
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = SurfaceBase.copy(alpha = 0.85f),
-                    border = BorderStroke(1.dp, GlassBorder)
+                    color = SurfacePill
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -731,8 +728,7 @@ Box(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.65f))
-                    .border(1.dp, GlassBorder, CircleShape)
+                    .background(Color.Black.copy(alpha = 0.70f))
                     .clickable {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (exoPlayer.playbackState == Player.STATE_ENDED) {
@@ -761,8 +757,7 @@ Box(
         ) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = Color.Black.copy(alpha = 0.75f),
-                border = BorderStroke(1.dp, GlassBorder)
+                color = SurfacePill
             ) {
                 Text(
                     text = seekFeedback ?: "",
@@ -814,8 +809,7 @@ Box(
                         .padding(24.dp)
                         .fillMaxWidth(0.9f),
                     shape = RoundedCornerShape(16.dp),
-                    color = SurfaceRaised,
-                    border = BorderStroke(1.dp, GlassBorder)
+                    color = SurfaceCard
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
@@ -1105,15 +1099,15 @@ Box(
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = SurfaceBase.copy(alpha = 0.92f),
-                border = BorderStroke(1.dp, BrandRed)
+                color = SurfacePill,
+                shadowElevation = 8.dp
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, tint = BrandRed, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Text("Refreshing feed…", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -1213,8 +1207,7 @@ private fun VerticalGestureHUD(
 ) {
     Surface(
         shape = RoundedCornerShape(24.dp),
-        color = Color(0xCC07080A),
-        border = BorderStroke(1.dp, GlassBorder),
+        color = Color(0xE6141414),
         shadowElevation = 10.dp
     ) {
         Column(

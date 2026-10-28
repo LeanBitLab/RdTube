@@ -1,7 +1,6 @@
 package com.lean.reddittube.ui.main.components
 
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -85,8 +84,7 @@ fun CommentsBottomSheet(
                             Spacer(Modifier.width(8.dp))
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = SurfaceRaised,
-                                border = BorderStroke(1.dp, GlassBorder)
+                                color = SurfacePill
                             ) {
                                 Text(
                                     text = formatScore(post.numComments),
@@ -170,8 +168,7 @@ private fun CommentRow(comment: RedditComment) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = SurfaceRaised,
-        border = BorderStroke(1.dp, GlassBorder)
+        color = SurfaceCard
     ) {
         Column(
             modifier = Modifier
@@ -203,8 +200,7 @@ private fun CommentRow(comment: RedditComment) {
 
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = Color.Black.copy(alpha = 0.5f),
-                    border = BorderStroke(1.dp, GlassBorder)
+                    color = SurfacePill
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -251,8 +247,7 @@ private fun CommentSkeletonList() {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                color = SurfaceRaised,
-                border = BorderStroke(1.dp, GlassBorder)
+                color = SurfaceCard
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     ShimmerBox(modifier = Modifier.width(110.dp).height(14.dp))

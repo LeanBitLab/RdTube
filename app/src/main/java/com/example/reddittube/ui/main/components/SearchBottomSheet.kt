@@ -2,7 +2,6 @@ package com.lean.reddittube.ui.main.components
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -86,8 +85,7 @@ fun SearchBottomSheet(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = SurfaceRaised,
-                border = BorderStroke(1.dp, GlassBorder)
+                color = SurfaceCard
             ) {
                 TextField(
                     value = searchQuery,
@@ -152,8 +150,7 @@ fun SearchBottomSheet(
                         Surface(
                             onClick = { handleSelectSubreddit(recent) },
                             shape = RoundedCornerShape(12.dp),
-                            color = SurfaceRaised,
-                            border = BorderStroke(1.dp, GlassBorder)
+                            color = SurfacePill
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -190,8 +187,7 @@ fun SearchBottomSheet(
                             .clip(RoundedCornerShape(14.dp))
                             .clickable { handleSelectSubreddit(sub) },
                         shape = RoundedCornerShape(14.dp),
-                        color = SurfaceRaised,
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SurfaceCard
                     ) {
                         Row(
                             modifier = Modifier

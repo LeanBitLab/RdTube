@@ -1,6 +1,5 @@
 package com.lean.reddittube.ui.main.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -105,8 +104,7 @@ fun SortBottomSheet(
                                 onDismiss()
                             },
                         shape = RoundedCornerShape(14.dp),
-                        color = if (isSelected) SurfaceRaised else Color.Transparent,
-                        border = BorderStroke(1.dp, if (isSelected) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.05f))
+                        color = if (isSelected) SurfaceCardHighlight else Color.Transparent
                     ) {
                         Row(
                             modifier = Modifier

@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -181,8 +180,7 @@ fun VideoFeedContent(
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = SurfaceBase.copy(alpha = 0.88f),
-                    border = BorderStroke(1.dp, GlassBorder),
+                    color = SurfacePill,
                     shadowElevation = 8.dp
                 ) {
                     SectionLoadingIndicator(

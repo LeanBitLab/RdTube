@@ -1,7 +1,6 @@
 package com.lean.reddittube.ui.main
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -65,11 +64,10 @@ fun LibraryPage(
             .statusBarsPadding()
             .padding(top = TopBarHeight + 2.dp)
     ) {
-        // Segmented Control (Enclosed Glass Pill Matching SearchPage)
+        // Segmented Control (Enclosed Pill Matching SearchPage)
         Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = SurfaceBar,
-            border = BorderStroke(1.dp, GlassBorder),
+            shape = RoundedCornerShape(16.dp),
+            color = SurfaceCard,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 6.dp)
@@ -77,19 +75,19 @@ fun LibraryPage(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(3.dp),
+                    .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 LibrarySegment.entries.forEach { segment ->
                     val isSelected = segment == selectedSegment
                     Surface(
                         onClick = { selectedSegment = segment },
-                        shape = RoundedCornerShape(17.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = if (isSelected) Color.White else Color.Transparent,
                         modifier = Modifier.weight(1f)
                     ) {
                         Row(
-                            modifier = Modifier.padding(vertical = 7.dp),
+                            modifier = Modifier.padding(vertical = 8.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -189,8 +187,7 @@ fun LibraryPage(
                                     .clip(RoundedCornerShape(14.dp))
                                     .clickable { onSubredditClick(sub) },
                                 shape = RoundedCornerShape(14.dp),
-                                color = SurfaceRaised,
-                                border = BorderStroke(1.dp, GlassBorder)
+                                color = SurfaceCard
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -331,7 +328,7 @@ fun LibraryPage(
                     Text("Cancel", color = TextSecondary)
                 }
             },
-            containerColor = SurfaceRaised,
+            containerColor = Color(0xFF181818),
             shape = RoundedCornerShape(18.dp)
         )
     }
@@ -345,9 +342,8 @@ private fun GlassActionChip(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
-        color = SurfaceRaised,
-        border = BorderStroke(1.dp, GlassBorder)
+        shape = RoundedCornerShape(12.dp),
+        color = SurfacePill
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),

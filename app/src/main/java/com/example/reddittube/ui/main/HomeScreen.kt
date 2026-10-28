@@ -311,8 +311,7 @@ fun HomeScreen(
                             .clip(RoundedCornerShape(17.dp))
                             .clickable { showSortSheet = true },
                         shape = RoundedCornerShape(17.dp),
-                        color = SurfaceRaised.copy(alpha = 0.85f),
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SurfacePill
                     ) {
                         Row(
                             modifier = Modifier
@@ -421,9 +420,8 @@ private fun FloatingPillNavBar(
             .fillMaxWidth()
             .height(56.dp),
         shape = RoundedCornerShape(28.dp),
-        color = SurfaceBar.copy(alpha = 0.90f),
-        border = BorderStroke(1.dp, GlassBorder),
-        shadowElevation = 0.dp,
+        color = SurfaceBar,
+        shadowElevation = 10.dp,
         tonalElevation = 0.dp
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -576,8 +574,7 @@ private fun BrowseGrid(
                                 .fillMaxWidth()
                                 .height(200.dp),
                             shape = RoundedCornerShape(14.dp),
-                            color = SurfaceRaised.copy(alpha = pulseAlpha),
-                            border = BorderStroke(1.dp, GlassBorder)
+                            color = SurfaceCard.copy(alpha = pulseAlpha)
                         ) {}
                     }
                 }
@@ -691,8 +688,8 @@ private fun BrowseGrid(
                                 ) {
                                     Surface(
                                         shape = RoundedCornerShape(20.dp),
-                                        color = Color.Black.copy(alpha = 0.88f),
-                                        border = BorderStroke(1.dp, GlassBorder)
+                                        color = SurfacePill,
+                                        shadowElevation = 8.dp
                                     ) {
                                         SectionLoadingIndicator(
                                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -719,8 +716,8 @@ private fun BrowseGrid(
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = Color.Black.copy(alpha = 0.95f),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
+                color = SurfacePill,
+                shadowElevation = 8.dp
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -801,8 +798,7 @@ fun VideoCard(
                     )
                 },
             shape = RoundedCornerShape(16.dp),
-            color = SurfaceRaised,
-            border = BorderStroke(1.dp, GlassBorder),
+            color = SurfaceCard,
             shadowElevation = 0.dp
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -828,8 +824,7 @@ fun VideoCard(
                             if (post.over18) {
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = Color.Black.copy(alpha = 0.85f),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+                                    color = Color(0xFF222222)
                                 ) {
                                     Text(
                                         text = "18+",
@@ -843,8 +838,7 @@ fun VideoCard(
                             if (durationStr.isNotEmpty()) {
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = Color.Black.copy(alpha = 0.80f),
-                                    border = BorderStroke(1.dp, GlassBorder)
+                                    color = Color.Black.copy(alpha = 0.85f)
                                 ) {
                                     Text(
                                         text = durationStr,
@@ -864,8 +858,7 @@ fun VideoCard(
                             .size(42.dp)
                             .align(Alignment.Center)
                             .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.60f))
-                            .border(1.dp, Color(0x33FFFFFF), CircleShape),
+                            .background(Color.Black.copy(alpha = 0.70f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -982,8 +975,8 @@ fun VideoCard(
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = Color.Black.copy(alpha = 0.95f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+                    color = SurfacePill,
+                    shadowElevation = 8.dp
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),

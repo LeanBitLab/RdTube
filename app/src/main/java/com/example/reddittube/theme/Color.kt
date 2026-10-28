@@ -3,11 +3,17 @@ package com.lean.reddittube.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// Pure OLED Pitch Black & Crisp Monochrome Minimalist Palette
+// Pure OLED Pitch Black & Modern Solid Surface Palette
 val RichObsidian = Color(0xFF000000)
 val SurfaceBase = Color(0xFF000000)
-val SurfaceRaised = Color(0xFF0C0C0C)
-val SurfaceBar = Color(0xFF0E0E0E)
+val SurfaceCard = Color(0xFF141414)
+val SurfaceCardHighlight = Color(0xFF1E1E1E)
+val SurfaceSubCard = Color(0xFF0C0C0C)
+val SurfaceRaised = Color(0xFF141414)
+val SurfaceBar = Color(0xFF141414)
+val SurfacePill = Color(0xFF222222)
+val SurfaceButton = Color(0xFF1E1E1E)
+val SurfaceDivider = Color(0xFF1E1E1E)
 val SurfaceGlass = Color(0x33000000)
 
 // Crisp Monochrome Brand Accents (White & Silver High Contrast)
