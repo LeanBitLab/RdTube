@@ -47,7 +47,7 @@
 ## ✨ Features
 
 - **Optional Login for Unrestricted Content**: Browse 100% anonymously with zero registration, or connect securely via official read-only Reddit OAuth in your browser to unlock unrestricted and age-restricted video streams without cloud tracking.
-- **100% Strictly Local Library**: Liked videos, watch history, and subscribed subreddits are stored exclusively on your device—never uploaded, synced, or exposed to online Reddit accounts.
+- **100% Strictly Local Library**: Liked videos, watch history, and subscribed subreddits are stored exclusively on your device (never uploaded, synced, or exposed to online Reddit accounts).
 - **Continuous Edge Gestures**: Ultra-smooth vertical edge drag sliders for screen brightness (left edge) and media volume (right edge) with live HUD feedback.
 - **Player Gestures & Seeking**: Double-tap left/right edges for instant 10s seeking, and horizontal swipe gestures to quickly like or mark videos as watched.
 - **Read-Only Comments Sheet**: Clean bottom sheet modal to read Reddit post discussion threads, top comments, and author metadata without needing an account.
@@ -79,9 +79,10 @@
 
 > [!IMPORTANT]
 > **Reddit API Policy & Custom Client IDs**:
-> - **Guest Mode (Default)**: Powered by the built-in default Client ID with **zero setup, no registration, and no personal Client ID required**. RdTube works 100% out-of-the-box for anonymous video browsing and streaming.
-> - **Optional Login & Custom Client ID Overrides**: Under Reddit's updated API policies, creating new personal Client IDs (via `reddit.com/prefs/apps`) is restricted and requires manual developer approval from Reddit. The custom Client ID and login options are primarily intended for power users who **already have a pre-existing Client ID** created prior to the policy rollout or have approved Reddit Developer access.
-> - **Account Safety**: If you use Reddit OAuth, read-only permissions are used. For extra caution, you may use a secondary Reddit account or browse anonymously in Guest mode.
+> - **Out-of-the-Box Ready (Default)**: RdTube uses built-in default keys with **zero setup, no registration, and no personal Client ID required**. Both anonymous guest browsing and 1-Tap Reddit OAuth account login work immediately out of the box.
+> - **Reddit App Creation Restriction**: Under Reddit's Developer Terms and Responsible Builder Policy, direct self-service OAuth app creation on `reddit.com/prefs/apps` is restricted (accounts encounter a default limit of 0 applications, requiring an explicit support request to Reddit).
+> - **Custom Overrides for Developers**: If you already have a pre-existing Client ID (created before the restriction) or have approved developer access through Reddit support, you can enable custom key overrides in **Settings > Account & Connectivity** to supply your own Client ID, User Agent, and Redirect URI.
+> - **Account Safety**: Official read-only OAuth permissions (`identity`, `read`, `mysubreddits`) are used. Passwords are never handled or stored by RdTube.
 
 ---
 

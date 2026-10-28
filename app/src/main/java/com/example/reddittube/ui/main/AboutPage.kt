@@ -93,12 +93,12 @@ fun AboutPage(
         else -> null
     }
 
-    // Categorized Section States
-    var isPlaybackExpanded by remember { mutableStateOf(true) }
-    var isMediaExpanded by remember { mutableStateOf(true) }
-    var isContentExpanded by remember { mutableStateOf(true) }
+    // Categorized Section States (Folded by default)
+    var isPlaybackExpanded by remember { mutableStateOf(false) }
+    var isMediaExpanded by remember { mutableStateOf(false) }
+    var isContentExpanded by remember { mutableStateOf(false) }
     var isInterfaceExpanded by remember { mutableStateOf(false) }
-    var isRedditAccountExpanded by remember { mutableStateOf(isLoggedIn || isOverridesEnabled) }
+    var isRedditAccountExpanded by remember { mutableStateOf(false) }
     var isGesturesExpanded by remember { mutableStateOf(false) }
     var isToolbarExpanded by remember { mutableStateOf(false) }
     var isFaqExpanded by remember { mutableStateOf(false) }
@@ -146,7 +146,7 @@ fun AboutPage(
             title = "Reddit API Client ID",
             initialValue = customClientId,
             placeholder = "e.g. uLo0abP7KJQqP1G74o4TNg",
-            hint = "Custom Reddit OAuth Client ID created on reddit.com/prefs/apps (Installed App type).",
+            hint = "Custom Reddit OAuth Client ID (Installed App type) for users with approved developer access or pre-existing apps.",
             onSave = { newId ->
                 customClientId = newId
                 RedditOAuthHelper.setCustomClientId(context, newId)
@@ -579,14 +579,14 @@ fun AboutPage(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "Important: Use Your Own Client ID",
+                                text = "Reddit API Policy & Custom Keys",
                                 color = TextPrimary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         Text(
-                            text = "Please use your own Reddit Client ID if possible. Sharing the default RedReader Client ID across many users risks getting it rate-limited or revoked by Reddit. Creating a personal installed app Client ID is 100% free and takes under 2 minutes.",
+                            text = "Reddit's Developer Terms restrict new self-service app creation on reddit.com/prefs/apps (defaulting accounts to a 0-app limit requiring manual approval). RdTube works out of the box using built-in defaults. If you already have a pre-existing Client ID or approved developer status, enable Overrides below to use your personal credentials.",
                             color = TextSecondary,
                             fontSize = 11.sp,
                             lineHeight = 15.sp
@@ -608,7 +608,7 @@ fun AboutPage(
                         ) {
                             Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Create App on reddit.com/prefs/apps", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Reddit App Preferences (reddit.com/prefs/apps)", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
