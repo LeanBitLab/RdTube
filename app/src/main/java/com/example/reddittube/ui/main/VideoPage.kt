@@ -106,6 +106,8 @@ fun VideoPage(
     onSubredditClick: (String) -> Unit = {},
     isMuted: Boolean = false,
     onMuteChange: (Boolean) -> Unit = {},
+    isRotationLocked: Boolean = true,
+    onRotationLockChange: (Boolean) -> Unit = {},
     onCommentClick: (RedditPost) -> Unit = {},
     onBack: (() -> Unit)? = null,
     onRefresh: () -> Unit = {}
@@ -281,7 +283,6 @@ fun VideoPage(
     // Downloader status
     var downloadProgress by remember { mutableStateOf<String?>(null) }
 
-    var isRotationLocked by remember { mutableStateOf(true) }
     var originalBrightness by remember { mutableStateOf<Float?>(null) }
     val activity = context as? Activity
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
@@ -312,11 +313,14 @@ fun VideoPage(
     var showOverlay by remember { mutableStateOf(true) }
     var overlayJob by remember { mutableStateOf<Job?>(null) }
 
-    // Initialize orientation to locked portrait on active
-    LaunchedEffect(isActive) {
+    // Apply orientation on active video
+    LaunchedEffect(isActive, isRotationLocked) {
         if (isActive && activity != null) {
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            isRotationLocked = true
+            activity.requestedOrientation = if (isRotationLocked) {
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            } else {
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR
+            }
         }
     }
 
@@ -974,13 +978,13 @@ Box(
 // Rotation lock
                     MinimalButton(
                         onClick = {
+                            val nextLocked = !isRotationLocked
+                            onRotationLockChange(nextLocked)
                             if (activity != null) {
-                                if (isRotationLocked) {
-                                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                                    isRotationLocked = false
+                                activity.requestedOrientation = if (nextLocked) {
+                                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                                 } else {
-                                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                    isRotationLocked = true
+                                    ActivityInfo.SCREEN_ORIENTATION_SENSOR
                                 }
                             }
                         },

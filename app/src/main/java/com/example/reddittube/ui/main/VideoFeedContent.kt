@@ -1,6 +1,8 @@
 package com.lean.reddittube.ui.main
 import com.lean.reddittube.theme.*
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -58,7 +60,25 @@ fun VideoFeedContent(
         pageCount = { distinctData.size }
     )
     val coroutineScope = rememberCoroutineScope()
+    val activity = context as? Activity
+    val autoMuteNsfw = remember { sharedPreferences.getBoolean("pref_auto_mute_nsfw", true) }
     var isMuted by remember { mutableStateOf(!defaultUnmuted) }
+    var isRotationLocked by remember {
+        mutableStateOf(sharedPreferences.getBoolean("pref_rotation_locked", true))
+    }
+
+    DisposableEffect(activity) {
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage, distinctData) {
+        val currentPost = distinctData.getOrNull(pagerState.currentPage)
+        if (currentPost != null && autoMuteNsfw && currentPost.over18) {
+            isMuted = true
+        }
+    }
 
     val onNext: () -> Unit = {
         coroutineScope.launch {
@@ -118,6 +138,11 @@ fun VideoFeedContent(
                             isActive = pagerState.currentPage == pageIndex,
                             isMuted = isMuted,
                             onMuteChange = { isMuted = it },
+                            isRotationLocked = isRotationLocked,
+                            onRotationLockChange = { locked ->
+                                isRotationLocked = locked
+                                sharedPreferences.edit().putBoolean("pref_rotation_locked", locked).apply()
+                            },
                             subscribedSet = subscribedSet,
                             onSubscribeToggle = onSubscribeToggle,
                             onRemoveVideo = onRemoveVideo,

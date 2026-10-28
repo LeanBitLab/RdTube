@@ -79,6 +79,7 @@ fun AboutPage(
     var showRedirectUriDialog by remember { mutableStateOf(false) }
 
     // Preferences state
+    var autoMuteNsfw by remember { mutableStateOf(sharedPreferences.getBoolean("pref_auto_mute_nsfw", true)) }
     var isNsfwUnrestricted by remember { mutableStateOf(sharedPreferences.getBoolean("pref_unrestricted_nsfw", true)) }
     var autoNextEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("auto_next", false)) }
     var isLoopEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("loop_video", true)) }
@@ -636,6 +637,20 @@ fun AboutPage(
                         isNsfwUnrestricted = checked
                         sharedPreferences.edit().putBoolean("pref_unrestricted_nsfw", checked).apply()
                         Toast.makeText(context, if (checked) "Unrestricted content enabled" else "Unrestricted content filtered", Toast.LENGTH_SHORT).show()
+                    }
+                )
+
+                HorizontalDivider(color = BorderSubtle)
+
+                // Auto-Mute NSFW Switch
+                PreferenceSwitchRow(
+                    title = "Auto-Mute NSFW Videos",
+                    subtitle = "Automatically start 18+ unrestricted videos muted",
+                    checked = autoMuteNsfw,
+                    onCheckedChange = { checked ->
+                        autoMuteNsfw = checked
+                        sharedPreferences.edit().putBoolean("pref_auto_mute_nsfw", checked).apply()
+                        Toast.makeText(context, if (checked) "Auto-mute NSFW enabled" else "Auto-mute NSFW disabled", Toast.LENGTH_SHORT).show()
                     }
                 )
 
