@@ -112,13 +112,39 @@ fun HomeScreen(
     val isCustomExplore = viewModel.exploreQuery != defaultExploreQuery
     val isCustomSubscribed = viewModel.subscribedQuery.isNotEmpty() && viewModel.subscribedQuery != defaultSubscribedQuery
 
+    val tabBackStack = remember { mutableStateListOf(0) }
+    var originPageBeforeExplore by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(viewModel.exploreQuery) {
+        if (viewModel.exploreQuery != defaultExploreQuery && horizontalPagerState.currentPage != 0) {
+            if (originPageBeforeExplore == null) {
+                originPageBeforeExplore = horizontalPagerState.currentPage
+            }
+            if (tabBackStack.isEmpty() || tabBackStack.last() != 0) {
+                tabBackStack.add(0)
+            }
+            horizontalPagerState.scrollToPage(0)
+        }
+    }
+
     BackHandler(enabled = true) {
         when {
+            horizontalPagerState.currentPage == 0 && isCustomExplore && originPageBeforeExplore != null -> {
+                val targetPage = originPageBeforeExplore!!
+                originPageBeforeExplore = null
+                viewModel.refreshExplore(defaultExploreQuery)
+                coroutineScope.launch { horizontalPagerState.animateScrollToPage(targetPage) }
+            }
             horizontalPagerState.currentPage == 0 && isCustomExplore -> {
                 viewModel.refreshExplore(defaultExploreQuery)
             }
             horizontalPagerState.currentPage == 1 && isCustomSubscribed -> {
                 viewModel.refreshSubscribed(defaultSubscribedQuery)
+            }
+            tabBackStack.size > 1 -> {
+                tabBackStack.removeAt(tabBackStack.lastIndex)
+                val target = tabBackStack.last()
+                coroutineScope.launch { horizontalPagerState.animateScrollToPage(target) }
             }
             horizontalPagerState.currentPage != 0 -> {
                 coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
@@ -184,6 +210,10 @@ fun HomeScreen(
                     currentSubscribed = subscribedSubreddits,
                     onSubscribeToggle = viewModel::toggleSubscription,
                     onSubredditSelect = { sub ->
+                        originPageBeforeExplore = 2
+                        if (tabBackStack.isEmpty() || tabBackStack.last() != 0) {
+                            tabBackStack.add(0)
+                        }
                         viewModel.refreshExplore(sub)
                         coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
                     },
@@ -195,7 +225,7 @@ fun HomeScreen(
                     isVideoSearching = viewModel.isVideoSearching.collectAsStateWithLifecycle().value,
                     onLoadMoreVideos = { viewModel.loadMoreVideos() },
                     isVideoSearchingMore = viewModel.isVideoSearchingMore.collectAsStateWithLifecycle().value,
-                    onVideoSearchQuery = { query, immediate -> viewModel.searchVideos(query, immediate = immediate) },
+                    onVideoSearchQuery = { query, sort, immediate -> viewModel.searchVideos(query, sort = sort, immediate = immediate) },
                     onVideoClick = { list, index ->
                         viewModel.openPlayer(list, index, "search")
                         onItemClick()
@@ -212,6 +242,10 @@ fun HomeScreen(
                         onItemClick()
                     },
                     onSubredditClick = { sub ->
+                        originPageBeforeExplore = 3
+                        if (tabBackStack.isEmpty() || tabBackStack.last() != 0) {
+                            tabBackStack.add(0)
+                        }
                         viewModel.refreshExplore(sub)
                         coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
                     },
@@ -328,9 +362,13 @@ fun HomeScreen(
                         } else {
                             if (tab.ordinal == 0 && viewModel.exploreQuery != defaultExploreQuery) {
                                 viewModel.refreshExplore(defaultExploreQuery)
+                                originPageBeforeExplore = null
                             }
                             if (tab.ordinal == 1 && viewModel.subscribedQuery != defaultSubscribedQuery) {
                                 viewModel.refreshSubscribed(defaultSubscribedQuery)
+                            }
+                            if (tabBackStack.isEmpty() || tabBackStack.last() != tab.ordinal) {
+                                tabBackStack.add(tab.ordinal)
                             }
                             coroutineScope.launch {
                                 horizontalPagerState.animateScrollToPage(

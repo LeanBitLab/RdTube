@@ -25,6 +25,7 @@ class FakeRepository(
     private val fetchMoreResult: () -> Flow<FetchMoreResult> = { flowOf(FetchMoreResult(emptyList(), emptyMap())) },
     private val afterMap: () -> Map<String, String?> = { emptyMap() },
     private val onSaveAfterMap: (Map<String, String?>) -> Unit = {},
+    private val videoSearchResult: (String, String) -> Flow<com.lean.reddittube.data.SearchVideosResult> = { _, _ -> flowOf(com.lean.reddittube.data.SearchVideosResult(emptyList(), null)) }
 ) : DataRepository {
     val mockPrefs: SharedPreferences = Mockito.mock(SharedPreferences::class.java).also { prefs ->
         Mockito.`when`(prefs.getStringSet(Mockito.any(), Mockito.any())).thenReturn(emptySet())
@@ -47,7 +48,7 @@ class FakeRepository(
     override fun searchSubreddits(query: String) = searchResult()
     override fun searchSubredditsPaged(query: String, after: String?): Flow<com.lean.reddittube.data.SearchSubredditsResult> = flowOf(com.lean.reddittube.data.SearchSubredditsResult(emptyList(), null))
     override fun searchRedditVideos(query: String, sort: String) = flowOf(emptyList<RedditPost>())
-    override fun searchRedditVideosPaged(query: String, sort: String, after: String?): Flow<com.lean.reddittube.data.SearchVideosResult> = flowOf(com.lean.reddittube.data.SearchVideosResult(emptyList(), null))
+    override fun searchRedditVideosPaged(query: String, sort: String, after: String?): Flow<com.lean.reddittube.data.SearchVideosResult> = videoSearchResult(query, sort)
     override fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String, feed: String) = fetchMoreResult()
     override fun fetchPostComments(subreddit: String, postId: String): Flow<List<com.lean.reddittube.data.RedditComment>> = flowOf(emptyList())
     override fun getAfterMap(feed: String): Map<String, String?> = afterMap()
@@ -204,5 +205,25 @@ class MainScreenViewModelTest {
         val data = (state as MainScreenUiState.Success).data
         assert(data.size == 3)
         assert(data.map { it.id } == listOf("id_1", "id_2", "id_3"))
+    }
+
+    @Test
+    fun `searchVideos queries repository with sort and updates videoSearchResults`() = runTest(testDispatcher) {
+        val searchPost = RedditPost("search_1", "Found Video", "searchsub", "author", 50, "/r/s/1", "url", "url", "", "")
+        var requestedSort = ""
+        val repo = FakeRepository(
+            videoSearchResult = { query, sort ->
+                requestedSort = sort
+                flowOf(com.lean.reddittube.data.SearchVideosResult(listOf(searchPost), "cursor_1"))
+            }
+        )
+        val viewModel = MainScreenViewModel(repo)
+        viewModel.searchVideos("cats", sort = "top&t=day", immediate = true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assert(requestedSort == "top&t=day")
+        val results = viewModel.videoSearchResults.value
+        assert(results.size == 1)
+        assert(results.first().id == "search_1")
     }
 }

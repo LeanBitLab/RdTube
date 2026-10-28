@@ -1,6 +1,7 @@
 package com.lean.reddittube.ui.main
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -57,6 +58,16 @@ enum class SearchTab(val label: String, val icon: ImageVector) {
     VIDEOS("Videos", Icons.Outlined.PlayCircleOutline)
 }
 
+enum class SearchVideoFilter(val sortParam: String, val label: String) {
+    RELEVANCE("relevance", "Relevance"),
+    HOT("hot", "Hot"),
+    TOP_DAY("top&t=day", "Top (Today)"),
+    TOP_WEEK("top&t=week", "Top (This Week)"),
+    TOP_ALL("top&t=all", "Top (All Time)"),
+    NEW("new", "New"),
+    COMMENTS("comments", "Most Discussed")
+}
+
 @Composable
 fun SearchPage(
     currentSubscribed: Set<String>,
@@ -70,7 +81,7 @@ fun SearchPage(
     isVideoSearching: Boolean,
     onLoadMoreVideos: () -> Unit = {},
     isVideoSearchingMore: Boolean = false,
-    onVideoSearchQuery: (String, Boolean) -> Unit,
+    onVideoSearchQuery: (String, String, Boolean) -> Unit,
     onVideoClick: (List<RedditPost>, Int) -> Unit,
     likedIds: Set<String> = emptySet(),
     onLike: (RedditPost) -> Unit = {},
@@ -83,6 +94,7 @@ fun SearchPage(
     val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
     
     var selectedTab by rememberSaveable { mutableStateOf(SearchTab.SUBREDDITS) }
+    var selectedVideoFilter by rememberSaveable { mutableStateOf(SearchVideoFilter.RELEVANCE) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
     var recentSearches by remember {
@@ -91,12 +103,21 @@ fun SearchPage(
         )
     }
 
-    LaunchedEffect(searchQuery, selectedTab) {
+    BackHandler(enabled = searchQuery.isNotBlank()) {
+        searchQuery = ""
+        if (selectedTab == SearchTab.SUBREDDITS) {
+            onSearchQuery("", true)
+        } else {
+            onVideoSearchQuery("", selectedVideoFilter.sortParam, true)
+        }
+    }
+
+    LaunchedEffect(searchQuery, selectedTab, selectedVideoFilter) {
         if (searchQuery.isNotBlank()) {
             if (selectedTab == SearchTab.SUBREDDITS) {
                 onSearchQuery(searchQuery, false)
             } else {
-                onVideoSearchQuery(searchQuery, false)
+                onVideoSearchQuery(searchQuery, selectedVideoFilter.sortParam, false)
             }
         }
     }
@@ -236,7 +257,10 @@ fun SearchPage(
                                 ) {
                                     items(recentSearches) { recent ->
                                         Surface(
-                                            onClick = { handleSelectSubreddit(recent) },
+                                            onClick = {
+                                                searchQuery = recent
+                                                onSearchQuery(recent, true)
+                                            },
                                             shape = RoundedCornerShape(14.dp),
                                             color = SurfaceRaised,
                                             border = BorderStroke(1.dp, GlassBorder)
@@ -247,7 +271,7 @@ fun SearchPage(
                                             ) {
                                                 Icon(Icons.Default.History, contentDescription = null, tint = TextMuted, modifier = Modifier.size(13.dp))
                                                 Spacer(Modifier.width(6.dp))
-                                                Text("r/$recent", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                                Text(recent, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                                             }
                                         }
                                     }
@@ -377,57 +401,149 @@ fun SearchPage(
                 }
 
                 SearchTab.VIDEOS -> {
-                    if (searchQuery.isBlank() && videoSearchResults.isEmpty() && !isVideoSearching) {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 145.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            item {
-                                Text(
-                                    text = "Popular Video Topics",
-                                    color = TextSecondary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        // Filter Bar when search is active or has results
+                        if (searchQuery.isNotBlank() || videoSearchResults.isNotEmpty()) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(SearchVideoFilter.entries.toTypedArray()) { filter ->
+                                    val isSelected = selectedVideoFilter == filter
+                                    Surface(
+                                        onClick = {
+                                            selectedVideoFilter = filter
+                                            if (searchQuery.isNotBlank()) {
+                                                onVideoSearchQuery(searchQuery, filter.sortParam, true)
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = if (isSelected) Color.White else SurfaceRaised,
+                                        border = BorderStroke(1.dp, if (isSelected) Color.White else GlassBorder)
+                                    ) {
+                                        Text(
+                                            text = filter.label,
+                                            color = if (isSelected) Color.Black else TextSecondary,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
                             }
+                        }
 
-                            item {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    POPULAR_VIDEO_TAGS.chunked(3).forEach { rowTags ->
+                        if (searchQuery.isBlank() && videoSearchResults.isEmpty() && !isVideoSearching) {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 145.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Recent Searches Chips
+                                if (recentSearches.isNotEmpty()) {
+                                    item {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 4.dp, bottom = 2.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            rowTags.forEach { tag ->
+                                            Text("Recent Searches", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                "Clear All",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.clickable {
+                                                    recentSearches = emptyList()
+                                                    sharedPreferences.edit().remove("search_history").apply()
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    item {
+                                        LazyRow(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            items(recentSearches) { recent ->
                                                 Surface(
                                                     onClick = {
-                                                        searchQuery = tag
-                                                        onVideoSearchQuery(tag, true)
-                                                        saveSearchHistory(tag)
+                                                        searchQuery = recent
+                                                        onVideoSearchQuery(recent, selectedVideoFilter.sortParam, true)
+                                                        saveSearchHistory(recent)
                                                     },
-                                                    shape = RoundedCornerShape(12.dp),
+                                                    shape = RoundedCornerShape(14.dp),
                                                     color = SurfaceRaised,
-                                                    border = BorderStroke(1.dp, GlassBorder),
-                                                    modifier = Modifier.weight(1f)
+                                                    border = BorderStroke(1.dp, GlassBorder)
                                                 ) {
                                                     Row(
-                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.Center
+                                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
                                                     ) {
-                                                        Icon(Icons.Default.TrendingUp, contentDescription = null, tint = TextMuted, modifier = Modifier.size(13.dp))
+                                                        Icon(Icons.Default.History, contentDescription = null, tint = TextMuted, modifier = Modifier.size(13.dp))
                                                         Spacer(Modifier.width(6.dp))
-                                                        Text(tag, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                                        Text(recent, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                    }
+                                }
+
+                                item {
+                                    Text(
+                                        text = "Popular Video Topics",
+                                        color = TextSecondary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                item {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        POPULAR_VIDEO_TAGS.chunked(3).forEach { rowTags ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                rowTags.forEach { tag ->
+                                                    Surface(
+                                                        onClick = {
+                                                            searchQuery = tag
+                                                            onVideoSearchQuery(tag, selectedVideoFilter.sortParam, true)
+                                                            saveSearchHistory(tag)
+                                                        },
+                                                        shape = RoundedCornerShape(12.dp),
+                                                        color = SurfaceRaised,
+                                                        border = BorderStroke(1.dp, GlassBorder),
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.Center
+                                                        ) {
+                                                            Icon(Icons.Default.TrendingUp, contentDescription = null, tint = TextMuted, modifier = Modifier.size(13.dp))
+                                                            Spacer(Modifier.width(6.dp))
+                                                            Text(tag, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                 }
-                            }
 
                             item {
                                 Spacer(Modifier.height(16.dp))
@@ -586,6 +702,7 @@ fun SearchPage(
                 }
             }
         }
+        }
 
         // Bottom-Aligned Distinctive Search Bar (Positioned above floating dock)
         Box(
@@ -628,7 +745,11 @@ fun SearchPage(
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = {
                                 searchQuery = ""
-                                if (selectedTab == SearchTab.SUBREDDITS) onSearchQuery("", true) else onVideoSearchQuery("", true)
+                                if (selectedTab == SearchTab.SUBREDDITS) {
+                                    onSearchQuery("", true)
+                                } else {
+                                    onVideoSearchQuery("", selectedVideoFilter.sortParam, true)
+                                }
                             }) {
                                 Icon(Icons.Default.Close, contentDescription = "Clear", tint = TextSecondary, modifier = Modifier.size(16.dp))
                             }
@@ -647,7 +768,7 @@ fun SearchPage(
                                 if (selectedTab == SearchTab.SUBREDDITS) {
                                     onSearchQuery(cleanQuery, true)
                                 } else {
-                                    onVideoSearchQuery(cleanQuery, true)
+                                    onVideoSearchQuery(cleanQuery, selectedVideoFilter.sortParam, true)
                                 }
                             }
                         }

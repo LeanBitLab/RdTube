@@ -263,7 +263,9 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         var finalAfter: String? = null
         try {
             for (page in 0 until 2) {
-                val url = "https://oauth.reddit.com/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&type=link&sort=$sort&limit=100&raw_json=1&include_over_18=on" +
+                val sortParam = sort.substringBefore('&').substringBefore('?')
+                val timeParam = if (sort.contains("t=")) "&t=" + sort.substringAfter("t=").substringBefore('&') else ""
+                val url = "https://oauth.reddit.com/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&type=link&sort=$sortParam$timeParam&limit=100&raw_json=1&include_over_18=on" +
                     (if (currentAfter != null) "&after=$currentAfter" else "")
                 val json = performRequest(url, token, timeout = 10000) ?: break
                 val data = json.optJSONObject("data") ?: break
