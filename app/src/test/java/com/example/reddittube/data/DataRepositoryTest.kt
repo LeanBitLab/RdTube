@@ -16,7 +16,8 @@ class DataRepositoryTest {
             videoUrl = "https://v.redd.it/abc123/DASH_720.mp4",
             fallbackUrl = "https://v.redd.it/abc123/DASH_720.mp4",
             dashUrl = "https://v.redd.it/abc123/dash.mpd",
-            hlsUrl = "https://v.redd.it/abc123/hls.m3u8"
+            hlsUrl = "https://v.redd.it/abc123/hls.m3u8",
+            thumbnailUrl = "https://preview.redd.it/abc123_preview.jpg"
         )
 
         assert(post.id == "abc123")
@@ -29,6 +30,7 @@ class DataRepositoryTest {
         assert(post.fallbackUrl == "https://v.redd.it/abc123/DASH_720.mp4")
         assert(post.dashUrl == "https://v.redd.it/abc123/dash.mpd")
         assert(post.hlsUrl == "https://v.redd.it/abc123/hls.m3u8")
+        assert(post.thumbnailUrl == "https://preview.redd.it/abc123_preview.jpg")
     }
 
     @Test

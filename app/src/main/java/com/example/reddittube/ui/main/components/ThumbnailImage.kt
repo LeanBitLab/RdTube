@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,7 +55,22 @@ fun clearThumbnailCache() {
 fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier = Modifier) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", android.content.Context.MODE_PRIVATE) }
-    val quality = remember(url) { sharedPreferences.getString("pref_thumbnail_quality", "High") ?: "High" }
+    var quality by remember {
+        mutableStateOf(sharedPreferences.getString("pref_thumbnail_quality", "High") ?: "High")
+    }
+
+    DisposableEffect(sharedPreferences) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
+            if (key == "pref_thumbnail_quality") {
+                quality = sp.getString("pref_thumbnail_quality", "High") ?: "High"
+            }
+        }
+        sharedPreferences.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            sharedPreferences.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
     val cacheKey = "$quality:$url"
 
     var bitmap by remember(cacheKey) { mutableStateOf<Bitmap?>(thumbCache[cacheKey]) }

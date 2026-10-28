@@ -474,14 +474,22 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val videoUrl = if (fallbackUrl.isNotEmpty()) fallbackUrl else if (hlsUrl.isNotEmpty()) hlsUrl else dashUrl
         if (videoUrl.isEmpty()) return null
 
-        var thumb = childData.optString("thumbnail", "")
-        if (thumb == "nsfw" || thumb == "default" || thumb == "spoiler" || !thumb.startsWith("http")) {
-            thumb = (targetData.optJSONObject("preview") ?: childData.optJSONObject("preview"))
-                ?.optJSONArray("images")
-                ?.optJSONObject(0)
-                ?.optJSONObject("source")
-                ?.optString("url", "")
-                ?.replace("&amp;", "&") ?: ""
+        val previewObj = targetData.optJSONObject("preview") ?: childData.optJSONObject("preview")
+        val previewSource = previewObj
+            ?.optJSONArray("images")
+            ?.optJSONObject(0)
+            ?.optJSONObject("source")
+            ?.optString("url", "")
+            ?.replace("&amp;", "&") ?: ""
+
+        val rawChildThumb = childData.optString("thumbnail", "")
+        val rawTargetThumb = targetData.optString("thumbnail", "")
+        val fallbackThumb = if (rawChildThumb.startsWith("http")) rawChildThumb else rawTargetThumb
+
+        val thumb = when {
+            previewSource.startsWith("http") -> previewSource
+            fallbackThumb.startsWith("http") && fallbackThumb != "nsfw" && fallbackThumb != "default" && fallbackThumb != "spoiler" -> fallbackThumb
+            else -> ""
         }
 
         val isOver18 = childData.optBoolean("over_18", false) || targetData.optBoolean("over_18", false)

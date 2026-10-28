@@ -531,6 +531,7 @@ fun AboutPage(
                                     onClick = {
                                         thumbnailQuality = q
                                         sharedPreferences.edit().putString("pref_thumbnail_quality", q).apply()
+                                        com.lean.reddittube.ui.main.components.clearThumbnailCache()
                                     },
                                     shape = RoundedCornerShape(11.dp),
                                     color = if (isSelected) Color.White else Color.Transparent,
