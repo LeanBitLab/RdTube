@@ -25,6 +25,8 @@ object RedditOAuthHelper {
     private const val KEY_USER_REFRESH_TOKEN = "reddit_user_refresh_token"
     private const val KEY_USER_TOKEN_EXPIRES_AT = "reddit_user_token_expires_at"
     private const val KEY_USERNAME = "reddit_username"
+
+    // Security keys
     private const val KEY_OAUTH_STATE = "reddit_oauth_state"
 
     // Custom API Key / Client ID overrides keys
@@ -143,6 +145,7 @@ object RedditOAuthHelper {
         val clientId = getClientId(context)
         val redirectUri = getRedirectUri(context)
         val state = UUID.randomUUID().toString()
+
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString(KEY_OAUTH_STATE, state).apply()
 
@@ -163,13 +166,13 @@ object RedditOAuthHelper {
     suspend fun handleOAuthCallback(context: Context, uri: Uri): Boolean = withContext(Dispatchers.IO) {
         val code = uri.getQueryParameter("code") ?: return@withContext false
         val state = uri.getQueryParameter("state")
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val savedState = prefs.getString(KEY_OAUTH_STATE, null)
         prefs.edit().remove(KEY_OAUTH_STATE).apply()
 
         if (savedState == null || state != savedState) {
-            Log.e("RedditOAuth", "CSRF detected: Invalid OAuth state parameter")
+            Log.e("RedditOAuth", "OAuth state mismatch or missing, possible CSRF attack. Expected: $savedState, Got: $state")
             return@withContext false
         }
         val clientId = getClientId(context)
