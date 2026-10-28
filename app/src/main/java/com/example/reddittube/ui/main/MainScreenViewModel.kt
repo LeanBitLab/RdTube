@@ -132,6 +132,9 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 .associateBy { it.id }.toMutableMap()
         } else mutableMapOf()
     } catch (_: Exception) { mutableMapOf() }
+    private val _watchedIdsFlow = MutableStateFlow<Set<String>>(watchedIds.toSet())
+    val watchedIdsFlow: StateFlow<Set<String>> = _watchedIdsFlow.asStateFlow()
+
     init {
         // ponytail: trim to cap on load
         if (watchedOrder.size > WATCHED_CAP) {
@@ -139,6 +142,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             val removeIds = watchedOrder.take(trim)
             repeat(trim) { watchedOrder.removeAt(0) }
             removeIds.forEach { watchedIds.remove(it); watchedTitles.remove(it); watchedPosts.remove(it) }
+            _watchedIdsFlow.value = watchedIds.toSet()
             saveWatched()
         }
         Log.i("WatchedVM", "loaded ${watchedIds.size} watched IDs")
@@ -520,6 +524,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             watchedTitles.remove(oldest)
             watchedPosts.remove(oldest)
         }
+        _watchedIdsFlow.value = watchedIds.toSet()
         saveWatched()
         Log.i("WatchedVM", "markAsWatched $id, total=${watchedIds.size}")
         // ponytail: don't remove from current list — only filter on next refresh to avoid auto-advance
@@ -559,6 +564,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         watchedOrder.clear()
         watchedTitles.clear()
         watchedPosts.clear()
+        _watchedIdsFlow.value = emptySet()
         saveWatched()
     }
 

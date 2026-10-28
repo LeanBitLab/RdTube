@@ -162,59 +162,158 @@ fun SearchPage(
         POPULAR_SUBREDDITS.filter { !currentSubscribed.contains(it.lowercase()) }
     }
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
             .statusBarsPadding()
             .padding(top = TopBarHeight + 2.dp)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Segmented Search Tab Bar [Subreddits | Videos]
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = SearchSurfaceBg,
+        // Top Distinctive Search Bar
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .height(48.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = SearchBarBg,
+            shadowElevation = 4.dp
+        ) {
+            TextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = {
+                    Text(
+                        text = if (selectedTab == SearchTab.SUBREDDITS) "Search subreddits (e.g. videos, gaming)..." else "Search videos across Reddit...",
+                        color = TextMuted,
+                        fontSize = 12.5.sp
+                    )
+                },
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = 13.sp,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Medium
+                ),
+                leadingIcon = {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(SearchPillBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = Color.White,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 4.dp)
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(SearchPillBg)
+                                .clickable {
+                                    searchQuery = ""
+                                    if (selectedTab == SearchTab.SUBREDDITS) {
+                                        onSearchQuery("", true)
+                                    } else {
+                                        onVideoSearchQuery("", selectedVideoFilter.sortParam, true)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                    }
+                },
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Search,
+                    keyboardType = KeyboardType.Text
+                ),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        if (cleanQuery.isNotBlank()) {
+                            saveSearchHistory(cleanQuery)
+                            if (selectedTab == SearchTab.SUBREDDITS) {
+                                onSearchQuery(cleanQuery, true)
+                            } else {
+                                onVideoSearchQuery(cleanQuery, selectedVideoFilter.sortParam, true)
+                            }
+                        }
+                    }
+                ),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = Color.White,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary
+                ),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        // Segmented Search Tab Bar [Subreddits | Videos]
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = SearchSurfaceBg,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    SearchTab.entries.forEach { tab ->
-                        val isSelected = selectedTab == tab
-                        Surface(
-                            onClick = { selectedTab = tab },
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) Color.White else Color.Transparent,
-                            modifier = Modifier.weight(1f)
+                SearchTab.entries.forEach { tab ->
+                    val isSelected = selectedTab == tab
+                    Surface(
+                        onClick = { selectedTab = tab },
+                        shape = RoundedCornerShape(11.dp),
+                        color = if (isSelected) Color.White else Color.Transparent,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(vertical = 7.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    tab.icon,
-                                    contentDescription = null,
-                                    tint = if (isSelected) Color.Black else TextSecondary,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    tab.label,
-                                    color = if (isSelected) Color.Black else TextSecondary,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
+                            Icon(
+                                tab.icon,
+                                contentDescription = null,
+                                tint = if (isSelected) Color.Black else TextSecondary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                tab.label,
+                                color = if (isSelected) Color.Black else TextSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
                         }
                     }
                 }
             }
+        }
 
             // Tab Content
             when (selectedTab) {
@@ -238,7 +337,7 @@ fun SearchPage(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 150.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 96.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         // Recent Searches Chips
@@ -496,8 +595,8 @@ fun SearchPage(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .weight(1f),
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 150.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 96.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 // Recent Searches Chips
                                 if (recentSearches.isNotEmpty()) {
@@ -734,7 +833,7 @@ fun SearchPage(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .weight(1f),
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 150.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 96.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 item {
@@ -813,115 +912,4 @@ fun SearchPage(
                 }
             }
         }
-
-        // Bottom-Aligned Distinctive Search Bar (Positioned above floating dock)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .imePadding()
-                .navigationBarsPadding()
-                .padding(bottom = 76.dp, start = 16.dp, end = 16.dp)
-                .fillMaxWidth()
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(26.dp),
-                color = SearchBarBg,
-                shadowElevation = 10.dp
-            ) {
-                TextField(
-                    value = searchQuery,
-                    onValueChange = {
-                        searchQuery = it
-                    },
-                    placeholder = {
-                        Text(
-                            text = if (selectedTab == SearchTab.SUBREDDITS) "Search subreddits (e.g. videos, gaming)..." else "Search videos across Reddit...",
-                            color = TextMuted,
-                            fontSize = 13.sp
-                        )
-                    },
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        fontSize = 13.5.sp,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    leadingIcon = {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(SearchPillBg),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .padding(end = 4.dp)
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(SearchPillBg)
-                                    .clickable {
-                                        searchQuery = ""
-                                        if (selectedTab == SearchTab.SUBREDDITS) {
-                                            onSearchQuery("", true)
-                                        } else {
-                                            onVideoSearchQuery("", selectedVideoFilter.sortParam, true)
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Clear",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            }
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Search,
-                        keyboardType = KeyboardType.Text
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onSearch = {
-                            keyboardController?.hide()
-                            focusManager.clearFocus()
-                            if (cleanQuery.isNotBlank()) {
-                                saveSearchHistory(cleanQuery)
-                                if (selectedTab == SearchTab.SUBREDDITS) {
-                                    onSearchQuery(cleanQuery, true)
-                                } else {
-                                    onVideoSearchQuery(cleanQuery, selectedVideoFilter.sortParam, true)
-                                }
-                            }
-                        }
-                    ),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = Color.White,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    ),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
     }
-}

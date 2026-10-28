@@ -591,17 +591,36 @@ Box(
                 }
         )
 
-        // Auto-track watched: mark after 10% of video watched
+        // Auto-track watched: mark after 30% of video watched
+        var hasMarkedWatched by remember(post.id) { mutableStateOf(false) }
         LaunchedEffect(isActive, post.id) {
-            if (isActive) {
-                while (exoPlayer.duration <= 0) delay(500)
+            if (isActive && !hasMarkedWatched) {
+                while (exoPlayer.duration <= 0 && isActive) {
+                    delay(200)
+                }
                 val duration = exoPlayer.duration
-                val threshold = duration / 10
-                while (isActive) {
-                    delay(1000)
-                    if (exoPlayer.currentPosition >= threshold && exoPlayer.isPlaying) {
+                if (duration > 0) {
+                    val threshold = (duration * 30L) / 100L
+                    while (isActive && !hasMarkedWatched) {
+                        if (exoPlayer.currentPosition >= threshold) {
+                            hasMarkedWatched = true
+                            onRemoveVideo(post)
+                            break
+                        }
+                        delay(250)
+                    }
+                }
+            }
+        }
+
+        // Save watched if user swiped away after crossing 30% threshold
+        DisposableEffect(isActive, post.id) {
+            onDispose {
+                if (!hasMarkedWatched && exoPlayer.duration > 0) {
+                    val threshold = (exoPlayer.duration * 30L) / 100L
+                    if (exoPlayer.currentPosition >= threshold) {
+                        hasMarkedWatched = true
                         onRemoveVideo(post)
-                        break
                     }
                 }
             }

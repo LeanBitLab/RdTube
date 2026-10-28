@@ -48,12 +48,13 @@ fun LibraryPage(
     val context = LocalContext.current
     var selectedSegment by remember { mutableStateOf(LibrarySegment.SUBSCRIPTIONS) }
     val likedIds by viewModel.likedIdsFlow.collectAsStateWithLifecycle()
+    val watchedIds by viewModel.watchedIdsFlow.collectAsStateWithLifecycle()
     val subscribedSubreddits by viewModel.subscribedSubreddits.collectAsStateWithLifecycle()
 
     var showClearHistoryDialog by remember { mutableStateOf(false) }
 
     val likedPosts = remember(likedIds) { viewModel.getLikedPosts() }
-    val watchedPosts = remember(likedIds) { viewModel.getWatchedPosts() }
+    val watchedPosts = remember(watchedIds) { viewModel.getWatchedPosts() }
 
     val currentVideoList = if (selectedSegment == LibrarySegment.LIKED) likedPosts else watchedPosts
 
