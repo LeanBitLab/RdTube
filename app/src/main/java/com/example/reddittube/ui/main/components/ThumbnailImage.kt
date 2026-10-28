@@ -118,14 +118,16 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
         }.onFailure { failed = true }
     }
 
+    val currentBitmap = bitmap
     Box(modifier = modifier) {
         AnimatedVisibility(
-            visible = bitmap != null,
+            visible = currentBitmap != null,
             enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(250))
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Image(
-                    bitmap = bitmap!!.asImageBitmap(),
+            if (currentBitmap != null) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Image(
+                        bitmap = currentBitmap.asImageBitmap(),
                     contentDescription = contentDescription,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -145,8 +147,9 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
                         )
                 )
             }
+            }
         }
-        if (bitmap == null) {
+        if (currentBitmap == null) {
             if (!failed) {
                 val transition = rememberInfiniteTransition(label = "thumb-pulse")
                 val pulseAlpha by transition.animateFloat(

@@ -165,7 +165,7 @@ fun AboutPage(
         ApiKeyInputDialog(
             title = "User Agent",
             initialValue = customUserAgent,
-            placeholder = "e.g. android:rdtube:v1.0.6 (by /u/yourname)",
+            placeholder = "e.g. android:rdtube:v1.0.7 (by /u/yourname)",
             hint = "Custom HTTP User-Agent string sent with Reddit API requests.",
             onSave = { newUa ->
                 customUserAgent = newUa

@@ -391,9 +391,9 @@ fun HomeScreen(
         }
 
         // Comments Bottom Sheet
-        if (activeCommentPost != null) {
+        activeCommentPost?.let { post ->
             CommentsBottomSheet(
-                post = activeCommentPost!!,
+                post = post,
                 viewModel = viewModel,
                 onDismiss = { activeCommentPost = null }
             )
