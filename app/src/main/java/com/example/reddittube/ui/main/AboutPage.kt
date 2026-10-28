@@ -6,7 +6,6 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,38 +34,44 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lean.reddittube.theme.*
 import com.lean.reddittube.utils.RedditOAuthHelper
-import kotlinx.coroutines.launch
 
 private val CURRENT_VERSION_CHANGELOG = """
-• Pitch Black OLED Theme: Pure monochrome aesthetic with glass accents and adaptive icon
-• Custom API Keys & Overrides: Support for custom Reddit Client ID, User Agent, and Redirect URI
-• 1-Tap Reddit OAuth Login: Connect account to unlock mature & unrestricted subreddits
-• Segmented Search: Search Subreddits & Reddit-wide video clips with direct playback
-• Fast Top Comments: Top 100 comments sorted by score loaded in an instant bottom sheet
-• Multi-Sub Fast Feed: Combined multi-subreddit fetching loading feeds in under 300ms
-• Expandable Titles: Smooth 'Show more / Show less' expansion for long post titles
-• Expanded Sorting & Preferences: Hot, New, Rising, Top (Day, Week, Month, Year, All-Time)
+• Pitch Black OLED Theme: Pure monochrome aesthetic with solid surfaces and adaptive icon
+• Categorized Settings: Clean background-based sections without distracting wireframe borders
+• Persistent Rotation Lock: Feed orientation state persists across swipe navigation
+• Auto-Mute NSFW Option: Configurable preference to automatically silence mature videos
+• Unified Search History: Immediate suggestion recall across both Subreddit and Video searches
+• Video Search Filters: Granular Relevance, Hot, Top, and New filters directly in search results
+• High-Resolution Thumbnails: Optimized source preview images with instant cache controls
 • Performance: R8 Full Mode, automatic release log stripping, and token concurrency safety
 """.trimIndent()
+
+private val SettingsCardBg = Color(0xFF141414)
+private val SettingsSubCardBg = Color(0xFF0C0C0C)
+private val SettingsPillBg = Color(0xFF222222)
+private val SettingsDividerColor = Color(0xFF1E1E1E)
+private val SettingsButtonBg = Color(0xFF1E1E1E)
+
+@Composable
+private fun SettingsCategoryHeader(title: String) {
+    Text(
+        text = title,
+        color = TextMuted,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.8.sp,
+        modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 2.dp)
+    )
+}
 
 @Composable
 fun AboutPage(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
 
     var showClearDialog by remember { mutableStateOf(false) }
-
-    // Expandable Sections State (Independent states)
-    var isVersionExpanded by remember { mutableStateOf(false) }
-    var isRedditAccountExpanded by remember { mutableStateOf(false) }
-    var isPreferencesExpanded by remember { mutableStateOf(false) }
-    var isGesturesExpanded by remember { mutableStateOf(false) }
-    var isToolbarExpanded by remember { mutableStateOf(false) }
-    var isFaqExpanded by remember { mutableStateOf(false) }
-    var isCommunityExpanded by remember { mutableStateOf(true) }
 
     // API Keys state
     var isOverridesEnabled by remember { mutableStateOf(RedditOAuthHelper.isOverridesEnabled(context)) }
@@ -77,6 +82,28 @@ fun AboutPage(
     var showClientIdDialog by remember { mutableStateOf(false) }
     var showUserAgentDialog by remember { mutableStateOf(false) }
     var showRedirectUriDialog by remember { mutableStateOf(false) }
+
+    // Account state
+    var isLoggedIn by remember { mutableStateOf(RedditOAuthHelper.isLoggedIn(context)) }
+    var username by remember { mutableStateOf(RedditOAuthHelper.getUsername(context)) }
+
+    val accountBadge = when {
+        isLoggedIn -> "u/${username ?: "User"}"
+        isOverridesEnabled -> "Custom Keys"
+        else -> null
+    }
+
+    // Categorized Section States
+    var isPlaybackExpanded by remember { mutableStateOf(true) }
+    var isMediaExpanded by remember { mutableStateOf(true) }
+    var isContentExpanded by remember { mutableStateOf(true) }
+    var isInterfaceExpanded by remember { mutableStateOf(false) }
+    var isRedditAccountExpanded by remember { mutableStateOf(isLoggedIn || isOverridesEnabled) }
+    var isGesturesExpanded by remember { mutableStateOf(false) }
+    var isToolbarExpanded by remember { mutableStateOf(false) }
+    var isFaqExpanded by remember { mutableStateOf(false) }
+    var isVersionExpanded by remember { mutableStateOf(false) }
+    var isCommunityExpanded by remember { mutableStateOf(false) }
 
     // Preferences state
     var autoMuteNsfw by remember { mutableStateOf(sharedPreferences.getBoolean("pref_auto_mute_nsfw", true)) }
@@ -109,7 +136,7 @@ fun AboutPage(
                     Text("Cancel", color = TextSecondary)
                 }
             },
-            containerColor = SurfaceRaised,
+            containerColor = Color(0xFF181818),
             shape = RoundedCornerShape(18.dp)
         )
     }
@@ -186,102 +213,275 @@ fun AboutPage(
         // App Header Banner
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            color = SurfaceRaised,
-            border = BorderStroke(1.dp, GlassBorder)
+            shape = RoundedCornerShape(18.dp),
+            color = SettingsCardBg
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(42.dp)
                         .clip(CircleShape)
                         .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(26.dp))
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
                 Column {
-                    Text("RdTube", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text("v${com.lean.reddittube.BuildConfig.VERSION_NAME} • Unrestricted Power-User Edition", color = TextSecondary, fontSize = 11.sp)
+                    Text("RdTube", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("v${com.lean.reddittube.BuildConfig.VERSION_NAME} • Unrestricted Power-User Edition", color = TextSecondary, fontSize = 11.5.sp)
                 }
             }
         }
 
-        // Section 1: Version & Release Notes (Expandable/Foldable)
+        // ==========================================
+        // CATEGORY 1: PREFERENCES
+        // ==========================================
+        SettingsCategoryHeader("PREFERENCES")
+
+        // 1. Playback & Audio
         FoldableSectionCard(
-            title = "Version & Release Notes",
-            icon = Icons.Default.Info,
-            badge = "v${com.lean.reddittube.BuildConfig.VERSION_NAME}",
-            isExpanded = isVersionExpanded,
-            onToggle = { isVersionExpanded = !isVersionExpanded }
+            title = "Playback & Audio",
+            icon = Icons.Default.PlayCircleOutline,
+            isExpanded = isPlaybackExpanded,
+            onToggle = { isPlaybackExpanded = !isPlaybackExpanded }
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "Installed Version: v${com.lean.reddittube.BuildConfig.VERSION_NAME}",
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
+                // Default Video Audio Switch
+                PreferenceSwitchRow(
+                    title = "Default Audio Unmuted",
+                    subtitle = "Start video playback with sound unmuted",
+                    checked = defaultAudioUnmuted,
+                    onCheckedChange = { checked ->
+                        defaultAudioUnmuted = checked
+                        sharedPreferences.edit().putBoolean("pref_default_unmuted", checked).apply()
+                    }
                 )
 
-                // Current Version Changelog Box
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.Black.copy(alpha = 0.6f),
-                    border = BorderStroke(1.dp, GlassBorder)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("What's New in this Build:", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = CURRENT_VERSION_CHANGELOG,
-                            color = TextPrimary,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp
-                        )
+                HorizontalDivider(color = SettingsDividerColor)
+
+                // Auto-Mute NSFW Switch
+                PreferenceSwitchRow(
+                    title = "Auto-Mute NSFW Videos",
+                    subtitle = "Automatically start 18+ unrestricted videos muted",
+                    checked = autoMuteNsfw,
+                    onCheckedChange = { checked ->
+                        autoMuteNsfw = checked
+                        sharedPreferences.edit().putBoolean("pref_auto_mute_nsfw", checked).apply()
+                        Toast.makeText(context, if (checked) "Auto-mute NSFW enabled" else "Auto-mute NSFW disabled", Toast.LENGTH_SHORT).show()
+                    }
+                )
+
+                HorizontalDivider(color = SettingsDividerColor)
+
+                // Loop Video Switch
+                PreferenceSwitchRow(
+                    title = "Default Video Looping",
+                    subtitle = "Replay videos continuously in player",
+                    checked = isLoopEnabled,
+                    onCheckedChange = { checked ->
+                        isLoopEnabled = checked
+                        sharedPreferences.edit().putBoolean("loop_video", checked).apply()
+                    }
+                )
+
+                HorizontalDivider(color = SettingsDividerColor)
+
+                // Auto-Next Switch
+                PreferenceSwitchRow(
+                    title = "Auto-Next Video",
+                    subtitle = "Automatically advance to next video upon completion",
+                    checked = autoNextEnabled,
+                    onCheckedChange = { checked ->
+                        autoNextEnabled = checked
+                        sharedPreferences.edit().putBoolean("auto_next", checked).apply()
+                    }
+                )
+            }
+        }
+
+        // 2. Media Quality & Cache
+        FoldableSectionCard(
+            title = "Media Quality & Cache",
+            icon = Icons.Default.Tune,
+            isExpanded = isMediaExpanded,
+            onToggle = { isMediaExpanded = !isMediaExpanded }
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Thumbnail Quality Setting
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("Thumbnail Resolution", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Quality of video preview thumbnails in feeds and search", color = TextMuted, fontSize = 11.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf("High", "Balanced", "Data Saver").forEach { q ->
+                                val isSelected = thumbnailQuality == q
+                                Surface(
+                                    onClick = {
+                                        thumbnailQuality = q
+                                        sharedPreferences.edit().putString("pref_thumbnail_quality", q).apply()
+                                        com.lean.reddittube.ui.main.components.clearThumbnailCache()
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) Color.White else Color.Transparent,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = q,
+                                        color = if (isSelected) Color.Black else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        modifier = Modifier
+                                            .padding(vertical = 6.dp)
+                                            .fillMaxWidth(),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
-                // View Releases on GitHub Button
-                Button(
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube/releases"))
-                        context.startActivity(intent)
-                    },
+                HorizontalDivider(color = SettingsDividerColor)
+
+                // Prefetch Depth Setting
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("Feed Prefetch Depth", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Number of upcoming video streams buffered in the background", color = TextMuted, fontSize = 11.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = SettingsSubCardBg,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf("Lite (5)", "Balanced (10)", "Max (20)").forEach { depth ->
+                                val isSelected = prefetchDepth == depth
+                                Surface(
+                                    onClick = {
+                                        prefetchDepth = depth
+                                        sharedPreferences.edit().putString("pref_prefetch_depth", depth).apply()
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) Color.White else Color.Transparent,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = depth,
+                                        color = if (isSelected) Color.Black else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        modifier = Modifier
+                                            .padding(vertical = 6.dp)
+                                            .fillMaxWidth(),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = SettingsDividerColor)
+
+                // Clear Thumbnail Cache Action
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(42.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { showClearDialog = true }
+                        .padding(vertical = 6.dp, horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("View Releases on GitHub", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Clear Image Cache", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Free up local thumbnail memory cache", color = TextMuted, fontSize = 11.sp)
+                    }
+                    Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
                 }
             }
         }
 
-        // Section 2: Reddit Account & API Keys (Unified)
-        var isLoggedIn by remember { mutableStateOf(RedditOAuthHelper.isLoggedIn(context)) }
-        var username by remember { mutableStateOf(RedditOAuthHelper.getUsername(context)) }
-
-        val accountBadge = when {
-            isLoggedIn -> "u/${username ?: "User"}"
-            isOverridesEnabled -> "Custom Keys"
-            else -> null
+        // 3. Content & Restrictions
+        FoldableSectionCard(
+            title = "Content & Restrictions",
+            icon = Icons.Default.Shield,
+            isExpanded = isContentExpanded,
+            onToggle = { isContentExpanded = !isContentExpanded }
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Unrestricted Content Switch
+                PreferenceSwitchRow(
+                    title = "Unrestricted Content",
+                    subtitle = "Allow unrestricted media in feeds with subtle glass badges",
+                    checked = isNsfwUnrestricted,
+                    onCheckedChange = { checked ->
+                        isNsfwUnrestricted = checked
+                        sharedPreferences.edit().putBoolean("pref_unrestricted_nsfw", checked).apply()
+                        Toast.makeText(context, if (checked) "Unrestricted content enabled" else "Unrestricted content filtered", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
         }
+
+        // 4. Interface & Haptics
+        FoldableSectionCard(
+            title = "Interface & Haptics",
+            icon = Icons.Default.TouchApp,
+            isExpanded = isInterfaceExpanded,
+            onToggle = { isInterfaceExpanded = !isInterfaceExpanded }
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Haptic Feedback Switch
+                PreferenceSwitchRow(
+                    title = "Haptic Vibration Feedback",
+                    subtitle = "Tactile response on edge sliders, likes, and feed pull-to-refresh",
+                    checked = hapticFeedbackEnabled,
+                    onCheckedChange = { checked ->
+                        hapticFeedbackEnabled = checked
+                        sharedPreferences.edit().putBoolean("pref_haptic_feedback", checked).apply()
+                    }
+                )
+            }
+        }
+
+        // ==========================================
+        // CATEGORY 2: ACCOUNT & CONNECTIVITY
+        // ==========================================
+        SettingsCategoryHeader("ACCOUNT & CONNECTIVITY")
 
         FoldableSectionCard(
             title = "Reddit Account & API Keys",
@@ -320,11 +520,10 @@ fun AboutPage(
                             .fillMaxWidth()
                             .height(40.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SurfaceBar,
+                            containerColor = SettingsButtonBg,
                             contentColor = Color.White
                         ),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, GlassBorder)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(Icons.Default.Logout, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
@@ -357,14 +556,13 @@ fun AboutPage(
                     }
                 }
 
-                HorizontalDivider(color = BorderSubtle)
+                HorizontalDivider(color = SettingsDividerColor)
 
                 // 2. Advisory & Recommendation Callout
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    color = Color.Black.copy(alpha = 0.6f),
-                    border = BorderStroke(1.dp, GlassBorder)
+                    color = SettingsSubCardBg
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
@@ -403,11 +601,10 @@ fun AboutPage(
                                 .fillMaxWidth()
                                 .height(36.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = SurfaceBar,
+                                containerColor = SettingsButtonBg,
                                 contentColor = Color.White
                             ),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, GlassBorder)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(6.dp))
@@ -416,7 +613,7 @@ fun AboutPage(
                     }
                 }
 
-                HorizontalDivider(color = BorderSubtle)
+                HorizontalDivider(color = SettingsDividerColor)
 
                 // 3. API Key & Client ID Overrides Settings
                 Row(
@@ -459,14 +656,14 @@ fun AboutPage(
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.Black,
                             checkedTrackColor = Color.White,
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = SurfaceBar,
-                            uncheckedBorderColor = GlassBorder
+                            uncheckedThumbColor = Color(0xFFC0C0C0),
+                            uncheckedTrackColor = Color(0xFF262626),
+                            uncheckedBorderColor = Color.Transparent
                         )
                     )
                 }
 
-                HorizontalDivider(color = BorderSubtle)
+                HorizontalDivider(color = SettingsDividerColor)
 
                 // Reddit API Client ID Row
                 ApiKeySettingRow(
@@ -476,7 +673,7 @@ fun AboutPage(
                     onClick = { showClientIdDialog = true }
                 )
 
-                HorizontalDivider(color = BorderSubtle)
+                HorizontalDivider(color = SettingsDividerColor)
 
                 // User Agent Row
                 ApiKeySettingRow(
@@ -486,7 +683,7 @@ fun AboutPage(
                     onClick = { showUserAgentDialog = true }
                 )
 
-                HorizontalDivider(color = BorderSubtle)
+                HorizontalDivider(color = SettingsDividerColor)
 
                 // Redirect URI Row
                 ApiKeySettingRow(
@@ -498,209 +695,12 @@ fun AboutPage(
             }
         }
 
-        // Section 3: Content & Preferences (Expandable/Foldable with Unrestricted Toggle)
-        FoldableSectionCard(
-            title = "Content & Preferences",
-            icon = Icons.Default.Tune,
-            isExpanded = isPreferencesExpanded,
-            onToggle = { isPreferencesExpanded = !isPreferencesExpanded }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Thumbnail Quality Setting
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text("Thumbnail Resolution", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text("Quality of video preview thumbnails in feeds and search", color = TextMuted, fontSize = 11.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = SurfaceBar,
-                        border = BorderStroke(1.dp, GlassBorder),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(3.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            listOf("High", "Balanced", "Data Saver").forEach { q ->
-                                val isSelected = thumbnailQuality == q
-                                Surface(
-                                    onClick = {
-                                        thumbnailQuality = q
-                                        sharedPreferences.edit().putString("pref_thumbnail_quality", q).apply()
-                                        com.lean.reddittube.ui.main.components.clearThumbnailCache()
-                                    },
-                                    shape = RoundedCornerShape(11.dp),
-                                    color = if (isSelected) Color.White else Color.Transparent,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        text = q,
-                                        color = if (isSelected) Color.Black else TextSecondary,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        modifier = Modifier
-                                            .padding(vertical = 6.dp)
-                                            .fillMaxWidth(),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        // ==========================================
+        // CATEGORY 3: HELP & REFERENCE
+        // ==========================================
+        SettingsCategoryHeader("HELP & REFERENCE")
 
-                HorizontalDivider(color = BorderSubtle)
-
-                // Prefetch Depth Setting
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text("Feed Prefetch Depth", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text("Number of upcoming video streams buffered in the background", color = TextMuted, fontSize = 11.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = SurfaceBar,
-                        border = BorderStroke(1.dp, GlassBorder),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(3.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            listOf("Lite (5)", "Balanced (10)", "Max (20)").forEach { depth ->
-                                val isSelected = prefetchDepth == depth
-                                Surface(
-                                    onClick = {
-                                        prefetchDepth = depth
-                                        sharedPreferences.edit().putString("pref_prefetch_depth", depth).apply()
-                                    },
-                                    shape = RoundedCornerShape(11.dp),
-                                    color = if (isSelected) Color.White else Color.Transparent,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        text = depth,
-                                        color = if (isSelected) Color.Black else TextSecondary,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        modifier = Modifier
-                                            .padding(vertical = 6.dp)
-                                            .fillMaxWidth(),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = BorderSubtle)
-
-                // Default Video Audio Switch
-                PreferenceSwitchRow(
-                    title = "Default Audio Unmuted",
-                    subtitle = "Start video playback with sound unmuted",
-                    checked = defaultAudioUnmuted,
-                    onCheckedChange = { checked ->
-                        defaultAudioUnmuted = checked
-                        sharedPreferences.edit().putBoolean("pref_default_unmuted", checked).apply()
-                    }
-                )
-
-                HorizontalDivider(color = BorderSubtle)
-
-                // Haptic Feedback Switch
-                PreferenceSwitchRow(
-                    title = "Haptic Vibration Feedback",
-                    subtitle = "Tactile response on edge sliders, likes, and feed pull-to-refresh",
-                    checked = hapticFeedbackEnabled,
-                    onCheckedChange = { checked ->
-                        hapticFeedbackEnabled = checked
-                        sharedPreferences.edit().putBoolean("pref_haptic_feedback", checked).apply()
-                    }
-                )
-
-                HorizontalDivider(color = BorderSubtle)
-
-                // Unrestricted Content Switch
-                PreferenceSwitchRow(
-                    title = "Unrestricted Content",
-                    subtitle = "Allow unrestricted media in feeds with subtle glass badges",
-                    checked = isNsfwUnrestricted,
-                    onCheckedChange = { checked ->
-                        isNsfwUnrestricted = checked
-                        sharedPreferences.edit().putBoolean("pref_unrestricted_nsfw", checked).apply()
-                        Toast.makeText(context, if (checked) "Unrestricted content enabled" else "Unrestricted content filtered", Toast.LENGTH_SHORT).show()
-                    }
-                )
-
-                HorizontalDivider(color = BorderSubtle)
-
-                // Auto-Mute NSFW Switch
-                PreferenceSwitchRow(
-                    title = "Auto-Mute NSFW Videos",
-                    subtitle = "Automatically start 18+ unrestricted videos muted",
-                    checked = autoMuteNsfw,
-                    onCheckedChange = { checked ->
-                        autoMuteNsfw = checked
-                        sharedPreferences.edit().putBoolean("pref_auto_mute_nsfw", checked).apply()
-                        Toast.makeText(context, if (checked) "Auto-mute NSFW enabled" else "Auto-mute NSFW disabled", Toast.LENGTH_SHORT).show()
-                    }
-                )
-
-                HorizontalDivider(color = BorderSubtle)
-
-                // Auto-Next Switch
-                PreferenceSwitchRow(
-                    title = "Auto-Next Video",
-                    subtitle = "Automatically advance to next video upon completion",
-                    checked = autoNextEnabled,
-                    onCheckedChange = { checked ->
-                        autoNextEnabled = checked
-                        sharedPreferences.edit().putBoolean("auto_next", checked).apply()
-                    }
-                )
-
-                HorizontalDivider(color = BorderSubtle)
-
-                // Loop Video Switch
-                PreferenceSwitchRow(
-                    title = "Default Video Looping",
-                    subtitle = "Replay videos continuously in player",
-                    checked = isLoopEnabled,
-                    onCheckedChange = { checked ->
-                        isLoopEnabled = checked
-                        sharedPreferences.edit().putBoolean("loop_video", checked).apply()
-                    }
-                )
-
-                HorizontalDivider(color = BorderSubtle)
-
-                // Clear Thumbnail Cache Action
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showClearDialog = true }
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Clear Image Cache", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("Free up local thumbnail memory cache", color = TextMuted, fontSize = 11.sp)
-                    }
-                    Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-
-        // Section 4: Gesture Reference Guide (Expandable/Foldable)
+        // 1. Gesture Controls Guide
         FoldableSectionCard(
             title = "Gesture Controls Guide",
             icon = Icons.Default.TouchApp,
@@ -718,7 +718,7 @@ fun AboutPage(
             }
         }
 
-        // Section 5: Toolbar Functions Guide (Expandable/Foldable)
+        // 2. Player Toolbar Functions
         FoldableSectionCard(
             title = "Player Toolbar Functions",
             icon = Icons.Default.Widgets,
@@ -735,7 +735,7 @@ fun AboutPage(
             }
         }
 
-        // Section 6: Security & Reddit FAQ (Expandable/Foldable)
+        // 3. Security & FAQ
         FoldableSectionCard(
             title = "Account Safety & FAQ",
             icon = Icons.Default.HelpOutline,
@@ -761,7 +761,71 @@ fun AboutPage(
             }
         }
 
-        // Section 6: Community & Project (Expandable/Foldable)
+        // ==========================================
+        // CATEGORY 4: ABOUT & COMMUNITY
+        // ==========================================
+        SettingsCategoryHeader("ABOUT & COMMUNITY")
+
+        // 1. Version & Release Notes
+        FoldableSectionCard(
+            title = "Version & Release Notes",
+            icon = Icons.Default.Info,
+            badge = "v${com.lean.reddittube.BuildConfig.VERSION_NAME}",
+            isExpanded = isVersionExpanded,
+            onToggle = { isVersionExpanded = !isVersionExpanded }
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Installed Version: v${com.lean.reddittube.BuildConfig.VERSION_NAME}",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Current Version Changelog Box
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SettingsSubCardBg
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("What's New in this Build:", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = CURRENT_VERSION_CHANGELOG,
+                            color = TextPrimary,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
+                        )
+                    }
+                }
+
+                // View Releases on GitHub Button
+                Button(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube/releases"))
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SettingsButtonBg,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("View Releases on GitHub", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // 2. Community & Support
         FoldableSectionCard(
             title = "Community & Support",
             icon = Icons.Default.Favorite,
@@ -803,13 +867,13 @@ fun AboutPage(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sponsors/LeanBitLab"))
                                 context.startActivity(intent)
                             },
                         shape = RoundedCornerShape(12.dp),
-                        color = SurfaceBar,
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SettingsSubCardBg
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
@@ -825,13 +889,13 @@ fun AboutPage(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://opencollective.com/leanbitlab-org"))
                                 context.startActivity(intent)
                             },
                         shape = RoundedCornerShape(12.dp),
-                        color = SurfaceBar,
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SettingsSubCardBg
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
@@ -845,7 +909,7 @@ fun AboutPage(
                     }
                 }
 
-                HorizontalDivider(color = BorderSubtle)
+                HorizontalDivider(color = SettingsDividerColor)
 
                 Text(
                     text = "Official Channels & Socials",
@@ -862,13 +926,13 @@ fun AboutPage(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/LeanBitLab"))
                                 context.startActivity(intent)
                             },
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SettingsSubCardBg
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -884,13 +948,13 @@ fun AboutPage(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/LeanBitLab_/"))
                                 context.startActivity(intent)
                             },
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SettingsSubCardBg
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -912,13 +976,13 @@ fun AboutPage(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://x.com/LeanBitLab"))
                                 context.startActivity(intent)
                             },
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SettingsSubCardBg
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -934,13 +998,13 @@ fun AboutPage(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/@LeanBitLab"))
                                 context.startActivity(intent)
                             },
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SettingsSubCardBg
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -954,7 +1018,7 @@ fun AboutPage(
                     }
                 }
 
-                HorizontalDivider(color = BorderSubtle)
+                HorizontalDivider(color = SettingsDividerColor)
 
                 // Project & Code Links
                 Row(
@@ -964,13 +1028,13 @@ fun AboutPage(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube"))
                                 context.startActivity(intent)
                             },
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SettingsSubCardBg
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -986,13 +1050,13 @@ fun AboutPage(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeanBitLab/RdTube/issues"))
                                 context.startActivity(intent)
                             },
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, GlassBorder)
+                        color = SettingsSubCardBg
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -1029,9 +1093,8 @@ private fun FoldableSectionCard(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = SurfaceRaised,
-        border = BorderStroke(1.dp, GlassBorder)
+        shape = RoundedCornerShape(18.dp),
+        color = SettingsCardBg
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Header Row (Clickable to toggle fold/expand)
@@ -1048,22 +1111,29 @@ private fun FoldableSectionCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(SettingsPillBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Text(title, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
                     if (badge != null) {
                         Spacer(Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = Color.White.copy(alpha = 0.12f),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
+                            color = SettingsPillBg
                         ) {
                             Text(
                                 text = badge,
                                 color = Color.White,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -1089,6 +1159,7 @@ private fun FoldableSectionCard(
                         .fillMaxWidth()
                         .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 2.dp)
                 ) {
+                    HorizontalDivider(color = SettingsDividerColor, modifier = Modifier.padding(bottom = 12.dp))
                     content()
                 }
             }
@@ -1118,9 +1189,9 @@ private fun PreferenceSwitchRow(
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.Black,
                 checkedTrackColor = Color.White,
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = SurfaceBar,
-                uncheckedBorderColor = GlassBorder
+                uncheckedThumbColor = Color(0xFFC0C0C0),
+                uncheckedTrackColor = Color(0xFF262626),
+                uncheckedBorderColor = Color.Transparent
             )
         )
     }
@@ -1131,23 +1202,22 @@ private fun CompactGestureItem(tag: String, label: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
             shape = RoundedCornerShape(6.dp),
-            color = Color.White.copy(alpha = 0.12f),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
+            color = SettingsPillBg
         ) {
             Text(
                 text = tag,
                 color = Color.White,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
             )
         }
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Text(text = label, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
@@ -1157,11 +1227,19 @@ private fun CompactButtonItem(icon: ImageVector, title: String, desc: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-        Spacer(modifier = Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(SettingsPillBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+        }
+        Spacer(modifier = Modifier.width(10.dp))
         Text(text = title, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.width(6.dp))
         Text(text = "• $desc", color = TextSecondary, fontSize = 11.sp, maxLines = 1)
@@ -1178,8 +1256,9 @@ private fun ApiKeySettingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -1195,15 +1274,14 @@ private fun ApiKeySettingRow(
                     Spacer(Modifier.width(6.dp))
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = Color.White.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
+                        color = SettingsPillBg
                     ) {
                         Text(
                             text = "CUSTOM",
                             color = Color.White,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                         )
                     }
                 }
@@ -1249,19 +1327,21 @@ private fun ApiKeyInputDialog(
                 if (hint != null) {
                     Text(hint, color = TextSecondary, fontSize = 11.sp, lineHeight = 15.sp)
                 }
-                OutlinedTextField(
+                TextField(
                     value = text,
                     onValueChange = { text = it },
                     placeholder = { Text(placeholder, color = TextMuted, fontSize = 12.sp) },
                     singleLine = false,
                     maxLines = 3,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = TextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color.White,
-                        unfocusedBorderColor = GlassBorder,
+                        focusedContainerColor = SettingsSubCardBg,
+                        unfocusedContainerColor = SettingsSubCardBg,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
                         cursorColor = Color.White
                     )
                 )
@@ -1294,7 +1374,7 @@ private fun ApiKeyInputDialog(
                 }
             }
         },
-        containerColor = SurfaceRaised,
+        containerColor = Color(0xFF181818),
         shape = RoundedCornerShape(18.dp)
     )
 }
