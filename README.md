@@ -18,7 +18,7 @@
 **A private, fast, and sleek open-source video client for Reddit.**  
 *Pure OLED pitch black, high-speed feed prefetching, and zero tracking.*
 
-[Screenshots](#-screenshots) • [Download](#-download) • [Features](#-features) • [Setup Guide](#-setup-guide) • [Notes & Privacy](#-notes--privacy) • [Setup & Building](#-setup--building) • [Other Projects](https://github.com/LeanBitLab#-android-projects)
+[Screenshots](#-screenshots) • [Download](#-download) • [Features](#-features) • [Setup Guide](#-setup-guide) • [Notes & Privacy](#-notes--privacy) • [Setup & Building](#-setup--building) • [Support](#-support-the-project) • [Other Projects](https://github.com/LeanBitLab#-android-projects)
 
 </div>
 
@@ -192,6 +192,7 @@ Discover our complete suite of privacy-first, open-source Android applications:
 - **X (Twitter)**: [@LeanBitLab](https://x.com/LeanBitLab)
 - **YouTube**: [@LeanBitLab](https://www.youtube.com/@LeanBitLab)
 - **Website**: [leanbitlab.github.io](https://leanbitlab.github.io/LeanBitLab/)
+- **Support & Sponsoring**: [GitHub Sponsors](https://github.com/sponsors/LeanBitLab) • [Open Collective](https://opencollective.com/leanbitlab-org)
 
 ---
 
@@ -200,6 +201,11 @@ Discover our complete suite of privacy-first, open-source Android applications:
 Building and maintaining privacy-first Android applications requires continuous testing, hardware maintenance, and dedicated development time.
 
 If RdTube improves your daily video browsing, please consider supporting our independent development:
+
+- 💖 **GitHub Sponsors**: [https://github.com/sponsors/LeanBitLab](https://github.com/sponsors/LeanBitLab)
+- 🌐 **Open Collective**: [https://opencollective.com/leanbitlab-org](https://opencollective.com/leanbitlab-org)
+
+<br/>
 
 <div align="left">
   <a href="https://github.com/sponsors/LeanBitLab">
