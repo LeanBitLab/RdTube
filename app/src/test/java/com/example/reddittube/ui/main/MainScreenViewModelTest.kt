@@ -250,4 +250,43 @@ class MainScreenViewModelTest {
         assert(!viewModel.isSubredditSearchActive.value)
         assert(viewModel.subredditSearchResults.value.isEmpty())
     }
+
+    @Test
+    fun `markAsWatched orders newest first and bumps re-watched post`() = runTest(testDispatcher) {
+        val repo = FakeRepository()
+        val viewModel = MainScreenViewModel(repo)
+        val post1 = RedditPost("p1", "First", "sub", "author", 10, "/r/sub/1", "url", "url", "", "")
+        val post2 = RedditPost("p2", "Second", "sub", "author", 20, "/r/sub/2", "url", "url", "", "")
+
+        viewModel.markAsWatched(post1)
+        viewModel.markAsWatched(post2)
+
+        var watched = viewModel.getWatchedPosts()
+        assert(watched.size == 2)
+        assert(watched[0].id == "p2")
+        assert(watched[1].id == "p1")
+
+        // Re-watching post1 should bump it to the front
+        viewModel.markAsWatched(post1)
+        watched = viewModel.getWatchedPosts()
+        assert(watched.size == 2)
+        assert(watched[0].id == "p1")
+        assert(watched[1].id == "p2")
+    }
+
+    @Test
+    fun `toggleLike orders newest first`() = runTest(testDispatcher) {
+        val repo = FakeRepository()
+        val viewModel = MainScreenViewModel(repo)
+        val post1 = RedditPost("like_1", "First Liked", "sub", "author", 10, "/r/sub/1", "url", "url", "", "")
+        val post2 = RedditPost("like_2", "Second Liked", "sub", "author", 20, "/r/sub/2", "url", "url", "", "")
+
+        viewModel.toggleLike(post1)
+        viewModel.toggleLike(post2)
+
+        val liked = viewModel.getLikedPosts()
+        assert(liked.size == 2)
+        assert(liked[0].id == "like_2")
+        assert(liked[1].id == "like_1")
+    }
 }

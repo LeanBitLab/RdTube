@@ -213,7 +213,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         saveLiked()
     }
 
-    fun getLikedPosts(): List<RedditPost> = likedOrder.mapNotNull { likedPostsMap[it] }
+    fun getLikedPosts(): List<RedditPost> = likedOrder.asReversed().mapNotNull { likedPostsMap[it] }
 
     private fun saveLiked() {
         prefs.edit()
@@ -615,12 +615,20 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 
     fun markAsWatched(post: RedditPost) {
         val id = post.id
-        if (id in watchedIds) return  // ponytail: already tracked, skip
+        if (id in watchedIds) {
+            // Already tracked: bump to the end of watchedOrder (most recently watched)
+            watchedOrder.remove(id)
+            watchedOrder.add(id)
+            watchedTitles[id] = post.title
+            watchedPosts[id] = post
+            saveWatched()
+            return
+        }
         watchedIds.add(id)
         watchedOrder.add(id)
         watchedTitles[id] = post.title
         watchedPosts[id] = post
-        // ponytail: trim oldest if over cap
+        // trim oldest if over cap
         while (watchedOrder.size > WATCHED_CAP) {
             val oldest = watchedOrder.removeAt(0)
             watchedIds.remove(oldest)
@@ -630,7 +638,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         _watchedIdsFlow.value = watchedIds.toSet()
         saveWatched()
         Log.i("WatchedVM", "markAsWatched $id, total=${watchedIds.size}")
-        // ponytail: don't remove from current list — only filter on next refresh to avoid auto-advance
+        // don't remove from current list; only filter on next refresh to avoid auto-advance
     }
 
     fun hidePost(post: RedditPost) {
@@ -657,7 +665,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     }
 
     fun getWatchedPosts(): List<RedditPost> {
-        return watchedOrder.mapNotNull { id ->
+        return watchedOrder.asReversed().mapNotNull { id ->
             watchedPosts[id] ?: watchedTitles[id]?.let { RedditPost(id, it, "", "", 0, "", "", "", "", "") }
         }
     }
