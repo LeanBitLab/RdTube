@@ -308,6 +308,18 @@ fun VideoPage(
         }
     }
 
+    // Keep screen on while video is actively playing
+    DisposableEffect(isPlaying, isActive, activity) {
+        if (isPlaying && isActive) {
+            activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
     // Overlay visibility (auto-hide)
     var showOverlay by remember { mutableStateOf(true) }
     var overlayJob by remember { mutableStateOf<Job?>(null) }
@@ -463,9 +475,13 @@ Box(
                         useController = false
                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                         setBackgroundColor(android.graphics.Color.BLACK)
+                        keepScreenOn = true
                     }
                 },
-                update = { pv -> pv.player = exoPlayer },
+                update = { pv ->
+                    pv.player = exoPlayer
+                    pv.keepScreenOn = isPlaying && isActive
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }
