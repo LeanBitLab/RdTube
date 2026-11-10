@@ -178,6 +178,10 @@ fun VideoPage(
     var isPlaying by remember { mutableStateOf(true) }
     var pendingAutoPlay by remember { mutableStateOf(false) }
 
+    val currentOnNext by rememberUpdatedState(onNext)
+    val currentIsActive by rememberUpdatedState(isActive)
+    val currentAutoNext by rememberUpdatedState(sharedPreferences.getBoolean("auto_next", false))
+
     DisposableEffect(post.id) {
         val tag = "VideoPlayer"
         val initTime = android.os.SystemClock.elapsedRealtime()
@@ -188,13 +192,10 @@ fun VideoPage(
             }
             override fun onPlaybackStateChanged(state: Int) {
                 isBuffering = state == Player.STATE_BUFFERING
-                if (state == Player.STATE_ENDED && !sharedPreferences.getBoolean("loop_video", true)) {
-                    if (sharedPreferences.getBoolean("auto_next", false) && isActive) {
-                        val current = exoPlayer.currentPosition
-                        val duration = exoPlayer.duration
-                        if (duration > 0 && current >= (duration - 1500).coerceAtLeast(1000L)) {
-                            onNext()
-                        }
+                if (state == Player.STATE_ENDED) {
+                    val isAutoNextOn = currentAutoNext || sharedPreferences.getBoolean("auto_next", false)
+                    if (isAutoNextOn && currentIsActive) {
+                        currentOnNext()
                     }
                 }
             }

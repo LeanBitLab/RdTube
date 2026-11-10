@@ -84,6 +84,8 @@ fun VideoFeedContent(
             val next = pagerState.currentPage + 1
             if (next < distinctData.size) {
                 pagerState.animateScrollToPage(next)
+            } else {
+                onLoadMore()
             }
         }
     }
