@@ -67,8 +67,8 @@ interface DataRepository {
     fun fetchRedditVideos(subreddits: String, sort: String = "hot", feed: String = "explore"): Flow<List<RedditPost>>
     fun searchSubreddits(query: String): Flow<List<String>>
     fun searchSubredditsPaged(query: String, after: String? = null): Flow<SearchSubredditsResult>
-    fun searchRedditVideos(query: String, sort: String = "relevance"): Flow<List<RedditPost>>
-    fun searchRedditVideosPaged(query: String, sort: String = "relevance", after: String? = null): Flow<SearchVideosResult>
+    fun searchRedditVideos(query: String, sort: String = "relevance", subreddit: String? = null): Flow<List<RedditPost>>
+    fun searchRedditVideosPaged(query: String, sort: String = "relevance", after: String? = null, subreddit: String? = null): Flow<SearchVideosResult>
     fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String = "hot", feed: String = "explore"): Flow<FetchMoreResult>
     fun fetchPostComments(subreddit: String, postId: String): Flow<List<RedditComment>>
     fun getAfterMap(feed: String = "explore"): Map<String, String?>
@@ -252,11 +252,11 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         emit(SearchSubredditsResult(results, nextAfter))
     }.flowOn(Dispatchers.IO)
 
-    override fun searchRedditVideos(query: String, sort: String): Flow<List<RedditPost>> = flow {
-        searchRedditVideosPaged(query, sort, null).collect { emit(it.posts) }
+    override fun searchRedditVideos(query: String, sort: String, subreddit: String?): Flow<List<RedditPost>> = flow {
+        searchRedditVideosPaged(query, sort, null, subreddit).collect { emit(it.posts) }
     }
 
-    override fun searchRedditVideosPaged(query: String, sort: String, after: String?): Flow<SearchVideosResult> = flow {
+    override fun searchRedditVideosPaged(query: String, sort: String, after: String?, subreddit: String?): Flow<SearchVideosResult> = flow {
         val token = RedditOAuthHelper.getOrFetchAccessToken(context)
         if (token == null) { emit(SearchVideosResult(emptyList(), null)); return@flow }
         val results = mutableListOf<RedditPost>()
@@ -266,8 +266,14 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             for (page in 0 until 2) {
                 val sortParam = sort.substringBefore('&').substringBefore('?')
                 val timeParam = if (sort.contains("t=")) "&t=" + sort.substringAfter("t=").substringBefore('&') else ""
-                val url = "https://oauth.reddit.com/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&type=link&sort=$sortParam$timeParam&limit=100&raw_json=1&include_over_18=on" +
-                    (if (currentAfter != null) "&after=$currentAfter" else "")
+                val cleanSub = subreddit?.trim()?.removePrefix("r/")?.takeIf { it.isNotEmpty() }
+                val url = if (cleanSub != null) {
+                    "https://oauth.reddit.com/r/$cleanSub/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&restrict_sr=1&type=link&sort=$sortParam$timeParam&limit=100&raw_json=1&include_over_18=on" +
+                        (if (currentAfter != null) "&after=$currentAfter" else "")
+                } else {
+                    "https://oauth.reddit.com/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&type=link&sort=$sortParam$timeParam&limit=100&raw_json=1&include_over_18=on" +
+                        (if (currentAfter != null) "&after=$currentAfter" else "")
+                }
                 val json = performRequest(url, token, timeout = 10000) ?: break
                 val data = json.optJSONObject("data") ?: break
                 val newAfter = if (data.has("after") && !data.isNull("after")) data.optString("after").ifEmpty { null } else null

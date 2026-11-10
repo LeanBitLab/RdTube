@@ -80,6 +80,21 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private val _isVideoSearchingMore = MutableStateFlow(false)
     val isVideoSearchingMore: StateFlow<Boolean> = _isVideoSearchingMore.asStateFlow()
 
+    private val _subredditSearchResults = MutableStateFlow<List<RedditPost>>(emptyList())
+    val subredditSearchResults: StateFlow<List<RedditPost>> = _subredditSearchResults.asStateFlow()
+
+    private val _isSubredditSearching = MutableStateFlow(false)
+    val isSubredditSearching: StateFlow<Boolean> = _isSubredditSearching.asStateFlow()
+
+    private val _isSubredditSearchActive = MutableStateFlow(false)
+    val isSubredditSearchActive: StateFlow<Boolean> = _isSubredditSearchActive.asStateFlow()
+
+    private var inSubredditSearchJob: Job? = null
+    private var inSubredditSearchAfter: String? = null
+    private var currentInSubredditSearchQuery: String = ""
+    private var currentInSubredditSearchTarget: String = ""
+    private val inSubredditSearchCache = mutableMapOf<String, PagedVideoCache>()
+
     // ponytail: list + index opened from the browse/home grid, played by PlayerScreen
     private val _playerList = MutableStateFlow<List<RedditPost>>(emptyList())
     val playerList: StateFlow<List<RedditPost>> = _playerList.asStateFlow()
@@ -355,6 +370,91 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         }
     }
 
+    fun setSubredditSearchActive(active: Boolean) {
+        _isSubredditSearchActive.value = active
+        if (!active) {
+            clearSubredditSearch()
+        }
+    }
+
+    fun searchSubredditVideos(subreddit: String, query: String, sort: String = "relevance", immediate: Boolean = false) {
+        val trimmed = query.trim()
+        val cleanSub = subreddit.trim().removePrefix("r/")
+        if (trimmed.length < 2 || cleanSub.isEmpty()) {
+            _subredditSearchResults.value = emptyList()
+            _isSubredditSearching.value = false
+            inSubredditSearchAfter = null
+            return
+        }
+
+        currentInSubredditSearchTarget = cleanSub
+        currentInSubredditSearchQuery = trimmed
+
+        val cacheKey = "$cleanSub:$trimmed:$sort"
+        val cached = inSubredditSearchCache[cacheKey]
+        if (cached != null) {
+            _subredditSearchResults.value = cached.posts
+            inSubredditSearchAfter = cached.after
+            _isSubredditSearching.value = false
+            return
+        }
+
+        inSubredditSearchJob?.cancel()
+        inSubredditSearchJob = viewModelScope.launch {
+            _isSubredditSearching.value = true
+            if (!immediate) {
+                delay(600)
+            }
+            try {
+                dataRepository.searchRedditVideosPaged(trimmed, sort, null, cleanSub).collect { result ->
+                    val afterCursor = result.after ?: result.posts.lastOrNull()?.let { "t3_${it.id}" }
+                    inSubredditSearchCache[cacheKey] = PagedVideoCache(result.posts, afterCursor)
+                    inSubredditSearchAfter = afterCursor
+                    _subredditSearchResults.value = result.posts
+                }
+            } catch (_: Exception) {
+                _subredditSearchResults.value = emptyList()
+            } finally {
+                _isSubredditSearching.value = false
+            }
+        }
+    }
+
+    fun loadMoreSubredditVideos() {
+        val sub = currentInSubredditSearchTarget
+        val query = currentInSubredditSearchQuery
+        val currentList = _subredditSearchResults.value
+        val after = inSubredditSearchAfter ?: currentList.lastOrNull()?.let { "t3_${it.id}" }
+        if (query.length < 2 || sub.isEmpty() || _isSubredditSearchingMore.value || _isSubredditSearching.value || currentList.isEmpty()) return
+
+        viewModelScope.launch {
+            _isSubredditSearchingMore.value = true
+            try {
+                dataRepository.searchRedditVideosPaged(query, "relevance", after, sub).collect { result ->
+                    val nextCursor = result.after ?: result.posts.lastOrNull()?.let { "t3_${it.id}" } ?: after
+                    inSubredditSearchAfter = nextCursor
+                    val updated = (currentList + result.posts).distinctBy { it.id }
+                    inSubredditSearchCache["$sub:$query:relevance"] = PagedVideoCache(updated, nextCursor)
+                    _subredditSearchResults.value = updated
+                }
+            } catch (_: Exception) {
+                // Ignore failure
+            } finally {
+                _isSubredditSearchingMore.value = false
+            }
+        }
+    }
+
+    fun clearSubredditSearch() {
+        inSubredditSearchJob?.cancel()
+        _subredditSearchResults.value = emptyList()
+        _isSubredditSearching.value = false
+        _isSubredditSearchingMore.value = false
+        inSubredditSearchAfter = null
+        currentInSubredditSearchQuery = ""
+        currentInSubredditSearchTarget = ""
+    }
+
     fun setSort(sort: SortOption) {
         if (currentSort == sort) return
         currentSort = sort
@@ -374,6 +474,9 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     )
 
     fun refreshExplore(query: String = exploreQuery, forceRefresh: Boolean = false) {
+        if (query != exploreQuery) {
+            setSubredditSearchActive(false)
+        }
         exploreQuery = query
         viewModelScope.launch {
             val sortVal = currentSort.value
