@@ -145,6 +145,9 @@ fun HomeScreen(
             horizontalPagerState.currentPage == 0 && isCustomExplore && originPageBeforeExplore != null -> {
                 val targetPage = originPageBeforeExplore!!
                 originPageBeforeExplore = null
+                if (tabBackStack.isNotEmpty() && tabBackStack.last() == 0) {
+                    tabBackStack.removeAt(tabBackStack.lastIndex)
+                }
                 viewModel.refreshExplore(defaultExploreQuery)
                 coroutineScope.launch { horizontalPagerState.animateScrollToPage(targetPage) }
             }
