@@ -323,6 +323,20 @@ fun VideoPage(
     // Overlay visibility (auto-hide)
     var showOverlay by remember { mutableStateOf(true) }
     var overlayJob by remember { mutableStateOf<Job?>(null) }
+    var isTitleExpanded by remember(post.id) { mutableStateOf(false) }
+    var isSeeking by remember { mutableStateOf(false) }
+
+    val resetOverlayTimer: (Long) -> Unit = { delayMs ->
+        overlayJob?.cancel()
+        if (isActive && !isTitleExpanded && !isSeeking) {
+            overlayJob = coroutineScope.launch {
+                delay(delayMs)
+                if (exoPlayer.isPlaying && !isTitleExpanded && !isSeeking) {
+                    showOverlay = false
+                }
+            }
+        }
+    }
 
     // Apply orientation on active video
     LaunchedEffect(isActive, isRotationLocked) {
@@ -335,16 +349,16 @@ fun VideoPage(
         }
     }
 
-    // Show overlay briefly on start, then auto-hide
-    LaunchedEffect(isActive) {
-            if (isActive) {
-                showOverlay = true
+    // Show overlay briefly on start, then auto-hide (paused while seeking or reading expanded title)
+    LaunchedEffect(isActive, isTitleExpanded, isSeeking) {
+        if (isActive) {
+            if (isTitleExpanded || isSeeking) {
                 overlayJob?.cancel()
-                overlayJob = coroutineScope.launch {
-                    delay(4000)
-                    if (exoPlayer.isPlaying) showOverlay = false
-                }
+            } else {
+                showOverlay = true
+                resetOverlayTimer(4000L)
             }
+        }
     }
 
 Box(
@@ -390,11 +404,7 @@ Box(
                             val wasShown = showOverlay
                             showOverlay = !showOverlay
                             if (showOverlay) {
-                                overlayJob?.cancel()
-                                overlayJob = coroutineScope.launch {
-                                    delay(4000)
-                                    if (exoPlayer.isPlaying) showOverlay = false
-                                }
+                                resetOverlayTimer(4000L)
                             }
                             val isEnded = exoPlayer.playbackState == Player.STATE_ENDED
                             if (pendingAutoPlay) {
@@ -893,6 +903,11 @@ Box(
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            resetOverlayTimer(4000L)
+                        }
+                    }
             ) {
                 // Subreddit/author with subscribe toggle
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -935,18 +950,12 @@ Box(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 // Post title with expandable support for long titles
-                var isTitleExpanded by remember(post.id) { mutableStateOf(false) }
                 val isLongTitle = post.title.length > 55
 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateContentSize()
-                        .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null,
-                            onClick = { if (isLongTitle) isTitleExpanded = !isTitleExpanded }
-                        )
                 ) {
                     Text(
                         text = post.title,
@@ -955,25 +964,43 @@ Box(
                         lineHeight = 19.sp,
                         maxLines = if (isTitleExpanded) 12 else 2,
                         overflow = if (isTitleExpanded) TextOverflow.Clip else TextOverflow.Ellipsis,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                if (isLongTitle) {
+                                    isTitleExpanded = !isTitleExpanded
+                                    resetOverlayTimer(4000L)
+                                }
+                            }
+                        )
                     )
                     if (isLongTitle) {
-                        Spacer(modifier = Modifier.height(3.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { isTitleExpanded = !isTitleExpanded }
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    isTitleExpanded = !isTitleExpanded
+                                    resetOverlayTimer(4000L)
+                                }
+                                .padding(vertical = 4.dp, horizontal = 2.dp)
                         ) {
                             Text(
                                 text = if (isTitleExpanded) "Show less" else "Show more",
                                 color = TextSecondary,
-                                fontSize = 11.5.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Icon(
                                 imageVector = if (isTitleExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                 contentDescription = if (isTitleExpanded) "Show less" else "Show more",
                                 tint = TextSecondary,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
@@ -1117,7 +1144,17 @@ Box(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Player seek slider
-                PlayerSlider(player = exoPlayer)
+                PlayerSlider(
+                    player = exoPlayer,
+                    onSeekStart = {
+                        isSeeking = true
+                        overlayJob?.cancel()
+                    },
+                    onSeekEnd = {
+                        isSeeking = false
+                        resetOverlayTimer(4000L)
+                    }
+                )
             }
         }
 

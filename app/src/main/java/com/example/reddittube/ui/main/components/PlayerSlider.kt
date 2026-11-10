@@ -2,8 +2,7 @@ package com.lean.reddittube.ui.main.components
 import com.lean.reddittube.theme.*
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +41,8 @@ import java.util.Locale
 @Composable
 fun PlayerSlider(
     player: Player,
+    onSeekStart: () -> Unit = {},
+    onSeekEnd: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentPosition by remember(player) { mutableFloatStateOf(player.currentPosition.coerceAtLeast(0L).toFloat()) }
@@ -117,50 +118,60 @@ fun PlayerSlider(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .height(32.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        if (duration > 0) {
-                            player.seekTo(((offset.x / size.width).coerceIn(0f, 1f) * duration).toLong())
+                .height(44.dp)
+                .pointerInput(player, duration) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            down.consume()
+                            val width = size.width.toFloat().coerceAtLeast(1f)
+                            var frac = (down.position.x / width).coerceIn(0f, 1f)
+                            dragFraction = frac
+                            onSeekStart()
+
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) {
+                                    change.consume()
+                                    break
+                                }
+                                change.consume()
+                                frac = (change.position.x / width).coerceIn(0f, 1f)
+                                dragFraction = frac
+                            }
+
+                            if (duration > 0f) {
+                                val targetMs = (frac * duration).toLong().coerceIn(0L, duration.toLong())
+                                player.seekTo(targetMs)
+                            }
+                            dragFraction = -1f
+                            onSeekEnd()
                         }
                     }
-                }
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { offset ->
-                            dragFraction = (offset.x / size.width).coerceIn(0f, 1f)
-                        },
-                        onDragEnd = {
-                            val frac = dragFraction.coerceIn(0f, 1f)
-                            player.seekTo((frac * duration).toLong())
-                            dragFraction = -1f
-                        },
-                        onDragCancel = { dragFraction = -1f },
-                        onHorizontalDrag = { change, _ ->
-                            change.consume()
-                            dragFraction = (change.position.x / size.width).coerceIn(0f, 1f)
-                        }
-                    )
                 },
             contentAlignment = Alignment.CenterStart
         ) {
+            val isDragging = dragFraction >= 0f
+            val trackHeight = if (isDragging) 6.dp else 4.dp
+
             // Track background
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
+                    .height(trackHeight)
                     .align(Alignment.CenterStart)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.2f))
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color.White.copy(alpha = 0.22f))
             )
             // Filled track
             if (clampedProgress > 0f) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(clampedProgress)
-                        .height(4.dp)
+                        .height(trackHeight)
                         .align(Alignment.CenterStart)
-                        .clip(RoundedCornerShape(2.dp))
+                        .clip(RoundedCornerShape(3.dp))
                         .background(
                             Brush.horizontalGradient(
                                 listOf(BrandRed, BrandRedLight)
@@ -171,7 +182,7 @@ fun PlayerSlider(
             // Glowing thumb knob
             Box(
                 modifier = Modifier
-                    .size(if (dragFraction >= 0f) 18.dp else 16.dp)
+                    .size(if (isDragging) 20.dp else 16.dp)
                     .align(BiasAlignment(horizontalBias = clampedProgress * 2f - 1f, verticalBias = 0f))
                     .clip(CircleShape)
                     .background(Color.White)
