@@ -422,7 +422,11 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     override fun getAfterMap(feed: String): Map<String, String?> = feedMap(feed).toMap()
 
     override fun saveAfterMap(map: Map<String, String?>, feed: String) {
-        feedMap(feed).putAll(map)
+        if (map.isEmpty()) {
+            feedMap(feed).clear()
+        } else {
+            feedMap(feed).putAll(map)
+        }
     }
 
     private fun parseRedditPost(childData: JSONObject): RedditPost? {
