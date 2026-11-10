@@ -227,15 +227,17 @@ fun VideoPage(
 
     // Pause player when app enters background or user moves away
     val lifecycleOwner = LocalLifecycleOwner.current
+    var wasPlayingBeforeBackground by remember { mutableStateOf(false) }
     DisposableEffect(lifecycleOwner, isActive) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_PAUSE,
                 Lifecycle.Event.ON_STOP -> {
+                    wasPlayingBeforeBackground = exoPlayer.isPlaying || exoPlayer.playWhenReady
                     exoPlayer.pause()
                 }
                 Lifecycle.Event.ON_RESUME -> {
-                    if (isActive) {
+                    if (isActive && wasPlayingBeforeBackground) {
                         exoPlayer.play()
                     }
                 }
@@ -423,7 +425,6 @@ Box(
                             }
                         },
                         onTap = {
-                            val wasShown = showOverlay
                             showOverlay = !showOverlay
                             if (showOverlay) {
                                 resetOverlayTimer(4000L)
@@ -436,35 +437,10 @@ Box(
                                         exoPlayer.seekTo(0)
                                     }
                                     exoPlayer.play()
-                                    showPlayPauseTransient = true
-                                    transientJob?.cancel()
-                                    transientJob = coroutineScope.launch {
-                                        delay(600)
-                                        showPlayPauseTransient = null
-                                    }
                                 }
                             } else if (isEnded) {
                                 exoPlayer.seekTo(0)
                                 exoPlayer.play()
-                                showPlayPauseTransient = true
-                                transientJob?.cancel()
-                                transientJob = coroutineScope.launch {
-                                    delay(600)
-                                    showPlayPauseTransient = null
-                                }
-                            } else if (wasShown) {
-                                if (exoPlayer.isPlaying) {
-                                    exoPlayer.pause()
-                                    showPlayPauseTransient = false
-                                } else {
-                                    exoPlayer.play()
-                                    showPlayPauseTransient = true
-                                }
-                                transientJob?.cancel()
-                                transientJob = coroutineScope.launch {
-                                    delay(600)
-                                    showPlayPauseTransient = null
-                                }
                             }
                         }
                     )
@@ -783,10 +759,10 @@ Box(
             }
         }
 
-        // Center Replay / Play action button when video ends or when overlay is open and paused
+        // Center Replay / Play action button when video ends or when overlay is open
         val isEnded = exoPlayer.playbackState == Player.STATE_ENDED
         AnimatedVisibility(
-            visible = (showOverlay && !isPlaying && showPlayPauseTransient == null) || (isEnded && showPlayPauseTransient == null),
+            visible = (showOverlay && showPlayPauseTransient == null) || (isEnded && showPlayPauseTransient == null),
             modifier = Modifier.align(Alignment.Center),
             enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.85f),
             exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.85f)
@@ -800,15 +776,34 @@ Box(
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (exoPlayer.playbackState == Player.STATE_ENDED) {
                             exoPlayer.seekTo(0)
+                            exoPlayer.play()
+                        } else if (exoPlayer.isPlaying) {
+                            exoPlayer.pause()
+                            showPlayPauseTransient = false
+                        } else {
+                            exoPlayer.play()
+                            showPlayPauseTransient = true
                         }
-                        exoPlayer.play()
-                        showOverlay = false
+                        transientJob?.cancel()
+                        transientJob = coroutineScope.launch {
+                            delay(600)
+                            showPlayPauseTransient = null
+                        }
+                        resetOverlayTimer(4000L)
                     },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isEnded) Icons.Default.Replay else Icons.Default.PlayArrow,
-                    contentDescription = if (isEnded) "Replay Video" else "Play Video",
+                    imageVector = when {
+                        isEnded -> Icons.Default.Replay
+                        isPlaying -> Icons.Default.Pause
+                        else -> Icons.Default.PlayArrow
+                    },
+                    contentDescription = when {
+                        isEnded -> "Replay Video"
+                        isPlaying -> "Pause Video"
+                        else -> "Play Video"
+                    },
                     tint = Color.White,
                     modifier = Modifier.size(36.dp)
                 )
