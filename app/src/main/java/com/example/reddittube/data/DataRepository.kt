@@ -168,22 +168,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val comments = mutableListOf<RedditComment>()
         try {
             val url = "https://oauth.reddit.com/r/$subreddit/comments/$postId.json?limit=100&sort=top&raw_json=1"
-            val conn = URL(url).openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.setRequestProperty("User-Agent", RedditOAuthHelper.getUserAgent(context))
-            conn.setRequestProperty("Connection", "keep-alive")
-            conn.connectTimeout = 8000
-            conn.readTimeout = 8000
-
-            val code = conn.responseCode
-            if (code == 200) {
-                val stream = if ("gzip".equals(conn.contentEncoding, ignoreCase = true)) {
-                    java.util.zip.GZIPInputStream(conn.inputStream)
-                } else {
-                    conn.inputStream
-                }
-                val raw = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            val raw = performRawRequest(url, token, timeout = 10000)
+            if (raw != null) {
                 val jsonArray = org.json.JSONArray(raw)
                 if (jsonArray.length() > 1) {
                     val commentListing = jsonArray.getJSONObject(1)
@@ -211,10 +197,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                         }
                     }
                 }
-            } else {
-                Log.w("RedditRepository", "Comments HTTP $code for $url")
             }
-            conn.disconnect()
             comments.sortByDescending { it.score }
         } catch (e: Exception) {
             Log.e("RedditRepository", "fetchPostComments error: ${e.message}")

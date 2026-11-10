@@ -48,11 +48,15 @@ object DownloadHelper {
                     onProgress("Checking audio...")
                     try {
                         val dashXml = fetchText(context, dashUrl)
-                        val audioFileMatch = Regex("<BaseURL>([^<]*audio[^<]*\\.mp4)</BaseURL>", RegexOption.IGNORE_CASE).find(dashXml)
-                        val audioFilename = audioFileMatch?.groupValues?.get(1)
-                        if (audioFilename != null) {
-                            val baseUrl = fallbackUrl.substringBeforeLast("/") + "/"
-                            val audioUrl = baseUrl + audioFilename
+                        val audioFileMatch = Regex("<BaseURL>([^<]*audio[^<]*)</BaseURL>", RegexOption.IGNORE_CASE).find(dashXml)
+                        val audioFilename = audioFileMatch?.groupValues?.get(1)?.trim()
+                        if (!audioFilename.isNullOrEmpty()) {
+                            val audioUrl = if (audioFilename.startsWith("http://") || audioFilename.startsWith("https://")) {
+                                audioFilename
+                            } else {
+                                val baseUrl = fallbackUrl.substringBeforeLast("/") + "/"
+                                baseUrl + audioFilename
+                            }
                             
                             onProgress("Downloading audio...")
                             val audioFile = File(context.cacheDir, "temp_audio_${System.currentTimeMillis()}.mp4")
