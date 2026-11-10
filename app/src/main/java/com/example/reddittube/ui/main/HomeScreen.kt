@@ -44,6 +44,7 @@ import com.lean.reddittube.ui.main.components.SectionLoadingIndicator
 import com.lean.reddittube.ui.main.components.SortBottomSheet
 import com.lean.reddittube.ui.main.components.ThumbnailImage
 import com.lean.reddittube.utils.formatDuration
+import com.lean.reddittube.utils.formatRelativeTime
 import com.lean.reddittube.utils.formatScore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -810,6 +811,26 @@ fun VideoCard(
                         .background(Color.Black)
                 ) {
                     ThumbnailImage(url = post.thumbnailUrl, contentDescription = post.title, modifier = Modifier.fillMaxSize())
+
+                    // Bottom-Left Overlay: Minimal Relative Date Badge
+                    val dateStr = formatRelativeTime(post.createdUtc)
+                    if (dateStr.isNotEmpty()) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(10.dp)
+                                .align(Alignment.BottomStart),
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.Black.copy(alpha = 0.85f)
+                        ) {
+                            Text(
+                                text = dateStr,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
 
                     // Bottom-Right Overlays: 18+ Micro Badge & Duration
                     val durationStr = formatDuration(post.duration)

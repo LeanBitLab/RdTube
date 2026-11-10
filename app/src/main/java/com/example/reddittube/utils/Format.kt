@@ -30,7 +30,7 @@ fun formatRelativeTime(createdUtc: Long): String {
         diff < 3600 -> "${diff / 60}m ago"
         diff < 86400 -> "${diff / 3600}h ago"
         diff < 604800 -> "${diff / 86400}d ago"
-        diff < 2592000 -> "${diff / 2592000}mo ago"
+        diff < 2592000 -> "${diff / 604800}w ago"
         diff < 31536000 -> "${diff / 2592000}mo ago"
         else -> "${diff / 31536000}y ago"
     }

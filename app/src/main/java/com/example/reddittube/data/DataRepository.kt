@@ -37,7 +37,8 @@ data class RedditPost(
     val thumbnailUrl: String = "",
     val numComments: Int = 0,
     val duration: Int = 0,
-    val over18: Boolean = false
+    val over18: Boolean = false,
+    val createdUtc: Long = 0L
 )
 
 @androidx.compose.runtime.Immutable
@@ -498,6 +499,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val nsfwAllowed = context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE).getBoolean("pref_unrestricted_nsfw", true)
         if (isOver18 && !nsfwAllowed) return null
 
+        val createdUtc = (childData.optDouble("created_utc", 0.0)).toLong().let {
+            if (it > 0L) it else (targetData.optDouble("created_utc", 0.0)).toLong()
+        }
+
         return RedditPost(
             id = childData.optString("id"),
             title = childData.optString("title"),
@@ -512,7 +517,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             thumbnailUrl = thumb,
             numComments = childData.optInt("num_comments"),
             duration = duration,
-            over18 = isOver18
+            over18 = isOver18,
+            createdUtc = createdUtc
         )
     }
 
