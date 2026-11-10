@@ -464,10 +464,14 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 ?.optString("url", "")
                 ?.replace("&amp;", "&") ?: ""
 
-            if (mp4Variant.isNotEmpty()) {
+            val rawUrl = childData.optString("url_overridden_by_dest", childData.optString("url", ""))
+            val imgurDirect = com.lean.reddittube.utils.ExternalMediaResolver.resolveImgurDirectUrl(rawUrl)
+            if (imgurDirect != null) {
+                fallbackUrl = imgurDirect
+            } else if (mp4Variant.isNotEmpty()) {
                 fallbackUrl = mp4Variant
             } else {
-                val directUrl = childData.optString("url_overridden_by_dest", childData.optString("url", ""))
+                val directUrl = rawUrl
                 if (directUrl.endsWith(".mp4", ignoreCase = true)) {
                     fallbackUrl = directUrl
                 }

@@ -156,6 +156,23 @@ fun VideoPage(
         player
     }
 
+    // Resolve direct Redgifs audio/video stream asynchronously if candidate is from Redgifs
+    LaunchedEffect(post.id) {
+        val candidate = post.videoUrl.ifEmpty { post.fallbackUrl }
+        if (com.lean.reddittube.utils.ExternalMediaResolver.isRedgifsUrl(candidate) ||
+            com.lean.reddittube.utils.ExternalMediaResolver.isRedgifsUrl(post.permalink)) {
+            val directUrl = com.lean.reddittube.utils.ExternalMediaResolver.resolveRedgifsVideo(candidate)
+            if (directUrl != null && directUrl.isNotEmpty()) {
+                val currentPos = exoPlayer.currentPosition
+                val isPlayingNow = exoPlayer.isPlaying
+                exoPlayer.setMediaItem(MediaItem.Builder().setUri(Uri.parse(directUrl)).build())
+                exoPlayer.prepare()
+                if (currentPos > 0) exoPlayer.seekTo(currentPos)
+                if (isPlayingNow || isActive) exoPlayer.play()
+            }
+        }
+    }
+
     // Buffering & playback status
     var isBuffering by remember { mutableStateOf(true) }
     var isPlaying by remember { mutableStateOf(true) }
