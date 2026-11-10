@@ -67,8 +67,14 @@ fun VideoFeedContent(
     }
 
     DisposableEffect(activity) {
+        val initialBrightness = activity?.window?.attributes?.screenBrightness
+            ?: android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
         onDispose {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            activity?.window?.attributes?.let { lp ->
+                lp.screenBrightness = initialBrightness
+                activity.window.attributes = lp
+            }
         }
     }
 

@@ -305,6 +305,10 @@ fun VideoPage(
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
 
     LaunchedEffect(Unit) {
+        if (originalBrightness == null && activity != null) {
+            val currentAttr = activity.window.attributes.screenBrightness
+            originalBrightness = if (currentAttr in 0.0f..1.0f) currentAttr else android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        }
         val savedBright = sharedPreferences.getFloat("pref_brightness", -1f)
         if (savedBright > 0f && activity != null) {
             val lp = activity.window.attributes
@@ -314,8 +318,8 @@ fun VideoPage(
         }
     }
 
-    // ponytail: restore system brightness when leaving the player (gesture writes it globally)
-    DisposableEffect(Unit) {
+    // Restore system brightness when leaving the player
+    DisposableEffect(activity) {
         onDispose {
             originalBrightness?.let { orig ->
                 activity?.window?.attributes?.let { lp ->
