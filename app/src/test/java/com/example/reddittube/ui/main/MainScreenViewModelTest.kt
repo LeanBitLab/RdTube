@@ -265,13 +265,18 @@ class MainScreenViewModelTest {
         assert(watched.size == 2)
         assert(watched[0].id == "p2")
         assert(watched[1].id == "p1")
+        assert(viewModel.watchedHistoryFlow.value.map { it.id } == listOf("p2", "p1"))
 
-        // Re-watching post1 should bump it to the front
+        // Re-watching post1 should bump it to the front and emit on watchedHistoryFlow
         viewModel.markAsWatched(post1)
         watched = viewModel.getWatchedPosts()
         assert(watched.size == 2)
         assert(watched[0].id == "p1")
         assert(watched[1].id == "p2")
+        assert(viewModel.watchedHistoryFlow.value.map { it.id } == listOf("p1", "p2"))
+
+        viewModel.clearWatchedHistory()
+        assert(viewModel.watchedHistoryFlow.value.isEmpty())
     }
 
     @Test

@@ -149,15 +149,18 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     } catch (_: Exception) { mutableMapOf() }
     private val _watchedIdsFlow = MutableStateFlow<Set<String>>(watchedIds.toSet())
     val watchedIdsFlow: StateFlow<Set<String>> = _watchedIdsFlow.asStateFlow()
+    private val _watchedHistoryFlow = MutableStateFlow<List<RedditPost>>(getWatchedPosts())
+    val watchedHistoryFlow: StateFlow<List<RedditPost>> = _watchedHistoryFlow.asStateFlow()
 
     init {
-        // ponytail: trim to cap on load
+        // ponytail: trim to cap on load and prune any orphaned post/title entries
         if (watchedOrder.size > WATCHED_CAP) {
             val trim = watchedOrder.size - WATCHED_CAP
             val removeIds = watchedOrder.take(trim)
             repeat(trim) { watchedOrder.removeAt(0) }
             removeIds.forEach { watchedIds.remove(it); watchedTitles.remove(it); watchedPosts.remove(it) }
             _watchedIdsFlow.value = watchedIds.toSet()
+            _watchedHistoryFlow.value = getWatchedPosts()
             saveWatched()
         }
         Log.i("WatchedVM", "loaded ${watchedIds.size} watched IDs")
@@ -615,16 +618,8 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 
     fun markAsWatched(post: RedditPost) {
         val id = post.id
-        if (id in watchedIds) {
-            // Already tracked: bump to the end of watchedOrder (most recently watched)
-            watchedOrder.remove(id)
-            watchedOrder.add(id)
-            watchedTitles[id] = post.title
-            watchedPosts[id] = post
-            saveWatched()
-            return
-        }
         watchedIds.add(id)
+        watchedOrder.removeAll { it == id }
         watchedOrder.add(id)
         watchedTitles[id] = post.title
         watchedPosts[id] = post
@@ -636,6 +631,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             watchedPosts.remove(oldest)
         }
         _watchedIdsFlow.value = watchedIds.toSet()
+        _watchedHistoryFlow.value = getWatchedPosts()
         saveWatched()
         Log.i("WatchedVM", "markAsWatched $id, total=${watchedIds.size}")
         // don't remove from current list; only filter on next refresh to avoid auto-advance
@@ -676,6 +672,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         watchedTitles.clear()
         watchedPosts.clear()
         _watchedIdsFlow.value = emptySet()
+        _watchedHistoryFlow.value = emptyList()
         saveWatched()
     }
 

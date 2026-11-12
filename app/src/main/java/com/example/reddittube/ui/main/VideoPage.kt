@@ -181,6 +181,31 @@ fun VideoPage(
     val currentOnNext by rememberUpdatedState(onNext)
     val currentIsActive by rememberUpdatedState(isActive)
     val currentAutoNext by rememberUpdatedState(sharedPreferences.getBoolean("auto_next", false))
+    val currentOnRemoveVideo by rememberUpdatedState(onRemoveVideo)
+    val currentPost by rememberUpdatedState(post)
+
+    var hasMarkedWatched by remember(post.id) { mutableStateOf(false) }
+    var activeWatchedMs by remember(post.id) { mutableStateOf(0L) }
+    var lastKnownPositionMs by remember(post.id) { mutableStateOf(0L) }
+    var lastKnownDurationMs by remember(post.id) { mutableStateOf(0L) }
+
+    fun requiredWatchMsFor(durationMs: Long): Long {
+        if (durationMs <= 0L) return 2500L
+        val thirtyPercent = (durationMs * 30L) / 100L
+        return minOf(2500L, maxOf(800L, thirtyPercent)).coerceAtMost(durationMs)
+    }
+
+    fun markWatchedIfEligible(forceOnComplete: Boolean = false) {
+        if (hasMarkedWatched) return
+        val requiredMs = requiredWatchMsFor(lastKnownDurationMs)
+        val crossedPosition = lastKnownDurationMs > 0L &&
+            lastKnownPositionMs >= (lastKnownDurationMs * 30L) / 100L &&
+            activeWatchedMs >= 500L
+        if (forceOnComplete || activeWatchedMs >= requiredMs || crossedPosition) {
+            hasMarkedWatched = true
+            currentOnRemoveVideo(currentPost)
+        }
+    }
 
     DisposableEffect(post.id) {
         val tag = "VideoPlayer"
@@ -193,10 +218,22 @@ fun VideoPage(
             override fun onPlaybackStateChanged(state: Int) {
                 isBuffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED) {
+                    if (currentIsActive) {
+                        markWatchedIfEligible(forceOnComplete = true)
+                    }
                     val isAutoNextOn = currentAutoNext || sharedPreferences.getBoolean("auto_next", false)
                     if (isAutoNextOn && currentIsActive) {
                         currentOnNext()
                     }
+                }
+            }
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION && currentIsActive && activeWatchedMs >= 300L) {
+                    markWatchedIfEligible(forceOnComplete = true)
                 }
             }
             override fun onIsPlayingChanged(playing: Boolean) {
@@ -208,6 +245,11 @@ fun VideoPage(
         }
         exoPlayer.addListener(listener)
         onDispose {
+            val dur = exoPlayer.duration
+            if (dur > 0L) lastKnownDurationMs = dur
+            val pos = exoPlayer.currentPosition
+            if (pos > 0L) lastKnownPositionMs = pos
+            markWatchedIfEligible()
             exoPlayer.removeListener(listener)
             exoPlayer.release()
         }
@@ -615,38 +657,32 @@ Box(
                 }
         )
 
-        // Auto-track watched: mark after 30% of video watched
-        var hasMarkedWatched by remember(post.id) { mutableStateOf(false) }
+        // Auto-track watched using active playback time, loop completion, or 30% progress
         LaunchedEffect(isActive, post.id) {
             if (isActive && !hasMarkedWatched) {
-                while (exoPlayer.duration <= 0 && isActive) {
+                var lastTickMs = android.os.SystemClock.elapsedRealtime()
+                while (isActive && !hasMarkedWatched) {
                     delay(200)
-                }
-                val duration = exoPlayer.duration
-                if (duration > 0) {
-                    val threshold = (duration * 30L) / 100L
-                    while (isActive && !hasMarkedWatched) {
-                        if (exoPlayer.currentPosition >= threshold) {
-                            hasMarkedWatched = true
-                            onRemoveVideo(post)
-                            break
-                        }
-                        delay(250)
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    val dur = exoPlayer.duration
+                    if (dur > 0L) lastKnownDurationMs = dur
+                    val pos = exoPlayer.currentPosition
+                    if (pos > 0L) lastKnownPositionMs = pos
+
+                    if (exoPlayer.isPlaying) {
+                        activeWatchedMs += (now - lastTickMs).coerceIn(0L, 500L)
+                        markWatchedIfEligible()
+                        if (hasMarkedWatched) break
                     }
+                    lastTickMs = now
                 }
             }
         }
 
-        // Save watched if user swiped away after crossing 30% threshold
+        // Flush watched state when swiping to another page or leaving without querying released ExoPlayer
         DisposableEffect(isActive, post.id) {
             onDispose {
-                if (!hasMarkedWatched && exoPlayer.duration > 0) {
-                    val threshold = (exoPlayer.duration * 30L) / 100L
-                    if (exoPlayer.currentPosition >= threshold) {
-                        hasMarkedWatched = true
-                        onRemoveVideo(post)
-                    }
-                }
+                markWatchedIfEligible()
             }
         }
 
