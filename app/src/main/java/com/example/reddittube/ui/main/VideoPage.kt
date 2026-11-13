@@ -132,7 +132,9 @@ fun VideoPage(
     val perfParams by perfController.params.collectAsStateWithLifecycle()
 
     val exoPlayer = remember(post.id) {
-        val url = post.dashUrl.ifEmpty { post.hlsUrl }.ifEmpty { post.videoUrl }
+        val candidate = post.contentUrl.ifEmpty { post.videoUrl }
+        val cached = com.lean.reddittube.utils.ExternalMediaResolver.getCachedRedgifsVideo(candidate)
+        val url = cached ?: (post.dashUrl.ifEmpty { post.hlsUrl }.ifEmpty { post.videoUrl })
         val cacheDataSourceFactory = com.lean.reddittube.util.MediaCacheManager.getCacheDataSourceFactory(context)
         val loadControl = com.lean.reddittube.util.MediaCacheManager.getAdaptiveLoadControl(
             bufferPlayMs = perfParams.bufferPlayMs,
@@ -149,6 +151,7 @@ fun VideoPage(
                 .setUsage(androidx.media3.common.C.USAGE_MEDIA)
                 .setContentType(androidx.media3.common.C.CONTENT_TYPE_MOVIE)
                 .build(), true)
+            volume = if (isMuted) 0f else 1f
             setMediaItem(MediaItem.Builder().setUri(Uri.parse(url)).build())
             playWhenReady = false
             prepare()
@@ -158,17 +161,23 @@ fun VideoPage(
 
     // Resolve direct Redgifs audio/video stream asynchronously if candidate is from Redgifs
     LaunchedEffect(post.id) {
-        val candidate = post.videoUrl.ifEmpty { post.fallbackUrl }
-        if (com.lean.reddittube.utils.ExternalMediaResolver.isRedgifsUrl(candidate) ||
-            com.lean.reddittube.utils.ExternalMediaResolver.isRedgifsUrl(post.permalink)) {
+        val candidate = post.contentUrl.ifEmpty { post.videoUrl.ifEmpty { post.fallbackUrl } }
+        if (com.lean.reddittube.utils.ExternalMediaResolver.isRedgifsUrl(candidate)) {
             val directUrl = com.lean.reddittube.utils.ExternalMediaResolver.resolveRedgifsVideo(candidate)
             if (directUrl != null && directUrl.isNotEmpty()) {
-                val currentPos = exoPlayer.currentPosition
-                val isPlayingNow = exoPlayer.isPlaying
-                exoPlayer.setMediaItem(MediaItem.Builder().setUri(Uri.parse(directUrl)).build())
-                exoPlayer.prepare()
-                if (currentPos > 0) exoPlayer.seekTo(currentPos)
-                if (isPlayingNow || isActive) exoPlayer.play()
+                val currentUri = exoPlayer.currentMediaItem?.localConfiguration?.uri?.toString()
+                if (currentUri != directUrl) {
+                    val currentPos = exoPlayer.currentPosition
+                    val isPlayingNow = exoPlayer.isPlaying
+                    exoPlayer.setMediaItem(MediaItem.Builder().setUri(Uri.parse(directUrl)).build())
+                    exoPlayer.prepare()
+                    exoPlayer.volume = if (isMuted) 0f else 1f
+                    if (currentPos > 0) exoPlayer.seekTo(currentPos)
+                    if (isPlayingNow || isActive) {
+                        exoPlayer.playWhenReady = true
+                        exoPlayer.play()
+                    }
+                }
             }
         }
     }
@@ -1158,10 +1167,11 @@ Box(
                         onClick = {
                             if (downloadProgress == null) {
                                 coroutineScope.launch {
+                                    val dlUrl = com.lean.reddittube.utils.ExternalMediaResolver.getCachedRedgifsVideo(post.contentUrl.ifEmpty { post.videoUrl }) ?: post.fallbackUrl
                                     DownloadHelper.downloadRedditVideo(
                                         context = context,
-                                        fallbackUrl = post.fallbackUrl,
-                                        dashUrl = post.dashUrl,
+                                        fallbackUrl = dlUrl,
+                                        dashUrl = if (com.lean.reddittube.utils.ExternalMediaResolver.isRedgifsUrl(post.contentUrl)) "" else post.dashUrl,
                                         title = post.title,
                                         onProgress = { text -> downloadProgress = text },
                                         onComplete = { success, result ->

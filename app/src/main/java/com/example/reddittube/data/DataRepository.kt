@@ -38,7 +38,8 @@ data class RedditPost(
     val numComments: Int = 0,
     val duration: Int = 0,
     val over18: Boolean = false,
-    val createdUtc: Long = 0L
+    val createdUtc: Long = 0L,
+    val contentUrl: String = ""
 )
 
 @androidx.compose.runtime.Immutable
@@ -437,12 +438,44 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         if (redditVideo == null) redditVideo = childData.optJSONObject("media")?.optJSONObject("reddit_video")
         if (redditVideo == null) redditVideo = childData.optJSONObject("preview")?.optJSONObject("reddit_video_preview")
 
+        val rawUrl = childData.optString("url_overridden_by_dest", childData.optString("url", "")).ifEmpty {
+            targetData.optString("url_overridden_by_dest", targetData.optString("url", ""))
+        }
+
         var fallbackUrl = ""
         var dashUrl = ""
         var hlsUrl = ""
         var duration = 0
 
-        if (redditVideo != null) {
+        val imgurDirect = com.lean.reddittube.utils.ExternalMediaResolver.resolveImgurDirectUrl(rawUrl)
+        val isRedgifs = com.lean.reddittube.utils.ExternalMediaResolver.isRedgifsUrl(rawUrl)
+
+        if (imgurDirect != null) {
+            fallbackUrl = imgurDirect
+            dashUrl = ""
+            hlsUrl = ""
+        } else if (isRedgifs) {
+            val cachedDirect = com.lean.reddittube.utils.ExternalMediaResolver.getCachedRedgifsVideo(rawUrl)
+            if (cachedDirect != null) {
+                fallbackUrl = cachedDirect
+                dashUrl = ""
+                hlsUrl = ""
+            } else {
+                val previewFallback = targetData.optJSONObject("preview")?.optJSONObject("reddit_video_preview")?.optString("fallback_url")?.replace("&amp;", "&")
+                    ?: childData.optJSONObject("preview")?.optJSONObject("reddit_video_preview")?.optString("fallback_url")?.replace("&amp;", "&")
+                val mp4Variant = (targetData.optJSONObject("preview") ?: childData.optJSONObject("preview"))
+                    ?.optJSONArray("images")
+                    ?.optJSONObject(0)
+                    ?.optJSONObject("variants")
+                    ?.optJSONObject("mp4")
+                    ?.optJSONObject("source")
+                    ?.optString("url", "")
+                    ?.replace("&amp;", "&") ?: ""
+                fallbackUrl = if (!previewFallback.isNullOrEmpty()) previewFallback else if (mp4Variant.isNotEmpty()) mp4Variant else rawUrl
+                dashUrl = ""
+                hlsUrl = ""
+            }
+        } else if (redditVideo != null) {
             fallbackUrl = redditVideo.optString("fallback_url").replace("&amp;", "&")
             dashUrl = redditVideo.optString("dash_url").replace("&amp;", "&")
             hlsUrl = redditVideo.optString("hls_url").replace("&amp;", "&")
@@ -457,11 +490,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 ?.optString("url", "")
                 ?.replace("&amp;", "&") ?: ""
 
-            val rawUrl = childData.optString("url_overridden_by_dest", childData.optString("url", ""))
-            val imgurDirect = com.lean.reddittube.utils.ExternalMediaResolver.resolveImgurDirectUrl(rawUrl)
-            if (imgurDirect != null) {
-                fallbackUrl = imgurDirect
-            } else if (mp4Variant.isNotEmpty()) {
+            if (mp4Variant.isNotEmpty()) {
                 fallbackUrl = mp4Variant
             } else {
                 val directUrl = rawUrl
@@ -515,7 +544,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             numComments = childData.optInt("num_comments"),
             duration = duration,
             over18 = isOver18,
-            createdUtc = createdUtc
+            createdUtc = createdUtc,
+            contentUrl = rawUrl
         )
     }
 
