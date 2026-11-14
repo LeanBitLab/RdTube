@@ -353,33 +353,13 @@ fun VideoPage(
     // Downloader status
     var downloadProgress by remember { mutableStateOf<String?>(null) }
 
-    var originalBrightness by remember { mutableStateOf<Float?>(null) }
     val activity = context as? Activity
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
 
     LaunchedEffect(Unit) {
-        if (originalBrightness == null && activity != null) {
-            val currentAttr = activity.window.attributes.screenBrightness
-            originalBrightness = if (currentAttr in 0.0f..1.0f) currentAttr else android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
-        }
         val savedBright = sharedPreferences.getFloat("pref_brightness", -1f)
-        if (savedBright > 0f && activity != null) {
-            val lp = activity.window.attributes
-            lp.screenBrightness = savedBright
-            activity.window.attributes = lp
+        if (savedBright > 0f) {
             brightnessPercentage = savedBright
-        }
-    }
-
-    // Restore system brightness when leaving the player
-    DisposableEffect(activity) {
-        onDispose {
-            originalBrightness?.let { orig ->
-                activity?.window?.attributes?.let { lp ->
-                    lp.screenBrightness = orig
-                    activity.window.attributes = lp
-                }
-            }
         }
     }
 
@@ -549,61 +529,54 @@ Box(
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .width(48.dp)
+                .width(24.dp)
                 .align(Alignment.CenterStart)
                 .systemGestureExclusion()
                 .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                    detectVerticalDragGestures(
+                        onDragStart = {
                             showBrightnessHud = true
                             showVolumeHud = false
-                            down.consume()
-
-                            val pointerId = down.id
-                            var previousY = down.position.y
-
-                            while (true) {
-                                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                                val change = event.changes.firstOrNull { it.id == pointerId } ?: break
-                                if (!change.pressed) {
-                                    change.consume()
-                                    break
-                                }
-                                val dragAmount = change.position.y - previousY
-                                previousY = change.position.y
-                                change.consume()
-
-                                if (activity != null) {
-                                    val sensitivity = 0.003f
-                                    val currentBright = if (brightnessPercentage < 0f) {
-                                        val lp = activity.window.attributes
-                                        if (lp.screenBrightness < 0f) {
-                                            Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
-                                        } else lp.screenBrightness
-                                    } else brightnessPercentage
-                                    val nextBright = (currentBright - dragAmount * sensitivity).coerceIn(0.01f, 1f)
-                                    val lp = activity.window.attributes
-                                    lp.screenBrightness = nextBright
-                                    activity.window.attributes = lp
-                                    brightnessPercentage = nextBright
-                                    sharedPreferences.edit().putFloat("pref_brightness", nextBright).apply()
-                                }
-
-                                hudJob?.cancel()
-                                hudJob = coroutineScope.launch {
-                                    delay(1000)
-                                    showBrightnessHud = false
-                                }
-                            }
-
+                        },
+                        onDragEnd = {
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
                                 delay(800)
                                 showBrightnessHud = false
                             }
+                        },
+                        onDragCancel = {
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(800)
+                                showBrightnessHud = false
+                            }
+                        },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            if (activity != null) {
+                                val sensitivity = 0.003f
+                                val currentBright = if (brightnessPercentage < 0f) {
+                                    val lp = activity.window.attributes
+                                    if (lp.screenBrightness < 0f) {
+                                        Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
+                                    } else lp.screenBrightness
+                                } else brightnessPercentage
+                                val nextBright = (currentBright - dragAmount * sensitivity).coerceIn(0.01f, 1f)
+                                val lp = activity.window.attributes
+                                lp.screenBrightness = nextBright
+                                activity.window.attributes = lp
+                                brightnessPercentage = nextBright
+                                sharedPreferences.edit().putFloat("pref_brightness", nextBright).apply()
+                            }
+
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(1000)
+                                showBrightnessHud = false
+                            }
                         }
-                    }
+                    )
                 }
         )
 
@@ -611,58 +584,51 @@ Box(
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .width(48.dp)
+                .width(24.dp)
                 .align(Alignment.CenterEnd)
                 .systemGestureExclusion()
                 .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                    detectVerticalDragGestures(
+                        onDragStart = {
                             showVolumeHud = true
                             showBrightnessHud = false
-                            down.consume()
-
-                            val pointerId = down.id
-                            var previousY = down.position.y
-                            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-                            var accumulatedVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxVol
-
-                            while (true) {
-                                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                                val change = event.changes.firstOrNull { it.id == pointerId } ?: break
-                                if (!change.pressed) {
-                                    change.consume()
-                                    break
-                                }
-                                val dragAmount = change.position.y - previousY
-                                previousY = change.position.y
-                                change.consume()
-
-                                val sensitivity = 0.003f
-                                accumulatedVolume = (accumulatedVolume - dragAmount * sensitivity).coerceIn(0f, 1f)
-                                volumePercentage = accumulatedVolume
-
-                                val targetVol = kotlin.math.round(accumulatedVolume * maxVol).toInt().coerceIn(0, maxVol)
-                                val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                if (targetVol != curVol) {
-                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
-                                    onMuteChange(targetVol == 0)
-                                }
-
-                                hudJob?.cancel()
-                                hudJob = coroutineScope.launch {
-                                    delay(1000)
-                                    showVolumeHud = false
-                                }
-                            }
-
+                        },
+                        onDragEnd = {
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
                                 delay(800)
                                 showVolumeHud = false
                             }
+                        },
+                        onDragCancel = {
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(800)
+                                showVolumeHud = false
+                            }
+                        },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                            val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                            val sensitivity = 0.003f
+                            val baseVolume = if (volumePercentage in 0f..1f) volumePercentage else (curVol.toFloat() / maxVol)
+                            val nextVol = (baseVolume - dragAmount * sensitivity).coerceIn(0f, 1f)
+                            volumePercentage = nextVol
+
+                            val targetVol = kotlin.math.round(nextVol * maxVol).toInt().coerceIn(0, maxVol)
+                            if (targetVol != curVol) {
+                                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
+                                onMuteChange(targetVol == 0)
+                            }
+
+                            hudJob?.cancel()
+                            hudJob = coroutineScope.launch {
+                                delay(1000)
+                                showVolumeHud = false
+                            }
                         }
-                    }
+                    )
                 }
         )
 

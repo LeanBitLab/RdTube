@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 object ExternalMediaResolver {
     private const val TAG = "ExternalMediaResolver"
     private const val USER_AGENT = "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+    private const val REDGIFS_ORIGIN = "https://www.redgifs.com"
 
     private val tokenMutex = Mutex()
     private var cachedRedgifsToken: String? = null
@@ -46,14 +47,67 @@ object ExternalMediaResolver {
         val match = Regex("""(?:redgifs\.com|gfycat\.com)/(?:watch|ifr)/([a-zA-Z0-9_-]+)""", RegexOption.IGNORE_CASE).find(clean)
         if (match != null) return match.groupValues[1]
         val last = clean.substringAfterLast('/')
-        val cleanId = last.substringBefore('.').removeSuffix("-mobile").removeSuffix("-silent")
+        val cleanId = last.substringBefore('.').removeSuffix("-mobile").removeSuffix("-silent").removeSuffix("-poster")
         return if (cleanId.isNotEmpty() && !cleanId.contains("redgifs", ignoreCase = true) && !cleanId.contains("gfycat", ignoreCase = true)) cleanId else null
     }
 
     fun getCachedRedgifsVideo(url: String): String? {
         resolvedCache[url]?.let { return it }
-        val id = extractRedgifsId(url)?.lowercase() ?: return null
-        return resolvedCache[id]
+        val id = extractRedgifsId(url) ?: return null
+        resolvedCache[id]?.let { return it }
+        return resolvedCache[id.lowercase()]
+    }
+
+    fun cacheDirectRedgifsUrl(key: String, directUrl: String) {
+        resolvedCache[key] = directUrl
+        extractRedgifsId(key)?.let { id ->
+            resolvedCache[id] = directUrl
+            resolvedCache[id.lowercase()] = directUrl
+        }
+        extractRedgifsId(directUrl)?.let { id ->
+            resolvedCache[id] = directUrl
+            resolvedCache[id.lowercase()] = directUrl
+        }
+    }
+
+    /**
+     * Resolves direct Redgifs audio/video stream instantly from Reddit's oembed data.
+     * Reddit embeds contain `oembed.thumbnail_url` pointing to the exact-cased CDN poster,
+     * e.g., `https://media.redgifs.com/AzureWateryMarmoset-poster.jpg`.
+     * Replacing `-poster.jpg` with `.mp4` yields the direct HD MP4 with audio without requiring an API round-trip.
+     */
+    fun resolveDirectRedgifsUrlFromPost(targetData: JSONObject, childData: JSONObject): String? {
+        val oembed = targetData.optJSONObject("media")?.optJSONObject("oembed")
+            ?: targetData.optJSONObject("secure_media")?.optJSONObject("oembed")
+            ?: childData.optJSONObject("media")?.optJSONObject("oembed")
+            ?: childData.optJSONObject("secure_media")?.optJSONObject("oembed")
+
+        val thumb = oembed?.optString("thumbnail_url", "")?.takeIf { it.isNotEmpty() }
+            ?: (targetData.optJSONObject("preview") ?: childData.optJSONObject("preview"))
+                ?.optJSONArray("images")
+                ?.optJSONObject(0)
+                ?.optJSONObject("source")
+                ?.optString("url", "")
+                ?.replace("&amp;", "&")
+
+        if (thumb != null && isRedgifsUrl(thumb)) {
+            val direct = when {
+                thumb.contains("-poster.jpg") -> thumb.replace("-poster.jpg", ".mp4")
+                thumb.contains("-mobile.jpg") -> thumb.replace("-mobile.jpg", ".mp4")
+                thumb.endsWith(".jpg") -> thumb.substringBeforeLast(".jpg") + ".mp4"
+                thumb.endsWith(".png") -> thumb.substringBeforeLast(".png") + ".mp4"
+                else -> null
+            }
+            if (direct != null) {
+                val rawUrl = targetData.optString("url_overridden_by_dest", targetData.optString("url", "")).ifEmpty {
+                    childData.optString("url_overridden_by_dest", childData.optString("url", ""))
+                }
+                if (rawUrl.isNotEmpty()) cacheDirectRedgifsUrl(rawUrl, direct)
+                cacheDirectRedgifsUrl(direct, direct)
+                return direct
+            }
+        }
+        return null
     }
 
     suspend fun resolveRedgifsVideo(url: String): String? = withContext(Dispatchers.IO) {
@@ -68,11 +122,14 @@ object ExternalMediaResolver {
             conn.requestMethod = "GET"
             conn.setRequestProperty("Authorization", "Bearer $token")
             conn.setRequestProperty("User-Agent", USER_AGENT)
-            conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("Referer", "$REDGIFS_ORIGIN/")
+            conn.setRequestProperty("Origin", REDGIFS_ORIGIN)
+            conn.setRequestProperty("Accept", "application/json, text/plain, */*")
             conn.connectTimeout = 6000
             conn.readTimeout = 6000
 
-            if (conn.responseCode == 200) {
+            val code = conn.responseCode
+            if (code == 200) {
                 val raw = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(raw)
                 val urls = json.optJSONObject("gif")?.optJSONObject("urls")
@@ -80,16 +137,17 @@ object ExternalMediaResolver {
                 val sd = urls?.optString("sd")?.takeIf { it.isNotEmpty() }
                 val resolved = (hd ?: sd)
                 if (resolved != null) {
-                    resolvedCache[url] = resolved
-                    resolvedCache[gifId.lowercase()] = resolved
+                    cacheDirectRedgifsUrl(url, resolved)
                     return@withContext resolved
                 }
-            } else if (conn.responseCode == 401 || conn.responseCode == 403) {
-                // Invalidate cached token on auth error
+            } else if (code == 401 || code == 403) {
+                Log.w(TAG, "Redgifs API auth failure $code for $gifId, clearing token")
                 tokenMutex.withLock {
                     cachedRedgifsToken = null
                     tokenExpiryTime = 0L
                 }
+            } else {
+                Log.w(TAG, "Redgifs API response $code for $gifId")
             }
         } catch (e: Exception) {
             Log.w(TAG, "Redgifs audio resolution failed for $gifId: ${e.message}")
@@ -107,11 +165,14 @@ object ExternalMediaResolver {
                 val conn = URL("https://api.redgifs.com/v2/auth/temporary").openConnection() as HttpURLConnection
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("User-Agent", USER_AGENT)
-                conn.setRequestProperty("Accept", "application/json")
+                conn.setRequestProperty("Referer", "$REDGIFS_ORIGIN/")
+                conn.setRequestProperty("Origin", REDGIFS_ORIGIN)
+                conn.setRequestProperty("Accept", "application/json, text/plain, */*")
                 conn.connectTimeout = 6000
                 conn.readTimeout = 6000
 
-                if (conn.responseCode == 200) {
+                val code = conn.responseCode
+                if (code == 200) {
                     val raw = conn.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(raw)
                     val token = json.optString("token").takeIf { it.isNotEmpty() }
@@ -120,6 +181,8 @@ object ExternalMediaResolver {
                         tokenExpiryTime = now + (12 * 3600 * 1000L) // 12 hours
                         return@withLock token
                     }
+                } else {
+                    Log.w(TAG, "Failed to get temporary token, HTTP $code")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to fetch Redgifs temporary token: ${e.message}")

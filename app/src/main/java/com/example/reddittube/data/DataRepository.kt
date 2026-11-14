@@ -438,8 +438,12 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         if (redditVideo == null) redditVideo = childData.optJSONObject("media")?.optJSONObject("reddit_video")
         if (redditVideo == null) redditVideo = childData.optJSONObject("preview")?.optJSONObject("reddit_video_preview")
 
-        val rawUrl = childData.optString("url_overridden_by_dest", childData.optString("url", "")).ifEmpty {
-            targetData.optString("url_overridden_by_dest", targetData.optString("url", ""))
+        val rawUrl = targetData.optString("url_overridden_by_dest", targetData.optString("url", "")).ifEmpty {
+            childData.optString("url_overridden_by_dest", childData.optString("url", ""))
+        }.let {
+            if (it.contains("reddit.com/r/") && childData.optString("url_overridden_by_dest").isNotEmpty()) {
+                childData.optString("url_overridden_by_dest")
+            } else it
         }
 
         var fallbackUrl = ""
@@ -448,16 +452,21 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         var duration = 0
 
         val imgurDirect = com.lean.reddittube.utils.ExternalMediaResolver.resolveImgurDirectUrl(rawUrl)
-        val isRedgifs = com.lean.reddittube.utils.ExternalMediaResolver.isRedgifsUrl(rawUrl)
+        val isRedgifs = com.lean.reddittube.utils.ExternalMediaResolver.isRedgifsUrl(rawUrl) ||
+            targetData.optString("domain", "").contains("redgifs", ignoreCase = true) ||
+            childData.optString("domain", "").contains("redgifs", ignoreCase = true) ||
+            targetData.optJSONObject("media")?.optString("type", "")?.contains("redgifs", ignoreCase = true) == true ||
+            childData.optJSONObject("media")?.optString("type", "")?.contains("redgifs", ignoreCase = true) == true
 
         if (imgurDirect != null) {
             fallbackUrl = imgurDirect
             dashUrl = ""
             hlsUrl = ""
         } else if (isRedgifs) {
-            val cachedDirect = com.lean.reddittube.utils.ExternalMediaResolver.getCachedRedgifsVideo(rawUrl)
-            if (cachedDirect != null) {
-                fallbackUrl = cachedDirect
+            val directRedgifs = com.lean.reddittube.utils.ExternalMediaResolver.resolveDirectRedgifsUrlFromPost(targetData, childData)
+                ?: com.lean.reddittube.utils.ExternalMediaResolver.getCachedRedgifsVideo(rawUrl)
+            if (directRedgifs != null) {
+                fallbackUrl = directRedgifs
                 dashUrl = ""
                 hlsUrl = ""
             } else {

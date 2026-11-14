@@ -50,6 +50,27 @@ class ExternalMediaResolverTest {
     }
 
     @Test
+    fun testResolveDirectRedgifsUrlFromPost() {
+        val oembed = org.json.JSONObject().apply {
+            put("thumbnail_url", "https://media.redgifs.com/AzureWateryMarmoset-poster.jpg")
+        }
+        val media = org.json.JSONObject().apply {
+            put("type", "redgifs.com")
+            put("oembed", oembed)
+        }
+        val targetData = org.json.JSONObject().apply {
+            put("url", "https://redgifs.com/watch/azurewaterymarmoset")
+            put("media", media)
+        }
+        val childData = org.json.JSONObject()
+
+        val direct = ExternalMediaResolver.resolveDirectRedgifsUrlFromPost(targetData, childData)
+        assertEquals("https://media.redgifs.com/AzureWateryMarmoset.mp4", direct)
+        assertEquals("https://media.redgifs.com/AzureWateryMarmoset.mp4", ExternalMediaResolver.getCachedRedgifsVideo("https://redgifs.com/watch/azurewaterymarmoset"))
+        assertEquals("https://media.redgifs.com/AzureWateryMarmoset.mp4", ExternalMediaResolver.getCachedRedgifsVideo("azurewaterymarmoset"))
+    }
+
+    @Test
     fun testPostDataClassWithContentUrl() {
         val post = RedditPost(
             id = "test_post_id",
