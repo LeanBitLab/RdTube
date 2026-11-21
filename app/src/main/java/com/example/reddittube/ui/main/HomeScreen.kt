@@ -1026,41 +1026,53 @@ fun VideoCard(
                         }
                     }
 
-                    // Bottom-Right Overlays: 18+ Micro Badge & Duration
+                    // Bottom-Right Overlays: 18+ Micro Badge & Media Indicator (GIF/VID + Duration)
+                    val isGif = post.isGifMedia
+                    val typeLabel = if (isGif) "GIF" else "VID"
                     val durationStr = formatDuration(post.duration)
-                    if (post.over18 || durationStr.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier
-                                .padding(10.dp)
-                                .align(Alignment.BottomEnd),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (post.over18) {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF222222)
-                                ) {
-                                    Text(
-                                        text = "18+",
-                                        color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                    )
-                                }
+
+                    Row(
+                        modifier = Modifier
+                            .padding(10.dp)
+                            .align(Alignment.BottomEnd),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (post.over18) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF222222)
+                            ) {
+                                Text(
+                                    text = "18+",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
                             }
-                            if (durationStr.isNotEmpty()) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color.Black.copy(alpha = 0.85f)
-                                ) {
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.Black.copy(alpha = 0.85f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = typeLabel,
+                                    color = if (isGif) Color(0xFF90CAF9) else Color(0xFFBDBDBD),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                if (durationStr.isNotEmpty()) {
                                     Text(
                                         text = durationStr,
                                         color = Color.White,
                                         fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }

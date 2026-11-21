@@ -86,9 +86,34 @@ class ExternalMediaResolverTest {
             fallbackUrl = "https://preview.redd.it/preview.mp4",
             dashUrl = "",
             hlsUrl = "",
-            contentUrl = "https://www.redgifs.com/watch/CleverCuteCat"
+            contentUrl = "https://www.redgifs.com/watch/CleverCuteCat",
+            isGif = true
         )
 
         assertEquals("https://www.redgifs.com/watch/CleverCuteCat", post.contentUrl)
+        assertTrue(post.isGif)
+        assertTrue(post.isGifMedia)
+
+        val json = post.toJson()
+        val deserialized = json.toRedditPost()
+        assertTrue(deserialized.isGif)
+        assertTrue(deserialized.isGifMedia)
+        assertEquals(post.contentUrl, deserialized.contentUrl)
+
+        val normalVideo = RedditPost(
+            id = "vid_1",
+            title = "Normal Video",
+            subreddit = "videos",
+            author = "author2",
+            score = 50,
+            permalink = "/r/videos/comments/vid_1/",
+            videoUrl = "https://v.redd.it/xyz123/DASH_720.mp4",
+            fallbackUrl = "https://v.redd.it/xyz123/DASH_480.mp4",
+            dashUrl = "https://v.redd.it/xyz123/DASHPlaylist.mpd",
+            hlsUrl = "",
+            contentUrl = "https://v.redd.it/xyz123"
+        )
+        assertFalse(normalVideo.isGif)
+        assertFalse(normalVideo.isGifMedia)
     }
 }

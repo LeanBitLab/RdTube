@@ -39,8 +39,20 @@ data class RedditPost(
     val duration: Int = 0,
     val over18: Boolean = false,
     val createdUtc: Long = 0L,
-    val contentUrl: String = ""
-)
+    val contentUrl: String = "",
+    val isGif: Boolean = false
+) {
+    val isGifMedia: Boolean
+        get() = isGif ||
+            contentUrl.contains("redgifs.com", ignoreCase = true) ||
+            contentUrl.contains("gfycat.com", ignoreCase = true) ||
+            videoUrl.contains("redgifs.com", ignoreCase = true) ||
+            fallbackUrl.contains("redgifs.com", ignoreCase = true) ||
+            contentUrl.endsWith(".gif", ignoreCase = true) ||
+            contentUrl.endsWith(".gifv", ignoreCase = true) ||
+            videoUrl.endsWith(".gif", ignoreCase = true) ||
+            fallbackUrl.endsWith(".gif", ignoreCase = true)
+}
 
 @androidx.compose.runtime.Immutable
 data class RedditComment(
@@ -538,6 +550,17 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             if (it > 0L) it else (targetData.optDouble("created_utc", 0.0)).toLong()
         }
 
+        val isRedditGif = redditVideo?.optBoolean("is_gif", false) == true
+        val hasGifVariant = (targetData.optJSONObject("preview") ?: childData.optJSONObject("preview"))
+            ?.optJSONArray("images")
+            ?.optJSONObject(0)
+            ?.optJSONObject("variants")
+            ?.has("gif") == true
+        val isGifUrl = rawUrl.contains(".gif", ignoreCase = true) ||
+            childData.optString("url", "").contains(".gif", ignoreCase = true) ||
+            targetData.optString("url", "").contains(".gif", ignoreCase = true)
+        val isGifDetected = isRedgifs || isRedditGif || hasGifVariant || isGifUrl
+
         return RedditPost(
             id = childData.optString("id"),
             title = childData.optString("title"),
@@ -554,7 +577,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             duration = duration,
             over18 = isOver18,
             createdUtc = createdUtc,
-            contentUrl = rawUrl
+            contentUrl = rawUrl,
+            isGif = isGifDetected
         )
     }
 
