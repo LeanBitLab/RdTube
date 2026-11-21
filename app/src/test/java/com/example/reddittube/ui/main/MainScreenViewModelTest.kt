@@ -25,7 +25,8 @@ class FakeRepository(
     private val fetchMoreResult: () -> Flow<FetchMoreResult> = { flowOf(FetchMoreResult(emptyList(), emptyMap())) },
     private val afterMap: () -> Map<String, String?> = { emptyMap() },
     private val onSaveAfterMap: (Map<String, String?>) -> Unit = {},
-    private val videoSearchResult: (String, String) -> Flow<com.lean.reddittube.data.SearchVideosResult> = { _, _ -> flowOf(com.lean.reddittube.data.SearchVideosResult(emptyList(), null)) }
+    private val videoSearchResult: (String, String) -> Flow<com.lean.reddittube.data.SearchVideosResult> = { _, _ -> flowOf(com.lean.reddittube.data.SearchVideosResult(emptyList(), null)) },
+    private val videoSearchResultWithSub: ((String, String, String?) -> Flow<com.lean.reddittube.data.SearchVideosResult>)? = null
 ) : DataRepository {
     val mockPrefs: SharedPreferences = Mockito.mock(SharedPreferences::class.java).also { prefs ->
         Mockito.`when`(prefs.getStringSet(Mockito.any(), Mockito.any())).thenReturn(emptySet())
@@ -48,7 +49,8 @@ class FakeRepository(
     override fun searchSubreddits(query: String) = searchResult()
     override fun searchSubredditsPaged(query: String, after: String?): Flow<com.lean.reddittube.data.SearchSubredditsResult> = flowOf(com.lean.reddittube.data.SearchSubredditsResult(emptyList(), null))
     override fun searchRedditVideos(query: String, sort: String, subreddit: String?) = flowOf(emptyList<RedditPost>())
-    override fun searchRedditVideosPaged(query: String, sort: String, after: String?, subreddit: String?): Flow<com.lean.reddittube.data.SearchVideosResult> = videoSearchResult(query, sort)
+    override fun searchRedditVideosPaged(query: String, sort: String, after: String?, subreddit: String?): Flow<com.lean.reddittube.data.SearchVideosResult> =
+        videoSearchResultWithSub?.invoke(query, sort, subreddit) ?: videoSearchResult(query, sort)
     override fun fetchMoreVideos(subreddits: String, afterMap: Map<String, String?>, sort: String, feed: String) = fetchMoreResult()
     override fun fetchPostComments(subreddit: String, postId: String): Flow<List<com.lean.reddittube.data.RedditComment>> = flowOf(emptyList())
     override fun getAfterMap(feed: String): Map<String, String?> = afterMap()
@@ -225,6 +227,26 @@ class MainScreenViewModelTest {
         val results = viewModel.videoSearchResults.value
         assert(results.size == 1)
         assert(results.first().id == "search_1")
+    }
+
+    @Test
+    fun `searchVideos with subreddit scopes search to subreddit`() = runTest(testDispatcher) {
+        val searchPost = RedditPost("sub_1", "Sub Video", "gaming", "author", 50, "/r/gaming/1", "url", "url", "", "")
+        var capturedSub: String? = null
+        val repo = FakeRepository(
+            videoSearchResultWithSub = { query, sort, sub ->
+                capturedSub = sub
+                flowOf(com.lean.reddittube.data.SearchVideosResult(listOf(searchPost), "cursor_sub"))
+            }
+        )
+        val viewModel = MainScreenViewModel(repo)
+        viewModel.searchVideos("zelda", sort = "hot", immediate = true, subreddit = "gaming")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assert(capturedSub == "gaming")
+        val results = viewModel.videoSearchResults.value
+        assert(results.size == 1)
+        assert(results.first().id == "sub_1")
     }
 
     @Test

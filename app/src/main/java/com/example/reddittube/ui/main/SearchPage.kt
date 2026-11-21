@@ -2,6 +2,8 @@ package com.lean.reddittube.ui.main
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -78,6 +80,7 @@ enum class SearchVideoFilter(val sortParam: String, val label: String) {
 
 @Composable
 fun SearchPage(
+    currentSubreddit: String? = null,
     currentSubscribed: Set<String>,
     onSubscribeToggle: (String) -> Unit,
     onSubredditSelect: (String) -> Unit,
@@ -89,7 +92,7 @@ fun SearchPage(
     isVideoSearching: Boolean,
     onLoadMoreVideos: () -> Unit = {},
     isVideoSearchingMore: Boolean = false,
-    onVideoSearchQuery: (String, String, Boolean) -> Unit,
+    onVideoSearchQuery: (String, String, Boolean, String?) -> Unit,
     onVideoClick: (List<RedditPost>, Int) -> Unit,
     likedIds: Set<String> = emptySet(),
     onLike: (RedditPost) -> Unit = {},
@@ -102,9 +105,17 @@ fun SearchPage(
     val hapticFeedback = LocalHapticFeedback.current
     val sharedPreferences = remember { context.getSharedPreferences("rdtube_prefs", Context.MODE_PRIVATE) }
     
-    var selectedTab by rememberSaveable { mutableStateOf(SearchTab.SUBREDDITS) }
+    var activeSubredditFilter by remember(currentSubreddit) { mutableStateOf(currentSubreddit) }
+    var selectedTab by rememberSaveable { mutableStateOf(if (currentSubreddit != null) SearchTab.VIDEOS else SearchTab.SUBREDDITS) }
     var selectedVideoFilter by rememberSaveable { mutableStateOf(SearchVideoFilter.RELEVANCE) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(currentSubreddit) {
+        if (currentSubreddit != null) {
+            activeSubredditFilter = currentSubreddit
+            selectedTab = SearchTab.VIDEOS
+        }
+    }
 
     var recentSearches by remember {
         mutableStateOf(
@@ -117,16 +128,16 @@ fun SearchPage(
         if (selectedTab == SearchTab.SUBREDDITS) {
             onSearchQuery("", true)
         } else {
-            onVideoSearchQuery("", selectedVideoFilter.sortParam, true)
+            onVideoSearchQuery("", selectedVideoFilter.sortParam, true, activeSubredditFilter)
         }
     }
 
-    LaunchedEffect(searchQuery, selectedTab, selectedVideoFilter) {
+    LaunchedEffect(searchQuery, selectedTab, selectedVideoFilter, activeSubredditFilter) {
         if (searchQuery.isNotBlank()) {
             if (selectedTab == SearchTab.SUBREDDITS) {
                 onSearchQuery(searchQuery, false)
             } else {
-                onVideoSearchQuery(searchQuery, selectedVideoFilter.sortParam, false)
+                onVideoSearchQuery(searchQuery, selectedVideoFilter.sortParam, false, activeSubredditFilter)
             }
         }
     }
@@ -184,7 +195,11 @@ fun SearchPage(
                 onValueChange = { searchQuery = it },
                 placeholder = {
                     Text(
-                        text = if (selectedTab == SearchTab.SUBREDDITS) "Search subreddits (e.g. videos, gaming)..." else "Search videos across Reddit...",
+                        text = when {
+                            selectedTab == SearchTab.SUBREDDITS -> "Search subreddits (e.g. videos, gaming)..."
+                            activeSubredditFilter != null -> "Search videos in r/$activeSubredditFilter..."
+                            else -> "Search videos across Reddit..."
+                        },
                         color = TextMuted,
                         fontSize = 12.5.sp
                     )
@@ -223,7 +238,7 @@ fun SearchPage(
                                     if (selectedTab == SearchTab.SUBREDDITS) {
                                         onSearchQuery("", true)
                                     } else {
-                                        onVideoSearchQuery("", selectedVideoFilter.sortParam, true)
+                                        onVideoSearchQuery("", selectedVideoFilter.sortParam, true, activeSubredditFilter)
                                     }
                                 },
                             contentAlignment = Alignment.Center
@@ -250,7 +265,7 @@ fun SearchPage(
                             if (selectedTab == SearchTab.SUBREDDITS) {
                                 onSearchQuery(cleanQuery, true)
                             } else {
-                                onVideoSearchQuery(cleanQuery, selectedVideoFilter.sortParam, true)
+                                onVideoSearchQuery(cleanQuery, selectedVideoFilter.sortParam, true, activeSubredditFilter)
                             }
                         }
                     }
@@ -267,6 +282,72 @@ fun SearchPage(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        // Subreddit Scoped Search Filter Pill (when in custom subreddit)
+        AnimatedVisibility(
+            visible = activeSubredditFilter != null && selectedTab == SearchTab.VIDEOS,
+            enter = fadeIn(tween(150)) + expandVertically(tween(150)),
+            exit = fadeOut(tween(150)) + shrinkVertically(tween(150))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = SearchCardBg,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2E2E2E))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.FilterList,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = "In r/$activeSubredditFilter",
+                            color = TextPrimary,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .background(SearchPillBg)
+                                .clickable {
+                                    activeSubredditFilter = null
+                                    if (searchQuery.isNotBlank()) {
+                                        onVideoSearchQuery(searchQuery, selectedVideoFilter.sortParam, true, null)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Search all Reddit",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(11.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Searching within subreddit",
+                    color = TextMuted,
+                    fontSize = 11.sp
+                )
+            }
         }
 
         // Segmented Search Tab Bar [Subreddits | Videos]
@@ -572,7 +653,7 @@ fun SearchPage(
                                         onClick = {
                                             selectedVideoFilter = filter
                                             if (searchQuery.isNotBlank()) {
-                                                onVideoSearchQuery(searchQuery, filter.sortParam, true)
+                                                onVideoSearchQuery(searchQuery, filter.sortParam, true, activeSubredditFilter)
                                             }
                                         },
                                         shape = RoundedCornerShape(12.dp),
@@ -641,7 +722,7 @@ fun SearchPage(
                                                         Row(
                                                             modifier = Modifier.clickable {
                                                                 searchQuery = recent
-                                                                onVideoSearchQuery(recent, selectedVideoFilter.sortParam, true)
+                                                                onVideoSearchQuery(recent, selectedVideoFilter.sortParam, true, activeSubredditFilter)
                                                                 saveSearchHistory(recent)
                                                             },
                                                             verticalAlignment = Alignment.CenterVertically
@@ -693,7 +774,7 @@ fun SearchPage(
                                                         onClick = {
                                                             hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                             searchQuery = tag
-                                                            onVideoSearchQuery(tag, selectedVideoFilter.sortParam, true)
+                                                            onVideoSearchQuery(tag, selectedVideoFilter.sortParam, true, activeSubredditFilter)
                                                             saveSearchHistory(tag)
                                                         },
                                                         shape = RoundedCornerShape(12.dp),
@@ -737,10 +818,18 @@ fun SearchPage(
                                                 Icon(Icons.Outlined.PlayCircleOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
                                             }
                                             Spacer(Modifier.height(10.dp))
-                                            Text("Search Across All Reddit Videos", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                text = if (activeSubredditFilter != null) "Search Videos in r/$activeSubredditFilter" else "Search Across All Reddit Videos",
+                                                color = TextPrimary,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                             Spacer(Modifier.height(4.dp))
                                             Text(
-                                                text = "Type any keyword below to find playable video clips Reddit-wide.",
+                                                text = if (activeSubredditFilter != null)
+                                                    "Type any keyword above to find playable video clips in r/$activeSubredditFilter."
+                                                else
+                                                    "Type any keyword below to find playable video clips Reddit-wide.",
                                                 color = TextMuted,
                                                 fontSize = 12.sp,
                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -802,7 +891,7 @@ fun SearchPage(
                                         Button(
                                             onClick = {
                                                 searchQuery = ""
-                                                onVideoSearchQuery("", selectedVideoFilter.sortParam, true)
+                                                onVideoSearchQuery("", selectedVideoFilter.sortParam, true, activeSubredditFilter)
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = SearchButtonBg, contentColor = Color.White),
                                             shape = RoundedCornerShape(10.dp)

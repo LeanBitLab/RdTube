@@ -115,51 +115,35 @@ fun HomeScreen(
     val isCustomExplore = viewModel.exploreQuery != defaultExploreQuery
     val isCustomSubscribed = viewModel.subscribedQuery.isNotEmpty() && viewModel.subscribedQuery != defaultSubscribedQuery
 
-    val tabBackStack = remember { mutableStateListOf(0) }
+    val tabBackStack = remember { mutableStateListOf<Int>() }
     var originPageBeforeExplore by remember { mutableStateOf<Int?>(null) }
-
-    val isSubredditSearchActive by viewModel.isSubredditSearchActive.collectAsStateWithLifecycle()
-    val subredditSearchResults by viewModel.subredditSearchResults.collectAsStateWithLifecycle()
-    val isSubredditSearching by viewModel.isSubredditSearching.collectAsStateWithLifecycle()
-    val isSubredditSearchingMore by viewModel.isSubredditSearchingMore.collectAsStateWithLifecycle()
-    var inSubredditSearchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(viewModel.exploreQuery) {
         if (viewModel.exploreQuery != defaultExploreQuery && horizontalPagerState.currentPage != 0) {
             if (originPageBeforeExplore == null) {
                 originPageBeforeExplore = horizontalPagerState.currentPage
             }
-            if (tabBackStack.isEmpty() || tabBackStack.last() != 0) {
-                tabBackStack.add(0)
-            }
+            tabBackStack.clear()
             horizontalPagerState.scrollToPage(0)
         }
     }
 
     BackHandler(enabled = true) {
         when {
-            isSubredditSearchActive -> {
-                viewModel.setSubredditSearchActive(false)
-                inSubredditSearchQuery = ""
-            }
-            horizontalPagerState.currentPage == 0 && isCustomExplore && originPageBeforeExplore != null -> {
-                val targetPage = originPageBeforeExplore!!
-                originPageBeforeExplore = null
-                if (tabBackStack.isNotEmpty() && tabBackStack.last() == 0) {
-                    tabBackStack.removeAt(tabBackStack.lastIndex)
-                }
-                viewModel.refreshExplore(defaultExploreQuery)
-                coroutineScope.launch { horizontalPagerState.animateScrollToPage(targetPage) }
-            }
             horizontalPagerState.currentPage == 0 && isCustomExplore -> {
                 viewModel.refreshExplore(defaultExploreQuery)
+                if (originPageBeforeExplore != null) {
+                    val targetPage = originPageBeforeExplore!!
+                    originPageBeforeExplore = null
+                    coroutineScope.launch { horizontalPagerState.animateScrollToPage(targetPage) }
+                }
             }
             horizontalPagerState.currentPage == 1 && isCustomSubscribed -> {
                 viewModel.refreshSubscribed(defaultSubscribedQuery)
             }
-            tabBackStack.size > 1 -> {
+            tabBackStack.isNotEmpty() -> {
                 tabBackStack.removeAt(tabBackStack.lastIndex)
-                val target = tabBackStack.last()
+                val target = tabBackStack.lastOrNull() ?: 0
                 coroutineScope.launch { horizontalPagerState.animateScrollToPage(target) }
             }
             horizontalPagerState.currentPage != 0 -> {
@@ -191,52 +175,25 @@ fun HomeScreen(
             beyondViewportPageCount = 1
         ) { pageIndex ->
             when (pageIndex) {
-                0 -> {
-                    val activeExploreState = if (isSubredditSearchActive && inSubredditSearchQuery.trim().length >= 2) {
-                        if (isSubredditSearching && subredditSearchResults.isEmpty()) {
-                            MainScreenUiState.Loading
-                        } else {
-                            MainScreenUiState.Success(
-                                data = subredditSearchResults,
-                                isLoadingMore = isSubredditSearchingMore
-                            )
-                        }
-                    } else {
-                        exploreState
-                    }
-
-                    BrowseGrid(
-                        uiState = activeExploreState,
-                        likedIds = likedIds,
-                        onLike = viewModel::toggleLike,
-                        onItemClick = { list: List<RedditPost>, index: Int ->
-                            viewModel.openPlayer(list, index, if (isSubredditSearchActive) "search" else "explore")
-                            onItemClick()
-                        },
-                        onSubredditClick = { sub ->
-                            viewModel.refreshExplore(sub)
-                            coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
-                        },
-                        onCommentClick = { post -> activeCommentPost = post },
-                        onLoadMore = {
-                            if (isSubredditSearchActive && inSubredditSearchQuery.trim().length >= 2) {
-                                viewModel.loadMoreSubredditVideos()
-                            } else {
-                                viewModel.loadMore(true)
-                            }
-                        },
-                        onRefresh = {
-                            if (isSubredditSearchActive && inSubredditSearchQuery.trim().length >= 2) {
-                                viewModel.searchSubredditVideos(viewModel.exploreQuery, inSubredditSearchQuery, immediate = true)
-                            } else {
-                                viewModel.refreshExplore()
-                            }
-                        },
-                        onRemoveVideo = viewModel::hidePost,
-                        onScrollDirection = { bottomBarVisible = !it },
-                        isLoadingMore = if (isSubredditSearchActive) isSubredditSearchingMore else ((exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false)
-                    )
-                }
+                0 -> BrowseGrid(
+                    uiState = exploreState,
+                    likedIds = likedIds,
+                    onLike = viewModel::toggleLike,
+                    onItemClick = { list: List<RedditPost>, index: Int ->
+                        viewModel.openPlayer(list, index, "explore")
+                        onItemClick()
+                    },
+                    onSubredditClick = { sub ->
+                        viewModel.refreshExplore(sub)
+                        coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
+                    },
+                    onCommentClick = { post -> activeCommentPost = post },
+                    onLoadMore = { viewModel.loadMore(true) },
+                    onRefresh = { viewModel.refreshExplore() },
+                    onRemoveVideo = viewModel::hidePost,
+                    onScrollDirection = { bottomBarVisible = !it },
+                    isLoadingMore = (exploreState as? MainScreenUiState.Success)?.isLoadingMore ?: false
+                )
                 1 -> BrowseGrid(
                     uiState = subscribedState,
                     likedIds = likedIds,
@@ -253,13 +210,12 @@ fun HomeScreen(
                     isLoadingMore = (subscribedState as? MainScreenUiState.Success)?.isLoadingMore ?: false
                 )
                 2 -> SearchPage(
+                    currentSubreddit = if (isCustomExplore) viewModel.exploreQuery else null,
                     currentSubscribed = subscribedSubreddits,
                     onSubscribeToggle = viewModel::toggleSubscription,
                     onSubredditSelect = { sub ->
                         originPageBeforeExplore = 2
-                        if (tabBackStack.isEmpty() || tabBackStack.last() != 0) {
-                            tabBackStack.add(0)
-                        }
+                        tabBackStack.clear()
                         viewModel.refreshExplore(sub)
                         coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
                     },
@@ -271,7 +227,9 @@ fun HomeScreen(
                     isVideoSearching = viewModel.isVideoSearching.collectAsStateWithLifecycle().value,
                     onLoadMoreVideos = { viewModel.loadMoreVideos() },
                     isVideoSearchingMore = viewModel.isVideoSearchingMore.collectAsStateWithLifecycle().value,
-                    onVideoSearchQuery = { query, sort, immediate -> viewModel.searchVideos(query, sort = sort, immediate = immediate) },
+                    onVideoSearchQuery = { query, sort, immediate, sub ->
+                        viewModel.searchVideos(query, sort = sort, immediate = immediate, subreddit = sub)
+                    },
                     onVideoClick = { list, index ->
                         viewModel.openPlayer(list, index, "search")
                         onItemClick()
@@ -289,9 +247,7 @@ fun HomeScreen(
                     },
                     onSubredditClick = { sub ->
                         originPageBeforeExplore = 3
-                        if (tabBackStack.isEmpty() || tabBackStack.last() != 0) {
-                            tabBackStack.add(0)
-                        }
+                        tabBackStack.clear()
                         viewModel.refreshExplore(sub)
                         coroutineScope.launch { horizontalPagerState.scrollToPage(0) }
                     },
@@ -311,219 +267,113 @@ fun HomeScreen(
                 .height(TopBarHeight)
                 .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent)))
         ) {
-            if (isSubredditSearchActive && isCustomExplore && horizontalPagerState.currentPage == 0) {
-                // In-subreddit active search bar
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = HPad),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (isCustomExplore && horizontalPagerState.currentPage == 0) {
+                    // Custom Subreddit Title on Top Left with Back Arrow
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(SurfacePill)
+                                .clickable {
+                                    viewModel.refreshExplore(defaultExploreQuery)
+                                    if (originPageBeforeExplore != null) {
+                                        val target = originPageBeforeExplore!!
+                                        originPageBeforeExplore = null
+                                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(target) }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(18.dp))
+                        }
+                        Text(
+                            text = "r/${viewModel.exploreQuery}",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } else {
+                    // Brand Logo
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                if (horizontalPagerState.currentPage != 0) {
+                                    coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
+                                } else {
+                                    viewModel.refreshExplore(defaultExploreQuery)
+                                }
+                            }
+                        )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .background(Color.White, shape = RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Rd", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Text("Tube", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                    }
+                }
+
+                // Top Right Controls (Sort trigger)
                 Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = HPad),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(SurfacePill)
-                            .clickable {
-                                viewModel.setSubredditSearchActive(false)
-                                inSubredditSearchQuery = ""
-                            },
-                        contentAlignment = Alignment.Center
+                    // Sort Trigger Pill on Top Right (visible when on Explore or Subscribed feed)
+                    AnimatedVisibility(
+                        visible = horizontalPagerState.currentPage == 0 || horizontalPagerState.currentPage == 1,
+                        enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.9f),
+                        exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.9f)
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Close search", tint = Color.White, modifier = Modifier.size(18.dp))
-                    }
-
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(36.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        color = SurfacePill
-                    ) {
-                        Row(
+                        Surface(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .height(34.dp)
+                                .clip(RoundedCornerShape(17.dp))
+                                .clickable { showSortSheet = true },
+                            shape = RoundedCornerShape(17.dp),
+                            color = SurfacePill
                         ) {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            BasicTextField(
-                                value = inSubredditSearchQuery,
-                                onValueChange = {
-                                    inSubredditSearchQuery = it
-                                    viewModel.searchSubredditVideos(viewModel.exploreQuery, it, immediate = false)
-                                },
-                                modifier = Modifier.weight(1f),
-                                textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 13.sp),
-                                singleLine = true,
-                                cursorBrush = SolidColor(Color.White),
-                                decorationBox = { innerTextField ->
-                                    if (inSubredditSearchQuery.isEmpty()) {
-                                        Text("Search in r/${viewModel.exploreQuery}...", color = TextMuted, fontSize = 13.sp)
-                                    }
-                                    innerTextField()
-                                }
-                            )
-                            if (inSubredditSearchQuery.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Clear",
-                                    tint = TextSecondary,
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clickable {
-                                            inSubredditSearchQuery = ""
-                                            viewModel.clearSubredditSearch()
-                                        }
+                                    Icons.AutoMirrored.Filled.Sort,
+                                    contentDescription = "Sort",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(15.dp)
                                 )
-                            }
-                        }
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = HPad),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    if (isCustomExplore && horizontalPagerState.currentPage == 0) {
-                        // Custom Subreddit Title on Top Left with Back Arrow
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f, fill = false)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(SurfacePill)
-                                    .clickable {
-                                        viewModel.refreshExplore(defaultExploreQuery)
-                                        if (originPageBeforeExplore != null) {
-                                            val target = originPageBeforeExplore!!
-                                            originPageBeforeExplore = null
-                                            coroutineScope.launch { horizontalPagerState.animateScrollToPage(target) }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(18.dp))
-                            }
-                            Text(
-                                text = "r/${viewModel.exploreQuery}",
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    } else {
-                        // Brand Logo
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = {
-                                    if (horizontalPagerState.currentPage != 0) {
-                                        coroutineScope.launch { horizontalPagerState.animateScrollToPage(0) }
-                                    } else {
-                                        viewModel.refreshExplore(defaultExploreQuery)
-                                    }
-                                }
-                            )
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .background(Color.White, shape = RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("Rd", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Text("Tube", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                        }
-                    }
-
-                    // Top Right Controls (Search within subreddit & Sort trigger)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // In-Subreddit Search trigger pill
-                        if (isCustomExplore && horizontalPagerState.currentPage == 0) {
-                            Surface(
-                                modifier = Modifier
-                                    .height(34.dp)
-                                    .clip(RoundedCornerShape(17.dp))
-                                    .clickable { viewModel.setSubredditSearchActive(true) },
-                                shape = RoundedCornerShape(17.dp),
-                                color = SurfacePill
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                        .padding(horizontal = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Search,
-                                        contentDescription = "Search in r/${viewModel.exploreQuery}",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Text(
-                                        text = "Search",
-                                        color = TextPrimary,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-
-                        // Sort Trigger Pill on Top Right (visible when on Explore or Subscribed feed)
-                        AnimatedVisibility(
-                            visible = horizontalPagerState.currentPage == 0 || horizontalPagerState.currentPage == 1,
-                            enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.9f),
-                            exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.9f)
-                        ) {
-                            Surface(
-                                modifier = Modifier
-                                    .height(34.dp)
-                                    .clip(RoundedCornerShape(17.dp))
-                                    .clickable { showSortSheet = true },
-                                shape = RoundedCornerShape(17.dp),
-                                color = SurfacePill
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                        .padding(horizontal = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.Sort,
-                                        contentDescription = "Sort",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = viewModel.currentSort.label,
-                                        color = TextPrimary,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = viewModel.currentSort.label,
+                                    color = TextPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -549,19 +399,13 @@ fun HomeScreen(
                 FloatingPillNavBar(
                     selectedTab = NavTabItem.entries[horizontalPagerState.currentPage],
                     onTabSelected = { tab ->
-                        if (tab == NavTabItem.SEARCH && horizontalPagerState.currentPage == 0 && isCustomExplore) {
-                            viewModel.setSubredditSearchActive(true)
-                        } else if (tab.ordinal == 1 && subscribedSubreddits.isEmpty()) {
+                        if (tab.ordinal == 1 && subscribedSubreddits.isEmpty()) {
                             Toast.makeText(context, "No subreddits subscribed yet! Use search.", Toast.LENGTH_SHORT).show()
-                        } else {
-                            if (tab.ordinal == 0 && viewModel.exploreQuery != defaultExploreQuery) {
-                                viewModel.refreshExplore(defaultExploreQuery)
-                                originPageBeforeExplore = null
-                            }
-                            if (tab.ordinal == 1 && viewModel.subscribedQuery != defaultSubscribedQuery) {
-                                viewModel.refreshSubscribed(defaultSubscribedQuery)
-                            }
-                            if (tabBackStack.isEmpty() || tabBackStack.last() != tab.ordinal) {
+                        } else if (tab.ordinal != horizontalPagerState.currentPage) {
+                            if (tab.ordinal == 0) {
+                                tabBackStack.clear()
+                            } else {
+                                tabBackStack.remove(tab.ordinal)
                                 tabBackStack.add(tab.ordinal)
                             }
                             coroutineScope.launch {

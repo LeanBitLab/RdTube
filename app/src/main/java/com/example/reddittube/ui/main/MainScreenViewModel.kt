@@ -306,9 +306,11 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private var videoSearchAfter: String? = null
     private var currentVideoSearchQuery: String = ""
     private var currentVideoSearchSort: String = "relevance"
+    private var currentVideoSearchSubreddit: String? = null
 
-    fun searchVideos(query: String, sort: String = "relevance", immediate: Boolean = false) {
+    fun searchVideos(query: String, sort: String = "relevance", immediate: Boolean = false, subreddit: String? = null) {
         val trimmed = query.trim()
+        val cleanSub = subreddit?.trim()?.removePrefix("r/")?.takeIf { it.isNotEmpty() }
         if (trimmed.length < 2) {
             _videoSearchResults.value = emptyList()
             _isVideoSearching.value = false
@@ -318,8 +320,10 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 
         currentVideoSearchQuery = trimmed
         currentVideoSearchSort = sort
+        currentVideoSearchSubreddit = cleanSub
 
-        val cached = videoSearchCache["$trimmed:$sort"]
+        val cacheKey = if (cleanSub != null) "$cleanSub:$trimmed:$sort" else "$trimmed:$sort"
+        val cached = videoSearchCache[cacheKey]
         if (cached != null) {
             _videoSearchResults.value = cached.posts
             videoSearchAfter = cached.after
@@ -331,12 +335,12 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         videoSearchJob = viewModelScope.launch {
             _isVideoSearching.value = true
             if (!immediate) {
-                delay(1000) // 1-second debounce when typing
+                delay(600) // 600ms debounce when typing
             }
             try {
-                dataRepository.searchRedditVideosPaged(trimmed, sort, null).collect { result ->
+                dataRepository.searchRedditVideosPaged(trimmed, sort, null, cleanSub).collect { result ->
                     val afterCursor = result.after ?: result.posts.lastOrNull()?.let { "t3_${it.id}" }
-                    videoSearchCache["$trimmed:$sort"] = PagedVideoCache(result.posts, afterCursor)
+                    videoSearchCache[cacheKey] = PagedVideoCache(result.posts, afterCursor)
                     videoSearchAfter = afterCursor
                     _videoSearchResults.value = result.posts
                 }
@@ -351,18 +355,21 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     fun loadMoreVideos() {
         val query = currentVideoSearchQuery
         val sort = currentVideoSearchSort
+        val sub = currentVideoSearchSubreddit
         val currentList = _videoSearchResults.value
         val after = videoSearchAfter ?: currentList.lastOrNull()?.let { "t3_${it.id}" }
         if (query.length < 2 || _isVideoSearchingMore.value || _isVideoSearching.value || currentList.isEmpty()) return
 
+        val cacheKey = if (sub != null) "$sub:$query:$sort" else "$query:$sort"
+
         viewModelScope.launch {
             _isVideoSearchingMore.value = true
             try {
-                dataRepository.searchRedditVideosPaged(query, sort, after).collect { result ->
+                dataRepository.searchRedditVideosPaged(query, sort, after, sub).collect { result ->
                     val nextCursor = result.after ?: result.posts.lastOrNull()?.let { "t3_${it.id}" } ?: after
                     videoSearchAfter = nextCursor
                     val updated = (currentList + result.posts).distinctBy { it.id }
-                    videoSearchCache["$query:$sort"] = PagedVideoCache(updated, nextCursor)
+                    videoSearchCache[cacheKey] = PagedVideoCache(updated, nextCursor)
                     _videoSearchResults.value = updated
                 }
             } catch (_: Exception) {
