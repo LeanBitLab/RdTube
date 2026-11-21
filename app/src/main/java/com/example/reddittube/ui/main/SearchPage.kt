@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lean.reddittube.data.RedditPost
@@ -472,7 +473,7 @@ fun SearchPage(
                                                 ) {
                                                     Icon(Icons.Default.History, contentDescription = null, tint = TextMuted, modifier = Modifier.size(13.dp))
                                                     Spacer(Modifier.width(6.dp))
-                                                    Text(recent, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                                    Text(recent, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                 }
                                                 Spacer(Modifier.width(6.dp))
                                                 Box(
@@ -568,7 +569,7 @@ fun SearchPage(
                                         Spacer(Modifier.width(12.dp))
                                         Column {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text("r/$sub", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                                                Text("r/$sub", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                 if (isExactTyped) {
                                                     Spacer(Modifier.width(6.dp))
                                                     Surface(
@@ -771,7 +772,7 @@ fun SearchPage(
                                                         ) {
                                                             Icon(Icons.Default.History, contentDescription = null, tint = TextMuted, modifier = Modifier.size(13.dp))
                                                             Spacer(Modifier.width(6.dp))
-                                                            Text(recent, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                                            Text(recent, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                         }
                                                         Spacer(Modifier.width(6.dp))
                                                         Box(
@@ -824,13 +825,20 @@ fun SearchPage(
                                                         modifier = Modifier.weight(1f)
                                                     ) {
                                                         Row(
-                                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 11.dp),
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
                                                             verticalAlignment = Alignment.CenterVertically,
                                                             horizontalArrangement = Arrangement.Center
                                                         ) {
                                                             Icon(Icons.Default.TrendingUp, contentDescription = null, tint = TextMuted, modifier = Modifier.size(13.dp))
-                                                            Spacer(Modifier.width(6.dp))
-                                                            Text(tag, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                                            Spacer(Modifier.width(4.dp))
+                                                            Text(
+                                                                text = tag,
+                                                                color = TextPrimary,
+                                                                fontSize = 11.5.sp,
+                                                                fontWeight = FontWeight.Medium,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
                                                         }
                                                     }
                                                 }
