@@ -36,16 +36,15 @@ import com.lean.reddittube.theme.*
 import com.lean.reddittube.utils.RedditOAuthHelper
 
 private val CURRENT_VERSION_CHANGELOG = """
-• Pitch Black OLED Theme: Pure monochrome aesthetic with solid surfaces and adaptive icon
-• Categorized Settings: Clean background-based sections without distracting wireframe borders
-• Top Search Bar & Zero Shifts: Stable top search position with unified tab alignment
-• 30% Watch History & Reactive Clearing: Reliable watch tracking with instant UI clear
-• Persistent Rotation Lock: Feed orientation state persists across swipe navigation
-• Auto-Mute NSFW Option: Configurable preference to automatically silence mature videos
-• Unified Search History: Immediate suggestion recall across both Subreddit and Video searches
-• Video Search Filters: Granular Relevance, Hot, Top, and New filters directly in search results
-• High-Resolution Thumbnails: Optimized source preview images with instant cache controls
-• Performance: R8 Full Mode, automatic release log stripping, and token concurrency safety
+• Sound on GIFs: Full audio playback and direct stream resolution for animated GIFs
+• Media Format & Duration Badges: Clean GIF and VID duration indicator badges on thumbnails
+• Relative Age Badges: Compact relative upload date overlay on feed cards
+• Subreddit-Scoped Search: Search within the currently browsed subreddit directly from the Search tab
+• Related Community Suggestions: Fast 300ms autocomplete and directory search for subreddits
+• Hardware Volume Unmute: Raising device volume automatically restores playback audio
+• Enhanced Watch History: Live history updates, newest-first ordering, and re-watch bumping
+• Playback Stability: Screen keep-on lock, background state preservation, and brightness restoration
+• Ellipsis Truncation: Single-line formatting with ellipses for popular topics and long community names
 """.trimIndent()
 
 private val SettingsCardBg = Color(0xFF141414)
