@@ -222,6 +222,7 @@ fun HomeScreen(
                     searchResults = viewModel.searchResults.collectAsStateWithLifecycle().value,
                     onSearchQuery = { query, immediate -> viewModel.searchSubreddits(query, immediate) },
                     onLoadMoreSubreddits = { viewModel.loadMoreSubreddits() },
+                    isSubredditSearching = viewModel.isSubredditSearching.collectAsStateWithLifecycle().value,
                     isSubredditSearchingMore = viewModel.isSubredditSearchingMore.collectAsStateWithLifecycle().value,
                     videoSearchResults = viewModel.videoSearchResults.collectAsStateWithLifecycle().value,
                     isVideoSearching = viewModel.isVideoSearching.collectAsStateWithLifecycle().value,

@@ -247,6 +247,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         val trimmed = query.trim().lowercase().removePrefix("r/")
         if (trimmed.length < 2) { 
             _searchResults.value = emptyList()
+            _isSubredditSearching.value = false
             subredditSearchAfter = null
             return 
         }
@@ -256,13 +257,15 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         if (cached != null) {
             _searchResults.value = cached.subreddits
             subredditSearchAfter = cached.after
+            _isSubredditSearching.value = false
             return
         }
 
+        _isSubredditSearching.value = true
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             if (!immediate) {
-                delay(1000) // 1-second debounce when typing
+                delay(300) // Fast 300ms debounce
             }
             try {
                 dataRepository.searchSubredditsPaged(trimmed, null).collect { result ->
@@ -272,6 +275,8 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                 }
             } catch (_: Exception) {
                 _searchResults.value = emptyList()
+            } finally {
+                _isSubredditSearching.value = false
             }
         }
     }
@@ -331,11 +336,11 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
             return
         }
 
+        _isVideoSearching.value = true
         videoSearchJob?.cancel()
         videoSearchJob = viewModelScope.launch {
-            _isVideoSearching.value = true
             if (!immediate) {
-                delay(600) // 600ms debounce when typing
+                delay(300) // Fast 300ms debounce
             }
             try {
                 dataRepository.searchRedditVideosPaged(trimmed, sort, null, cleanSub).collect { result ->

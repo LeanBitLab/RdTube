@@ -47,7 +47,9 @@ class FakeRepository(
     override fun getContext(): Context = mockContext
     override fun fetchRedditVideos(subreddits: String, sort: String, feed: String) = fetchResult()
     override fun searchSubreddits(query: String) = searchResult()
-    override fun searchSubredditsPaged(query: String, after: String?): Flow<com.lean.reddittube.data.SearchSubredditsResult> = flowOf(com.lean.reddittube.data.SearchSubredditsResult(emptyList(), null))
+    override fun searchSubredditsPaged(query: String, after: String?): Flow<com.lean.reddittube.data.SearchSubredditsResult> = kotlinx.coroutines.flow.flow {
+        searchResult().collect { emit(com.lean.reddittube.data.SearchSubredditsResult(it, null)) }
+    }
     override fun searchRedditVideos(query: String, sort: String, subreddit: String?) = flowOf(emptyList<RedditPost>())
     override fun searchRedditVideosPaged(query: String, sort: String, after: String?, subreddit: String?): Flow<com.lean.reddittube.data.SearchVideosResult> =
         videoSearchResultWithSub?.invoke(query, sort, subreddit) ?: videoSearchResult(query, sort)
@@ -159,6 +161,22 @@ class MainScreenViewModelTest {
         val viewModel = MainScreenViewModel(repo)
         viewModel.searchSubreddits("a")
         assert(viewModel.searchResults.value.isEmpty())
+        assert(!viewModel.isSubredditSearching.value)
+    }
+
+    @Test
+    fun `searchSubreddits updates searchResults and toggles isSubredditSearching`() = runTest(testDispatcher) {
+        val repo = FakeRepository(
+            searchResult = { flowOf(listOf("gaming", "games")) }
+        )
+        val viewModel = MainScreenViewModel(repo)
+        viewModel.searchSubreddits("gam", immediate = true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assert(!viewModel.isSubredditSearching.value)
+        val results = viewModel.searchResults.value
+        assert(results.size == 2)
+        assert(results == listOf("gaming", "games"))
     }
 
     @Test

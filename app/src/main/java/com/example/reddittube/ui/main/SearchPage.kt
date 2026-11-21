@@ -87,6 +87,7 @@ fun SearchPage(
     searchResults: List<String>,
     onSearchQuery: (String, Boolean) -> Unit,
     onLoadMoreSubreddits: () -> Unit = {},
+    isSubredditSearching: Boolean = false,
     isSubredditSearchingMore: Boolean = false,
     videoSearchResults: List<RedditPost>,
     isVideoSearching: Boolean,
@@ -496,13 +497,35 @@ fun SearchPage(
                         }
 
                         item {
-                            Text(
-                                text = if (cleanQuery.isNotBlank()) "Matching Subreddits" else "Trending & Recommended Subreddits",
-                                color = TextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (cleanQuery.isNotBlank()) "Matching Subreddits" else "Trending & Recommended Subreddits",
+                                    color = TextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (isSubredditSearching && cleanQuery.isNotBlank()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        CircularProgressIndicator(
+                                            color = Color.White,
+                                            strokeWidth = 2.dp,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = "Searching...",
+                                            color = TextMuted,
+                                            fontSize = 11.5.sp
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         items(displaySubList, key = { sub -> sub }) { sub ->
@@ -592,6 +615,25 @@ fun SearchPage(
                             }
                         }
 
+                        if (cleanQuery.isNotBlank() && !isSubredditSearching && searchResults.isEmpty() && cleanQuery.length >= 2) {
+                            item {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = SearchCardBg,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "No other communities found for \"$cleanQuery\". You can still tap r/$cleanQuery above to browse it directly.",
+                                        color = TextMuted,
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(14.dp)
+                                    )
+                                }
+                            }
+                        }
+
                         if (cleanQuery.isNotBlank() && (displaySubList.size >= 8 || isSubredditSearchingMore)) {
                             item {
                                 Column(
@@ -671,7 +713,7 @@ fun SearchPage(
                             }
                         }
 
-                        if (searchQuery.isBlank() && videoSearchResults.isEmpty() && !isVideoSearching) {
+                        if ((searchQuery.isBlank() || cleanQuery.length < 2) && videoSearchResults.isEmpty() && !isVideoSearching) {
                             LazyColumn(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -819,14 +861,21 @@ fun SearchPage(
                                             }
                                             Spacer(Modifier.height(10.dp))
                                             Text(
-                                                text = if (activeSubredditFilter != null) "Search Videos in r/$activeSubredditFilter" else "Search Across All Reddit Videos",
+                                                text = if (cleanQuery.length == 1)
+                                                    "Type at least 2 characters to search"
+                                                else if (activeSubredditFilter != null)
+                                                    "Search Videos in r/$activeSubredditFilter"
+                                                else
+                                                    "Search Across All Reddit Videos",
                                                 color = TextPrimary,
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                             Spacer(Modifier.height(4.dp))
                                             Text(
-                                                text = if (activeSubredditFilter != null)
+                                                text = if (cleanQuery.length == 1)
+                                                    "Keep typing to search across video posts..."
+                                                else if (activeSubredditFilter != null)
                                                     "Type any keyword above to find playable video clips in r/$activeSubredditFilter."
                                                 else
                                                     "Type any keyword below to find playable video clips Reddit-wide.",

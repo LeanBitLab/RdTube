@@ -226,18 +226,45 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val token = RedditOAuthHelper.getOrFetchAccessToken(context)
         if (token == null) { emit(SearchSubredditsResult(emptyList(), null)); return@flow }
         val results = mutableListOf<String>()
+        val seenNames = mutableSetOf<String>()
         var nextAfter: String? = null
         try {
-            val url = "https://oauth.reddit.com/subreddits/search.json?q=${java.net.URLEncoder.encode(query, "UTF-8")}&limit=25&include_over_18=on" +
+            val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+            // On initial search page, query autocomplete first for direct subreddit name matches
+            if (after == null) {
+                try {
+                    val autoUrl = "https://oauth.reddit.com/api/subreddit_autocomplete_v2.json?query=$encoded&limit=25&include_over_18=on&include_profiles=false"
+                    val autoJson = performRequest(autoUrl, token, timeout = 6000)
+                    val autoChildren = autoJson?.optJSONObject("data")?.optJSONArray("children")
+                    if (autoChildren != null) {
+                        for (i in 0 until autoChildren.length()) {
+                            val child = autoChildren.getJSONObject(i)
+                            if (child.optString("kind") == "t5") {
+                                val name = child.optJSONObject("data")?.optString("display_name", "")?.ifEmpty { null }
+                                if (name != null && seenNames.add(name.lowercase())) {
+                                    results.add(name)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w("RedditRepository", "autocomplete error: ${e.message}")
+                }
+            }
+
+            // Also query subreddits/search.json for directory and topic matches and pagination
+            val searchUrl = "https://oauth.reddit.com/subreddits/search.json?q=$encoded&limit=25&include_over_18=on" +
                 (if (after != null) "&after=$after" else "")
-            val json = performRequest(url, token, timeout = 10000)
+            val json = performRequest(searchUrl, token, timeout = 8000)
             val data = json?.optJSONObject("data")
             nextAfter = if (data != null && data.has("after") && !data.isNull("after")) data.optString("after").ifEmpty { null } else null
             val children = data?.optJSONArray("children")
             if (children != null) {
                 for (i in 0 until children.length()) {
                     val name = children.getJSONObject(i).optJSONObject("data")?.optString("display_name", "")?.ifEmpty { null }
-                    if (name != null) results.add(name)
+                    if (name != null && seenNames.add(name.lowercase())) {
+                        results.add(name)
+                    }
                 }
             }
         } catch (e: RedditError.RateLimited) {
