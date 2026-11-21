@@ -46,9 +46,21 @@ object ExternalMediaResolver {
         val clean = url.substringBefore('?').substringBefore('#').trimEnd('/')
         val match = Regex("""(?:redgifs\.com|gfycat\.com)/(?:watch|ifr)/([a-zA-Z0-9_-]+)""", RegexOption.IGNORE_CASE).find(clean)
         if (match != null) return match.groupValues[1]
-        val last = clean.substringAfterLast('/')
-        val cleanId = last.substringBefore('.').removeSuffix("-mobile").removeSuffix("-silent").removeSuffix("-poster")
-        return if (cleanId.isNotEmpty() && !cleanId.contains("redgifs", ignoreCase = true) && !cleanId.contains("gfycat", ignoreCase = true)) cleanId else null
+        val path = try {
+            java.net.URI(clean).path?.trim('/') ?: ""
+        } catch (_: Exception) {
+            clean.substringAfter("redgifs.com/", "").substringAfter("gfycat.com/", "").trim('/')
+        }
+        if (path.isEmpty()) return null
+        val lastSegment = path.substringAfterLast('/')
+        val cleanId = lastSegment.substringBefore('.').removeSuffix("-mobile").removeSuffix("-silent").removeSuffix("-poster")
+        val isInvalid = cleanId.length < 3 ||
+            cleanId.equals("watch", ignoreCase = true) ||
+            cleanId.equals("ifr", ignoreCase = true) ||
+            cleanId.equals("www", ignoreCase = true) ||
+            cleanId.contains("redgifs", ignoreCase = true) ||
+            cleanId.contains("gfycat", ignoreCase = true)
+        return if (!isInvalid) cleanId else null
     }
 
     fun getCachedRedgifsVideo(url: String): String? {

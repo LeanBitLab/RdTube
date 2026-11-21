@@ -47,6 +47,9 @@ class ExternalMediaResolverTest {
         assertEquals("Cool_Cat-123", ExternalMediaResolver.extractRedgifsId("https://www.redgifs.com/watch/Cool_Cat-123"))
         assertEquals("CleverCuteCat", ExternalMediaResolver.extractRedgifsId("https://gfycat.com/CleverCuteCat"))
         assertNull(ExternalMediaResolver.extractRedgifsId("https://redgifs.com/"))
+        assertNull(ExternalMediaResolver.extractRedgifsId("https://www.redgifs.com"))
+        assertNull(ExternalMediaResolver.extractRedgifsId("https://www.redgifs.com/"))
+        assertNull(ExternalMediaResolver.extractRedgifsId("https://www.redgifs.com/watch/"))
     }
 
     @Test
