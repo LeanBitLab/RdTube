@@ -76,7 +76,7 @@ class MainScreenViewModelTest {
     @Test
     fun `initial state is Loading`() = runTest(testDispatcher) {
         val repo = FakeRepository()
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         assert(viewModel.exploreState.value is MainScreenUiState.Loading)
         assert(viewModel.subscribedState.value is MainScreenUiState.Loading)
     }
@@ -87,7 +87,7 @@ class MainScreenViewModelTest {
             RedditPost("1", "Test Video", "test", "author", 100, "/r/test/1", "url", "url", "", "")
         )
         val repo = FakeRepository(fetchResult = { flowOf(posts) })
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.refreshExplore()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -99,7 +99,7 @@ class MainScreenViewModelTest {
     @Test
     fun `refreshExplore emits Error when repository throws`() = runTest(testDispatcher) {
         val repo = FakeRepository(fetchResult = { flow { throw RedditError.NetworkError("Timeout") } })
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.refreshExplore()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -111,7 +111,7 @@ class MainScreenViewModelTest {
     @Test
     fun `refreshSubscribed with empty query shows error`() = runTest(testDispatcher) {
         val repo = FakeRepository()
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.refreshSubscribed("")
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -129,7 +129,7 @@ class MainScreenViewModelTest {
                 ))
             }
         )
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         val existing = RedditPost("existing_id", "Old Video", "test", "author", 100, "/r/test/1", "url", "url", "", "")
         viewModel.markAsWatched(existing)
         viewModel.refreshExplore()
@@ -147,7 +147,7 @@ class MainScreenViewModelTest {
             fetchResult = { flowOf(emptyList()) },
             afterMap = { mapOf("shorts" to null, "TikTokCringe" to null) }
         )
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.refreshExplore()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -158,7 +158,7 @@ class MainScreenViewModelTest {
     @Test
     fun `searchSubreddits emits empty list for short queries`() = runTest(testDispatcher) {
         val repo = FakeRepository()
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.searchSubreddits("a")
         assert(viewModel.searchResults.value.isEmpty())
         assert(!viewModel.isSubredditSearching.value)
@@ -169,7 +169,7 @@ class MainScreenViewModelTest {
         val repo = FakeRepository(
             searchResult = { flowOf(listOf("gaming", "games")) }
         )
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.searchSubreddits("gam", immediate = true)
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -187,7 +187,7 @@ class MainScreenViewModelTest {
             RedditPost("unique_2", "Unique 2", "test", "author2", 50, "/r/test/2", "url", "url", "", "")
         )
         val repo = FakeRepository(fetchResult = { flowOf(posts) })
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.refreshExplore()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -213,7 +213,7 @@ class MainScreenViewModelTest {
             fetchMoreResult = { flowOf(FetchMoreResult(morePosts, mapOf("test" to "t3_after"))) },
             afterMap = { mapOf("test" to "t3_init") }
         )
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.refreshExplore()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -237,7 +237,7 @@ class MainScreenViewModelTest {
                 flowOf(com.lean.reddittube.data.SearchVideosResult(listOf(searchPost), "cursor_1"))
             }
         )
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.searchVideos("cats", sort = "top&t=day", immediate = true)
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -257,7 +257,7 @@ class MainScreenViewModelTest {
                 flowOf(com.lean.reddittube.data.SearchVideosResult(listOf(searchPost), "cursor_sub"))
             }
         )
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.searchVideos("zelda", sort = "hot", immediate = true, subreddit = "gaming")
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -275,7 +275,7 @@ class MainScreenViewModelTest {
                 flowOf(com.lean.reddittube.data.SearchVideosResult(listOf(searchPost), "after_1"))
             }
         )
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         viewModel.setSubredditSearchActive(true)
         assert(viewModel.isSubredditSearchActive.value)
 
@@ -294,7 +294,7 @@ class MainScreenViewModelTest {
     @Test
     fun `markAsWatched orders newest first and bumps re-watched post`() = runTest(testDispatcher) {
         val repo = FakeRepository()
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         val post1 = RedditPost("p1", "First", "sub", "author", 10, "/r/sub/1", "url", "url", "", "")
         val post2 = RedditPost("p2", "Second", "sub", "author", 20, "/r/sub/2", "url", "url", "", "")
 
@@ -322,7 +322,7 @@ class MainScreenViewModelTest {
     @Test
     fun `toggleLike orders newest first`() = runTest(testDispatcher) {
         val repo = FakeRepository()
-        val viewModel = MainScreenViewModel(repo)
+        val viewModel = MainScreenViewModel(repo, testDispatcher)
         val post1 = RedditPost("like_1", "First Liked", "sub", "author", 10, "/r/sub/1", "url", "url", "", "")
         val post2 = RedditPost("like_2", "Second Liked", "sub", "author", 20, "/r/sub/2", "url", "url", "", "")
 

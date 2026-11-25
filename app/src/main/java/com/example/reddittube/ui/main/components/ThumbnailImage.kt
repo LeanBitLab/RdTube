@@ -122,7 +122,7 @@ fun ThumbnailImage(url: String, contentDescription: String?, modifier: Modifier 
     Box(modifier = modifier) {
         AnimatedVisibility(
             visible = currentBitmap != null,
-            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(250))
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150))
         ) {
             if (currentBitmap != null) {
                 Box(modifier = Modifier.fillMaxSize()) {

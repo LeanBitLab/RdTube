@@ -238,6 +238,7 @@ fun HomeScreen(
                     likedIds = likedIds,
                     onLike = viewModel::toggleLike,
                     onCommentClick = { post -> activeCommentPost = post },
+                    onScrollDirection = { bottomBarVisible = !it },
                     modifier = Modifier.fillMaxSize()
                 )
                 3 -> LibraryPage(
@@ -393,9 +394,9 @@ fun HomeScreen(
         ) {
             // Ultra-Smooth, Minimalist Monochrome Floating Pill Navigation Dock
             AnimatedVisibility(
-                visible = bottomBarVisible || horizontalPagerState.currentPage == 2 || horizontalPagerState.currentPage == 3 || horizontalPagerState.currentPage == 4,
-                enter = slideInVertically(initialOffsetY = { it * 2 }) + fadeIn(tween(180)),
-                exit = slideOutVertically(targetOffsetY = { it * 2 }) + fadeOut(tween(180))
+                visible = bottomBarVisible || horizontalPagerState.currentPage == 3 || horizontalPagerState.currentPage == 4,
+                enter = slideInVertically(tween(180), initialOffsetY = { it * 2 }) + fadeIn(tween(150)),
+                exit = slideOutVertically(tween(150), targetOffsetY = { it * 2 }) + fadeOut(tween(120))
             ) {
                 FloatingPillNavBar(
                     selectedTab = NavTabItem.entries[horizontalPagerState.currentPage],

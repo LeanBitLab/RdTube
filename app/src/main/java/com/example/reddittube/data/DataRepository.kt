@@ -404,7 +404,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 var result = performOAuthRequest(sub, token, sort, feed)
                 if (result.isEmpty()) {
                     val freshToken = RedditOAuthHelper.getOrFetchAccessToken(context)
-                    if (freshToken != null) {
+                    // Retry only with a different token: the cached one just returned nothing
+                    if (freshToken != null && freshToken != token) {
                         result = performOAuthRequest(sub, freshToken, sort, feed)
                     }
                 }
@@ -440,11 +441,17 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         put("subscribed", mutableMapOf())
     }
 
+    // Written from parallel per-subreddit IO coroutines: every access goes through this lock
+    // (plain maps, since cursors can be null and ConcurrentHashMap rejects null values).
     private fun feedMap(feed: String): MutableMap<String, String?> = afterMaps.getOrPut(feed) { mutableMapOf() }
 
-    override fun getAfterMap(feed: String): Map<String, String?> = feedMap(feed).toMap()
+    private fun setAfter(feed: String, subreddit: String, after: String?) = synchronized(afterMaps) {
+        feedMap(feed)[subreddit] = after
+    }
 
-    override fun saveAfterMap(map: Map<String, String?>, feed: String) {
+    override fun getAfterMap(feed: String): Map<String, String?> = synchronized(afterMaps) { feedMap(feed).toMap() }
+
+    override fun saveAfterMap(map: Map<String, String?>, feed: String) = synchronized(afterMaps) {
         if (map.isEmpty()) {
             feedMap(feed).clear()
         } else {
@@ -689,7 +696,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             }
         }
 
-        feedMap(feed)[subreddit] = after
+        setAfter(feed, subreddit, after)
         Log.i("RedditRepository", "r/$subreddit parsed ${list.size} videos, after=$after")
         return list
     }

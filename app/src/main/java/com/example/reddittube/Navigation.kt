@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -37,9 +36,17 @@ fun MainNavigation() {
     NavDisplay(
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
+        // Short, minimal transitions. Pop and predictive-back must be set too: the library
+        // defaults are 700ms slides, which made going back from the player feel slow.
         transitionSpec = {
-            (fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) + scaleIn(initialScale = 0.95f, animationSpec = tween(240, easing = FastOutSlowInEasing)))
-                .togetherWith(fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) + scaleOut(targetScale = 0.97f, animationSpec = tween(180, easing = FastOutSlowInEasing)))
+            (fadeIn(tween(160, easing = FastOutSlowInEasing)) + scaleIn(tween(160, easing = FastOutSlowInEasing), initialScale = 0.97f))
+                .togetherWith(fadeOut(tween(120)))
+        },
+        popTransitionSpec = {
+            fadeIn(tween(140)).togetherWith(fadeOut(tween(120)))
+        },
+        predictivePopTransitionSpec = {
+            fadeIn(tween(140)).togetherWith(fadeOut(tween(120)))
         },
         entryProvider =
             entryProvider {
