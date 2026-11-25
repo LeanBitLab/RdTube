@@ -29,3 +29,25 @@ package-lock.json
 keystore.properties
 
 .gradle_user_home/
+.jules/
+.kotlin/
+
+# More AI / agent files (local only)
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.md
+GEMINI.md
+QWEN.md
+.pi/
+.qwen/
+.opencode/
+.windsurf/
+.windsurfrules
+.aider*
+.continue/
+.codex/
+.github/copilot-instructions.md
+outline.md
+Pdoc/
+pdocs/

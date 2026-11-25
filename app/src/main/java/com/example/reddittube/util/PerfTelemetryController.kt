@@ -54,6 +54,8 @@ class PerfTelemetryController private constructor(context: Context) {
 
     fun recordStartupTime(durationMs: Long) {
         startupTimes.add(durationMs)
+        // Keep a rolling window: the list was unbounded and getStartupP95() sorts all of it
+        while (startupTimes.size > 200) startupTimes.removeAt(0)
         Log.i("PerfTelemetry", "Video startup latency: ${durationMs}ms (P95: ${getStartupP95()}ms)")
     }
 

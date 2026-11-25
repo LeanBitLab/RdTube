@@ -31,7 +31,9 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.lifecycle.Lifecycle
@@ -356,6 +358,11 @@ fun VideoPage(
     val activity = context as? Activity
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
 
+    // Saved once per gesture, not per drag frame (each apply() rewrites the whole prefs file)
+    val persistBrightness: () -> Unit = {
+        if (brightnessPercentage >= 0f) sharedPreferences.edit().putFloat("pref_brightness", brightnessPercentage).apply()
+    }
+
     LaunchedEffect(Unit) {
         val savedBright = sharedPreferences.getFloat("pref_brightness", -1f)
         if (savedBright > 0f) {
@@ -539,6 +546,7 @@ Box(
                             showVolumeHud = false
                         },
                         onDragEnd = {
+                            persistBrightness()
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
                                 delay(800)
@@ -546,6 +554,7 @@ Box(
                             }
                         },
                         onDragCancel = {
+                            persistBrightness()
                             hudJob?.cancel()
                             hudJob = coroutineScope.launch {
                                 delay(800)
@@ -567,7 +576,6 @@ Box(
                                 lp.screenBrightness = nextBright
                                 activity.window.attributes = lp
                                 brightnessPercentage = nextBright
-                                sharedPreferences.edit().putFloat("pref_brightness", nextBright).apply()
                             }
 
                             hudJob?.cancel()
@@ -665,8 +673,8 @@ Box(
         AnimatedVisibility(
             visible = showOverlay,
             modifier = Modifier.align(Alignment.BottomCenter),
-            enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(200))
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150))
         ) {
             Box(
                 modifier = Modifier
@@ -770,10 +778,20 @@ Box(
             }
         }
 
-        // Center Replay / Play action button when video ends or when overlay is open
+        // Center Replay / Play action button when video ends or when overlay is open.
+        // While playing it hides after 1.5s, well before the rest of the overlay (4s):
+        // it covers the video, the progress bar and actions don't.
         val isEnded = exoPlayer.playbackState == Player.STATE_ENDED
+        var centerButtonVisible by remember { mutableStateOf(showOverlay) }
+        LaunchedEffect(showOverlay, isPlaying) {
+            centerButtonVisible = showOverlay
+            if (showOverlay && isPlaying) {
+                delay(1500)
+                centerButtonVisible = false
+            }
+        }
         AnimatedVisibility(
-            visible = (showOverlay && showPlayPauseTransient == null) || (isEnded && showPlayPauseTransient == null),
+            visible = (centerButtonVisible && showPlayPauseTransient == null) || (isEnded && showPlayPauseTransient == null),
             modifier = Modifier.align(Alignment.Center),
             enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.85f),
             exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.85f)
@@ -923,8 +941,8 @@ Box(
         AnimatedVisibility(
             visible = showOverlay,
             modifier = Modifier.align(Alignment.BottomStart),
-            enter = fadeIn(tween(220)) + slideInVertically(tween(220), initialOffsetY = { it / 2 }),
-            exit = fadeOut(tween(180)) + slideOutVertically(tween(180), targetOffsetY = { it / 2 })
+            enter = fadeIn(tween(160)) + slideInVertically(tween(160), initialOffsetY = { it / 4 }),
+            exit = fadeOut(tween(140)) + slideOutVertically(tween(140), targetOffsetY = { it / 4 })
         ) {
             Column(
                 modifier = Modifier
@@ -1035,10 +1053,13 @@ Box(
                 }
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Horizontal row of quick action buttons
+                // Horizontal row of quick action buttons: scrolls when the 8 buttons
+                // are wider than the screen (narrow phones, large font or display size)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Comments button

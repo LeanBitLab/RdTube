@@ -97,7 +97,7 @@ class AdaptiveCacheEngine<K : Any, V : Any>(
         val target = dynamicCapacity
         val now = SystemClock.elapsedRealtime()
         while (store.size > target) {
-            val candidate = store.filter { (k, n) ->
+            val candidate = store.entries.asSequence().filter { (k, n) ->
                 !isProtectedKey(k) || (now - n.lastAccessedMs > protectedTtlMs)
             }.minByOrNull { computeScore(it.value, now) } ?: break
             val removedNode = store.remove(candidate.key)

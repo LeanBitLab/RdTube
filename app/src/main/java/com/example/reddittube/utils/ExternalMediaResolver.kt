@@ -8,7 +8,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.ConcurrentHashMap
 
 object ExternalMediaResolver {
     private const val TAG = "ExternalMediaResolver"
@@ -19,7 +18,12 @@ object ExternalMediaResolver {
     private var cachedRedgifsToken: String? = null
     private var tokenExpiryTime: Long = 0L
 
-    private val resolvedCache = ConcurrentHashMap<String, String>()
+    // Bounded LRU (up to 3 keys per video), synchronized because resolution runs on IO threads
+    private val resolvedCache: MutableMap<String, String> = java.util.Collections.synchronizedMap(
+        object : LinkedHashMap<String, String>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 600
+        }
+    )
 
     fun isRedgifsUrl(url: String): Boolean {
         return url.contains("redgifs.com", ignoreCase = true) || url.contains("gfycat.com", ignoreCase = true)

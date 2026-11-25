@@ -14,8 +14,12 @@ import com.lean.reddittube.data.RedditError
 import com.lean.reddittube.data.RedditPost
 import com.lean.reddittube.utils.toJson
 import com.lean.reddittube.utils.toRedditPost
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,7 +47,11 @@ enum class SortOption(val value: String, val label: String, val description: Str
     TOP_ALL("top?t=all", "Top (All Time)", "Greatest all-time highest voted videos")
 }
 
-class MainScreenViewModel(private val dataRepository: DataRepository) : ViewModel() {
+class MainScreenViewModel(
+    private val dataRepository: DataRepository,
+    // Off-Main work (JSON for prefs/feed caches); tests pass their test dispatcher
+    private val backgroundDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default
+) : ViewModel() {
     private val _exploreState = MutableStateFlow<MainScreenUiState>(MainScreenUiState.Loading)
     val exploreState: StateFlow<MainScreenUiState> = _exploreState.asStateFlow()
 
@@ -54,6 +62,14 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         const val DEFAULT_EXPLORE_FEED = "videos+tiktokcringe+unexpected+youtubehaiku+damnthatsinteresting+nextfuckinglevel+idiotsincars+publicfreakout+holdmybeer+maybemaybemaybe+gaming+contagiouslaughter+oddlysatisfying"
         private const val WATCHED_CAP = 1000
         private const val LIKED_CAP = 1000
+        private const val FEED_CACHE_KEYS = "feed_cache_keys"
+        private const val FEED_CACHE_KEEP = 12
+        private const val SEARCH_CACHE_MAX = 30
+
+        // Search result caches are only touched on Main; bounded so a long session can't grow them forever
+        private fun <K, V> lruMap(max: Int): MutableMap<K, V> = object : LinkedHashMap<K, V>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) = size > max
+        }
         private const val CACHE_STALE_DURATION_MS = 5 * 60 * 1000L // 5 minutes
     }
 
@@ -93,7 +109,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private var inSubredditSearchAfter: String? = null
     private var currentInSubredditSearchQuery: String = ""
     private var currentInSubredditSearchTarget: String = ""
-    private val inSubredditSearchCache = mutableMapOf<String, PagedVideoCache>()
+    private val inSubredditSearchCache = lruMap<String, PagedVideoCache>(SEARCH_CACHE_MAX)
 
     // ponytail: list + index opened from the browse/home grid, played by PlayerScreen
     private val _playerList = MutableStateFlow<List<RedditPost>>(emptyList())
@@ -218,12 +234,21 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 
     fun getLikedPosts(): List<RedditPost> = likedOrder.asReversed().mapNotNull { likedPostsMap[it] }
 
+    // Persistence: snapshot on Main (cheap), serialize up to 1000 posts to JSON off Main.
+    // A single-threaded dispatcher keeps writes in call order.
+    private val persistDispatcher = backgroundDispatcher.limitedParallelism(1)
+
     private fun saveLiked() {
-        prefs.edit()
-            .putStringSet("liked_ids", likedIdsSet.toSet())
-            .putString("liked_order", org.json.JSONArray(likedOrder).toString())
-            .putString("liked_posts", org.json.JSONArray().apply { likedPostsMap.values.forEach { put(it.toJson()) } }.toString())
-            .apply()
+        val ids = likedIdsSet.toSet()
+        val order = likedOrder.toList()
+        val posts = likedPostsMap.values.toList()
+        viewModelScope.launch(persistDispatcher) {
+            prefs.edit()
+                .putStringSet("liked_ids", ids)
+                .putString("liked_order", org.json.JSONArray(order).toString())
+                .putString("liked_posts", org.json.JSONArray().apply { posts.forEach { put(it.toJson()) } }.toString())
+                .apply()
+        }
     }
 
     private fun showError(e: Throwable) {
@@ -239,13 +264,14 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     private data class PagedVideoCache(val posts: List<RedditPost>, val after: String?)
 
     private var searchJob: Job? = null
-    private val searchCache = ConcurrentHashMap<String, PagedSubredditCache>()
+    private val searchCache = lruMap<String, PagedSubredditCache>(SEARCH_CACHE_MAX)
     private var subredditSearchAfter: String? = null
     private var currentSubredditSearchQuery: String = ""
 
     fun searchSubreddits(query: String, immediate: Boolean = false) {
         val trimmed = query.trim().lowercase().removePrefix("r/")
         if (trimmed.length < 2) { 
+            searchJob?.cancel()
             _searchResults.value = emptyList()
             _isSubredditSearching.value = false
             subredditSearchAfter = null
@@ -255,6 +281,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         currentSubredditSearchQuery = trimmed
         val cached = searchCache[trimmed]
         if (cached != null) {
+            searchJob?.cancel()
             _searchResults.value = cached.subreddits
             subredditSearchAfter = cached.after
             _isSubredditSearching.value = false
@@ -273,10 +300,12 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                     subredditSearchAfter = result.after
                     _searchResults.value = result.subreddits
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 _searchResults.value = emptyList()
             } finally {
-                _isSubredditSearching.value = false
+                if (isActive) _isSubredditSearching.value = false
             }
         }
     }
@@ -307,7 +336,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     }
 
     private var videoSearchJob: Job? = null
-    private val videoSearchCache = ConcurrentHashMap<String, PagedVideoCache>()
+    private val videoSearchCache = lruMap<String, PagedVideoCache>(SEARCH_CACHE_MAX)
     private var videoSearchAfter: String? = null
     private var currentVideoSearchQuery: String = ""
     private var currentVideoSearchSort: String = "relevance"
@@ -317,6 +346,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         val trimmed = query.trim()
         val cleanSub = subreddit?.trim()?.removePrefix("r/")?.takeIf { it.isNotEmpty() }
         if (trimmed.length < 2) {
+            videoSearchJob?.cancel()
             _videoSearchResults.value = emptyList()
             _isVideoSearching.value = false
             videoSearchAfter = null
@@ -330,6 +360,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         val cacheKey = if (cleanSub != null) "$cleanSub:$trimmed:$sort" else "$trimmed:$sort"
         val cached = videoSearchCache[cacheKey]
         if (cached != null) {
+            videoSearchJob?.cancel()
             _videoSearchResults.value = cached.posts
             videoSearchAfter = cached.after
             _isVideoSearching.value = false
@@ -349,10 +380,12 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                     videoSearchAfter = afterCursor
                     _videoSearchResults.value = result.posts
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 _videoSearchResults.value = emptyList()
             } finally {
-                _isVideoSearching.value = false
+                if (isActive) _isVideoSearching.value = false
             }
         }
     }
@@ -396,6 +429,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         val trimmed = query.trim()
         val cleanSub = subreddit.trim().removePrefix("r/")
         if (trimmed.length < 2 || cleanSub.isEmpty()) {
+            inSubredditSearchJob?.cancel()
             _subredditSearchResults.value = emptyList()
             _isSubredditSearching.value = false
             inSubredditSearchAfter = null
@@ -408,6 +442,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         val cacheKey = "$cleanSub:$trimmed:$sort"
         val cached = inSubredditSearchCache[cacheKey]
         if (cached != null) {
+            inSubredditSearchJob?.cancel()
             _subredditSearchResults.value = cached.posts
             inSubredditSearchAfter = cached.after
             _isSubredditSearching.value = false
@@ -427,10 +462,12 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                     inSubredditSearchAfter = afterCursor
                     _subredditSearchResults.value = result.posts
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 _subredditSearchResults.value = emptyList()
             } finally {
-                _isSubredditSearching.value = false
+                if (isActive) _isSubredditSearching.value = false
             }
         }
     }
@@ -488,12 +525,20 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         sizeEstimator = { list -> (list.size * 512L).coerceAtLeast(1024L) }
     )
 
+    // Feed jobs: a refresh cancels the previous refresh and any loadMore of the same feed,
+    // so a slow older response cannot overwrite the newer feed.
+    private var exploreJob: Job? = null
+    private var subscribedJob: Job? = null
+    private val loadMoreJobs = mutableMapOf<String, Job>()
+
     fun refreshExplore(query: String = exploreQuery, forceRefresh: Boolean = false) {
         if (query != exploreQuery) {
             setSubredditSearchActive(false)
         }
         exploreQuery = query
-        viewModelScope.launch {
+        exploreJob?.cancel()
+        loadMoreJobs.remove("explore")?.cancel()
+        exploreJob = viewModelScope.launch {
             val sortVal = currentSort.value
             val cacheKey = "explore_${query}_$sortVal"
             val cached = (memoryFeedCache[cacheKey] ?: loadExploreCache(query, sortVal).filter { !isHidden(it.id) }).distinctBy { it.id }
@@ -523,6 +568,8 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                         _exploreState.value = MainScreenUiState.Error(RedditError.NoVideosFound(query))
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: RedditError) {
                 showError(e)
                 if (_exploreState.value !is MainScreenUiState.Success) {
@@ -539,7 +586,9 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
 
     fun refreshSubscribed(query: String, forceRefresh: Boolean = false) {
         subscribedQuery = query
-        viewModelScope.launch {
+        subscribedJob?.cancel()
+        loadMoreJobs.remove("subscribed")?.cancel()
+        subscribedJob = viewModelScope.launch {
             if (query.isEmpty()) {
                 _subscribedState.value = MainScreenUiState.Error(RedditError.Unknown("No subscribed subreddits. Use the search icon to add subreddits."))
                 return@launch
@@ -573,6 +622,8 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                         _subscribedState.value = MainScreenUiState.Error(RedditError.NoVideosFound(query))
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: RedditError) {
                 showError(e)
                 if (_subscribedState.value !is MainScreenUiState.Success) {
@@ -596,7 +647,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         val afterMap = dataRepository.getAfterMap(feed)
         if (afterMap.isNotEmpty() && afterMap.values.all { it == null }) return  // no more pages anywhere
 
-        viewModelScope.launch {
+        loadMoreJobs[feed] = viewModelScope.launch {
             // set loading flag
             if (isExplore) {
                 _exploreState.value = current.copy(isLoadingMore = true)
@@ -617,6 +668,8 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
                         _subscribedState.value = MainScreenUiState.Success(updated, isLoadingMore = false)
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 showError(e)
                 if (isExplore) {
@@ -664,12 +717,18 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
     }
 
     private fun saveWatched() {
-        prefs.edit()
-            .putStringSet("watched_ids", watchedIds.toSet())
-            .putString("watched_order", org.json.JSONArray(watchedOrder).toString())
-            .putString("watched_titles", org.json.JSONObject(watchedTitles).toString())
-            .putString("watched_posts", org.json.JSONArray().apply { watchedPosts.values.forEach { put(it.toJson()) } }.toString())
-            .apply()
+        val ids = watchedIds.toSet()
+        val order = watchedOrder.toList()
+        val titles = watchedTitles.toMap()
+        val posts = watchedPosts.values.toList()
+        viewModelScope.launch(persistDispatcher) {
+            prefs.edit()
+                .putStringSet("watched_ids", ids)
+                .putString("watched_order", org.json.JSONArray(order).toString())
+                .putString("watched_titles", org.json.JSONObject(titles).toString())
+                .putString("watched_posts", org.json.JSONArray().apply { posts.forEach { put(it.toJson()) } }.toString())
+                .apply()
+        }
     }
 
     fun getWatchedPosts(): List<RedditPost> {
@@ -692,14 +751,38 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         return dataRepository.fetchPostComments(subreddit, postId)
     }
 
-    private fun saveExploreCache(query: String, sort: String, posts: List<RedditPost>) {
-        val arr = org.json.JSONArray().apply { posts.take(60).forEach { put(it.toJson()) } }
-        prefs.edit().putString("explore_cache_${query}_$sort", arr.toString()).apply()
+    private fun saveExploreCache(query: String, sort: String, posts: List<RedditPost>) =
+        saveFeedCache("explore_cache_${query}_$sort", posts)
+
+    private suspend fun loadExploreCache(query: String, sort: String): List<RedditPost> =
+        loadFeedCache("explore_cache_${query}_$sort")
+
+    private fun saveSubscribedCache(query: String, sort: String, posts: List<RedditPost>) =
+        saveFeedCache("subscribed_cache_${query}_$sort", posts)
+
+    // Every visited feed (subreddit x sort) used to add a key forever, and SharedPreferences keeps
+    // the whole file in memory and rewrites it on each apply(): track keys and drop the oldest.
+    private fun saveFeedCache(key: String, posts: List<RedditPost>) {
+        val snapshot = posts.take(60)
+        viewModelScope.launch(persistDispatcher) {
+            val arr = org.json.JSONArray().apply { snapshot.forEach { put(it.toJson()) } }
+            // First run with tracking: adopt the untracked keys older versions left behind
+            val known = if (prefs.contains(FEED_CACHE_KEYS)) runCatching {
+                org.json.JSONArray(prefs.getString(FEED_CACHE_KEYS, "[]") ?: "[]").let { a -> (0 until a.length()).map { a.getString(it) } }
+            }.getOrDefault(emptyList()) else prefs.all.keys.filter { it.startsWith("explore_cache_") || it.startsWith("subscribed_cache_") }
+            val keys = known.filter { it != key } + key
+            val evicted = keys.dropLast(FEED_CACHE_KEEP)
+            val editor = prefs.edit()
+                .putString(key, arr.toString())
+                .putString(FEED_CACHE_KEYS, org.json.JSONArray(keys.takeLast(FEED_CACHE_KEEP)).toString())
+            evicted.forEach { editor.remove(it) }
+            editor.apply()
+        }
     }
 
-    private fun loadExploreCache(query: String, sort: String): List<RedditPost> {
-        val str = prefs.getString("explore_cache_${query}_$sort", null) ?: return emptyList()
-        return try {
+    private suspend fun loadFeedCache(key: String): List<RedditPost> = withContext(backgroundDispatcher) {
+        val str = prefs.getString(key, null) ?: return@withContext emptyList()
+        try {
             val arr = org.json.JSONArray(str)
             (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }.distinctBy { it.id }
         } catch (_: Exception) {
@@ -707,19 +790,7 @@ class MainScreenViewModel(private val dataRepository: DataRepository) : ViewMode
         }
     }
 
-    private fun saveSubscribedCache(query: String, sort: String, posts: List<RedditPost>) {
-        val arr = org.json.JSONArray().apply { posts.take(60).forEach { put(it.toJson()) } }
-        prefs.edit().putString("subscribed_cache_${query}_$sort", arr.toString()).apply()
-    }
-
-    private fun loadSubscribedCache(query: String, sort: String): List<RedditPost> {
-        val str = prefs.getString("subscribed_cache_${query}_$sort", null) ?: return emptyList()
-        return try {
-            val arr = org.json.JSONArray(str)
-            (0 until arr.length()).mapNotNull { arr.getJSONObject(it).toRedditPost() }.distinctBy { it.id }
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
+    private suspend fun loadSubscribedCache(query: String, sort: String): List<RedditPost> =
+        loadFeedCache("subscribed_cache_${query}_$sort")
 
 }

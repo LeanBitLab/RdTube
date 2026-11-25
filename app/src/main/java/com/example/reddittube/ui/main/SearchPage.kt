@@ -26,6 +26,10 @@ import androidx.compose.material.icons.outlined.Subscriptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,6 +103,7 @@ fun SearchPage(
     likedIds: Set<String> = emptySet(),
     onLike: (RedditPost) -> Unit = {},
     onCommentClick: (RedditPost) -> Unit = {},
+    onScrollDirection: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -175,13 +180,34 @@ fun SearchPage(
         POPULAR_SUBREDDITS.filter { !currentSubscribed.contains(it.lowercase()) }
     }
 
+    // Auto-hide the search header (and the nav dock via onScrollDirection) while scrolling down
+    var headerVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(selectedTab, searchQuery) { headerVisible = true }
+    LaunchedEffect(headerVisible) { onScrollDirection(!headerVisible) }
+    val headerScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -6f) headerVisible = false
+                else if (available.y > 6f) headerVisible = true
+                return Offset.Zero
+            }
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
             .statusBarsPadding()
             .padding(top = TopBarHeight + 2.dp)
+            .nestedScroll(headerScrollConnection)
     ) {
+      AnimatedVisibility(
+          visible = headerVisible,
+          enter = fadeIn(tween(180)) + expandVertically(tween(180)),
+          exit = fadeOut(tween(150)) + shrinkVertically(tween(150))
+      ) {
+      Column {
         // Top Distinctive Search Bar
         Surface(
             modifier = Modifier
@@ -397,6 +423,8 @@ fun SearchPage(
                 }
             }
         }
+      }
+      }
 
             // Tab Content
             when (selectedTab) {
@@ -409,7 +437,7 @@ fun SearchPage(
                             total > 0 && lastVisible >= total - 3
                         }
                     }
-                    LaunchedEffect(isNearSubEnd) {
+                    LaunchedEffect(isNearSubEnd, cleanQuery, isSubredditSearchingMore) {
                         if (isNearSubEnd && cleanQuery.isNotBlank() && !isSubredditSearchingMore) {
                             onLoadMoreSubreddits()
                         }
@@ -967,7 +995,7 @@ fun SearchPage(
                                     total > 0 && lastVisible >= total - 4
                                 }
                             }
-                            LaunchedEffect(isNearVideoEnd) {
+                            LaunchedEffect(isNearVideoEnd, searchQuery, isVideoSearchingMore, isVideoSearching) {
                                 if (isNearVideoEnd && searchQuery.isNotBlank() && !isVideoSearchingMore && !isVideoSearching) {
                                     onLoadMoreVideos()
                                 }

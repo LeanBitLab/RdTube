@@ -38,12 +38,15 @@ object DownloadHelper {
         onComplete: (Boolean, String?) -> Unit
     ) {
         withContext(Dispatchers.IO) {
+            var tempVideoFile: File? = null
+            var tempAudioFile: File? = null
+            var tempOutputFile: File? = null
+            var pendingUri: android.net.Uri? = null
             try {
                 onProgress("Downloading video...")
-                val tempVideoFile = File(context.cacheDir, "temp_video_${System.currentTimeMillis()}.mp4")
+                tempVideoFile = File(context.cacheDir, "temp_video_${System.currentTimeMillis()}.mp4")
                 downloadFile(context, fallbackUrl, tempVideoFile)
 
-                var tempAudioFile: File? = null
                 if (dashUrl.isNotEmpty()) {
                     onProgress("Checking audio...")
                     try {
@@ -91,28 +94,26 @@ object DownloadHelper {
 
                 val uri = resolver.insert(collection, contentValues)
                 if (uri != null) {
-                    val tempOutputFile = File(context.cacheDir, "temp_output_${System.currentTimeMillis()}.mp4")
-                    
-                    muxVideoAndAudio(tempVideoFile, tempAudioFile, tempOutputFile)
+                    pendingUri = uri
+                    val outputFile = File(context.cacheDir, "temp_output_${System.currentTimeMillis()}.mp4")
+                    tempOutputFile = outputFile
+
+                    muxVideoAndAudio(tempVideoFile, tempAudioFile, outputFile)
 
                     resolver.openFileDescriptor(uri, "w")?.use { pfd ->
-                        FileInputStream(tempOutputFile).use { input ->
+                        FileInputStream(outputFile).use { input ->
                             FileOutputStream(pfd.fileDescriptor).use { output ->
                                 input.copyTo(output)
                             }
                         }
                     }
 
-                    if (tempOutputFile.exists()) tempOutputFile.delete()
-
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         contentValues.clear()
                         contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
                         resolver.update(uri, contentValues, null, null)
                     }
-
-                    if (tempVideoFile.exists()) tempVideoFile.delete()
-                    tempAudioFile?.let { if (it.exists()) it.delete() }
+                    pendingUri = null
 
                     withContext(Dispatchers.Main) {
                         onComplete(true, displayName)
@@ -122,9 +123,12 @@ object DownloadHelper {
                 }
             } catch (e: Exception) {
                 Log.e("DownloadHelper", "Download failed: ${e.message}", e)
+                pendingUri?.let { runCatching { context.contentResolver.delete(it, null, null) } }
                 withContext(Dispatchers.Main) {
                     onComplete(false, e.message)
                 }
+            } finally {
+                listOfNotNull(tempVideoFile, tempAudioFile, tempOutputFile).forEach { if (it.exists()) it.delete() }
             }
         }
     }
@@ -191,69 +195,49 @@ object DownloadHelper {
         }
 
         val videoExtractor = MediaExtractor()
-        videoExtractor.setDataSource(videoFile.absolutePath)
-
         val audioExtractor = MediaExtractor()
-        audioExtractor.setDataSource(audioFile.absolutePath)
-
-        val muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-
-        var videoTrackIndex = -1
-        for (i in 0 until videoExtractor.trackCount) {
-            val format = videoExtractor.getTrackFormat(i)
-            val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
-            if (mime.startsWith("video/")) {
-                videoExtractor.selectTrack(i)
-                videoTrackIndex = muxer.addTrack(format)
-                break
-            }
-        }
-
-        var audioTrackIndex = -1
-        for (i in 0 until audioExtractor.trackCount) {
-            val format = audioExtractor.getTrackFormat(i)
-            val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
-            if (mime.startsWith("audio/")) {
-                audioExtractor.selectTrack(i)
-                audioTrackIndex = muxer.addTrack(format)
-                break
-            }
-        }
-
-        muxer.start()
-
-        val videoBuffer = ByteBuffer.allocate(1024 * 1024)
-        val videoBufferInfo = MediaCodec.BufferInfo()
-        while (true) {
-            videoBufferInfo.offset = 0
-            videoBufferInfo.size = videoExtractor.readSampleData(videoBuffer, 0)
-            if (videoBufferInfo.size < 0) break
-            videoBufferInfo.presentationTimeUs = videoExtractor.sampleTime
-            videoBufferInfo.flags = videoExtractor.sampleFlags
-            muxer.writeSampleData(videoTrackIndex, videoBuffer, videoBufferInfo)
-            videoExtractor.advance()
-        }
-
-        if (audioTrackIndex != -1) {
-            val audioBuffer = ByteBuffer.allocate(1024 * 1024)
-            val audioBufferInfo = MediaCodec.BufferInfo()
-            while (true) {
-                audioBufferInfo.offset = 0
-                audioBufferInfo.size = audioExtractor.readSampleData(audioBuffer, 0)
-                if (audioBufferInfo.size < 0) break
-                audioBufferInfo.presentationTimeUs = audioExtractor.sampleTime
-                audioBufferInfo.flags = audioExtractor.sampleFlags
-                muxer.writeSampleData(audioTrackIndex, audioBuffer, audioBufferInfo)
-                audioExtractor.advance()
-            }
-        }
-
+        var muxer: MediaMuxer? = null
         try {
-            muxer.stop()
-        } catch (e: Exception) {
-            Log.e("DownloadHelper", "Muxer stop failed", e)
+            videoExtractor.setDataSource(videoFile.absolutePath)
+            audioExtractor.setDataSource(audioFile.absolutePath)
+
+            val videoFormatIndex = (0 until videoExtractor.trackCount).firstOrNull {
+                videoExtractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true
+            }
+            val audioFormatIndex = (0 until audioExtractor.trackCount).firstOrNull {
+                audioExtractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            }
+            if (videoFormatIndex == null || audioFormatIndex == null) {
+                Log.w("DownloadHelper", "Missing track (video=$videoFormatIndex, audio=$audioFormatIndex), saving video file as-is")
+                videoFile.copyTo(outputFile, overwrite = true)
+                return
+            }
+
+            val m = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            muxer = m
+            videoExtractor.selectTrack(videoFormatIndex)
+            val videoTrackIndex = m.addTrack(videoExtractor.getTrackFormat(videoFormatIndex))
+            audioExtractor.selectTrack(audioFormatIndex)
+            val audioTrackIndex = m.addTrack(audioExtractor.getTrackFormat(audioFormatIndex))
+            m.start()
+
+            val buffer = ByteBuffer.allocate(1024 * 1024)
+            val bufferInfo = MediaCodec.BufferInfo()
+            for ((extractor, trackIndex) in listOf(videoExtractor to videoTrackIndex, audioExtractor to audioTrackIndex)) {
+                while (true) {
+                    bufferInfo.offset = 0
+                    bufferInfo.size = extractor.readSampleData(buffer, 0)
+                    if (bufferInfo.size < 0) break
+                    bufferInfo.presentationTimeUs = extractor.sampleTime
+                    bufferInfo.flags = extractor.sampleFlags
+                    m.writeSampleData(trackIndex, buffer, bufferInfo)
+                    extractor.advance()
+                }
+            }
+            // A failed stop() means the output file is unusable: let it fail the download
+            m.stop()
         } finally {
-            muxer.release()
+            muxer?.release()
             videoExtractor.release()
             audioExtractor.release()
         }
