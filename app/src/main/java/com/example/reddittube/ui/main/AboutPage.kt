@@ -36,15 +36,14 @@ import com.lean.reddittube.theme.*
 import com.lean.reddittube.utils.RedditOAuthHelper
 
 private val CURRENT_VERSION_CHANGELOG = """
-• Sound on GIFs: Full audio playback and direct stream resolution for animated GIFs
-• Media Format & Duration Badges: Clean GIF and VID duration indicator badges on thumbnails
-• Relative Age Badges: Compact relative upload date overlay on feed cards
-• Subreddit-Scoped Search: Search within the currently browsed subreddit directly from the Search tab
-• Related Community Suggestions: Fast 300ms autocomplete and directory search for subreddits
-• Hardware Volume Unmute: Raising device volume automatically restores playback audio
-• Enhanced Watch History: Live history updates, newest-first ordering, and re-watch bumping
-• Playback Stability: Screen keep-on lock, background state preservation, and brightness restoration
-• Ellipsis Truncation: Single-line formatting with ellipses for popular topics and long community names
+• Share Button Fix: The player quick-action row no longer cuts off the share button on narrow screens
+• Search Auto-Hide: Search bar, tabs and nav dock hide while scrolling search results
+• Cleaner Player Controls: Center play/pause hides after 1.5s, progress bar stays for 4s
+• Faster Navigation: Much quicker back from the player and shorter animations app-wide
+• Search and Feed Stability: Fast typing keeps results, and stale responses no longer overwrite feeds
+• Safer Paging and Downloads: Fixed a feed cursor race, downloads clean up temp files and failed entries
+• Lower Memory Use: Capped saved feed caches, bounded in-memory caches, fewer duplicate requests
+• Smoother Gestures: History saves off the main thread, brightness gesture no longer writes every frame
 """.trimIndent()
 
 private val SettingsCardBg = Color(0xFF141414)
